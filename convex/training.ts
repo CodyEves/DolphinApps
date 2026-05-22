@@ -37,6 +37,11 @@ const questionInputValidator = v.object({
   points: v.number(),
 });
 
+const answerInputValidator = v.object({
+  questionId: v.id("questions"),
+  answer: v.string(),
+});
+
 const lessonInputValidator = v.object({
   id: v.optional(v.id("lessons")),
   title: v.string(),
@@ -185,6 +190,45 @@ async function deleteLesson(ctx: MutationCtx, lessonId: Id<"lessons">) {
   await ctx.db.delete(lessonId);
 }
 
+function normalizeAnswer(value: string | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function parseAnswerList(value: string | undefined) {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((item): item is string => typeof item === "string")
+        .map(normalizeAnswer)
+        .sort();
+    }
+  } catch {
+    return [normalizeAnswer(value)];
+  }
+
+  return [normalizeAnswer(value)];
+}
+
+function answerMatches(question: { type: string; correctAnswer?: string }, answer: string) {
+  if (question.type === "multiple_choice") {
+    const expected = parseAnswerList(question.correctAnswer);
+    const submitted = parseAnswerList(answer);
+
+    return (
+      expected.length === submitted.length &&
+      expected.every((expectedAnswer, index) => expectedAnswer === submitted[index])
+    );
+  }
+
+  return normalizeAnswer(question.correctAnswer) === normalizeAnswer(answer);
+}
+
 export const listTrainingTracks = query({
   args: {},
   handler: async (ctx) => {
@@ -267,7 +311,142 @@ export const getLessonForStudent = query({
       return null;
     }
 
-    return content;
+    const userId = await getAuthUserId(ctx);
+    const latestQuizAttempt =
+      content.quiz && userId
+        ? await ctx.db
+            .query("quizAttempts")
+            .withIndex("by_user_quiz", (q) =>
+              q.eq("userId", userId).eq("quizId", content.quiz!._id),
+            )
+            .order("desc")
+            .first()
+        : null;
+
+    return {
+      ...content,
+      latestQuizAttempt,
+    };
+  },
+});
+
+export const submitLessonQuiz = mutation({
+  args: {
+    lessonId: v.id("lessons"),
+    answers: v.array(answerInputValidator),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+
+    if (!userId) {
+      throw new Error("You must be signed in to submit lesson questions.");
+    }
+
+    const content = await collectLessonContent(ctx, args.lessonId);
+
+    if (!content) {
+      throw new Error("Lesson not found.");
+    }
+
+    if (!content.track.isPublished) {
+      const profile = await currentProfile(ctx);
+
+      if (profile?.role !== "admin") {
+        throw new Error("This lesson is not available yet.");
+      }
+    }
+
+    if (!content.quiz) {
+      throw new Error("No questions are available for this lesson.");
+    }
+
+    const existingPassedAttempt = await ctx.db
+      .query("quizAttempts")
+      .withIndex("by_user_quiz", (q) =>
+        q.eq("userId", userId).eq("quizId", content.quiz!._id),
+      )
+      .filter((q) => q.eq(q.field("status"), "passed"))
+      .first();
+
+    if (existingPassedAttempt) {
+      throw new Error("You have already passed these questions.");
+    }
+
+    if (content.questions.length === 0) {
+      throw new Error("No questions are available for this lesson.");
+    }
+
+    const answersByQuestionId = new Map(
+      args.answers.map((answer) => [answer.questionId, answer.answer]),
+    );
+    const totalPoints = content.questions.reduce(
+      (total, question) => total + question.points,
+      0,
+    );
+    let earnedPoints = 0;
+
+    for (const question of content.questions) {
+      const answer = answersByQuestionId.get(question._id);
+
+      if (question.type === "file_upload") {
+        throw new Error("File upload questions cannot be graded automatically yet.");
+      }
+
+      if (!answer) {
+        continue;
+      }
+
+      if (answerMatches(question, answer)) {
+        earnedPoints += question.points;
+      }
+    }
+
+    const scorePercent =
+      totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+    const status = scorePercent >= content.quiz.passingScorePercent ? "passed" : "failed";
+    const now = Date.now();
+    const attemptId = await ctx.db.insert("quizAttempts", {
+      quizId: content.quiz._id,
+      userId,
+      status,
+      scorePercent,
+      answers: args.answers,
+      startedAt: now,
+      completedAt: now,
+    });
+
+    if (status === "passed") {
+      const existingProgress = await ctx.db
+        .query("lessonProgress")
+        .withIndex("by_user_lesson", (q) =>
+          q.eq("userId", userId).eq("lessonId", args.lessonId),
+        )
+        .unique();
+
+      if (existingProgress) {
+        await ctx.db.patch(existingProgress._id, {
+          status: "completed",
+          completedAt: now,
+          updatedAt: now,
+        });
+      } else {
+        await ctx.db.insert("lessonProgress", {
+          userId,
+          lessonId: args.lessonId,
+          status: "completed",
+          startedAt: now,
+          completedAt: now,
+          videoSecondsWatched: content.lesson.estimatedMinutes * 60,
+          updatedAt: now,
+        });
+      }
+    }
+
+    return {
+      attemptId,
+      status,
+      scorePercent,
+    };
   },
 });
 

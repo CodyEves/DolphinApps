@@ -5,7 +5,7 @@ import {
   CheckCircle2,
   Clock,
   PlayCircle,
-  RotateCcw,
+  Send,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
@@ -124,8 +124,9 @@ export function LessonViewPage() {
   );
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
   const markDemoLessonComplete = useMutation(api.demo.markDemoLessonComplete);
-  const resetMyLessonProgress = useMutation(api.demo.resetMyLessonProgress);
+  const submitLessonQuiz = useMutation(api.training.submitLessonQuiz);
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
+  const [isSubmittingQuestions, setIsSubmittingQuestions] = useState(false);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
   const visibleContent =
@@ -135,9 +136,17 @@ export function LessonViewPage() {
   const embedUrl = youtubeEmbedUrl(visibleContent?.lesson.youtubeUrl);
   const videoUrl = externalVideoUrl(visibleContent?.lesson.youtubeUrl);
   const hasQuestions = Boolean(visibleContent && visibleContent.questions.length > 0);
+  const hasPassedQuestions = visibleContent?.latestQuizAttempt?.status === "passed";
+  const isPlainVideoLesson =
+    visibleContent?.lesson.lessonType === "video" && !hasQuestions;
 
   async function handleCompleteLesson() {
     if (!lessonId) {
+      return;
+    }
+
+    if (!isPlainVideoLesson) {
+      toast.error("This lesson must be completed through its assigned activity.");
       return;
     }
 
@@ -146,15 +155,6 @@ export function LessonViewPage() {
       toast.success("Lesson marked complete");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to update progress");
-    }
-  }
-
-  async function handleResetProgress() {
-    try {
-      await resetMyLessonProgress({});
-      toast.success("Completed lessons reset");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to reset progress");
     }
   }
 
@@ -177,6 +177,49 @@ export function LessonViewPage() {
           : existingAnswers.filter((item) => item !== answer),
       };
     });
+  }
+
+  async function handleSubmitQuestions() {
+    if (!lessonId || !visibleContent) {
+      return;
+    }
+
+    const submittedAnswers = visibleContent.questions.map((question) => {
+      const answer = answers[question._id];
+      const normalizedAnswer = Array.isArray(answer)
+        ? JSON.stringify(answer)
+        : (answer ?? "").trim();
+
+      return {
+        questionId: question._id,
+        answer: normalizedAnswer,
+      };
+    });
+    const missingAnswer = submittedAnswers.some((answer) => !answer.answer);
+
+    if (missingAnswer) {
+      toast.error("Answer every question before submitting.");
+      return;
+    }
+
+    setIsSubmittingQuestions(true);
+
+    try {
+      const result = await submitLessonQuiz({
+        lessonId,
+        answers: submittedAnswers,
+      });
+
+      if (result.status === "passed") {
+        toast.success(`Questions passed with ${result.scorePercent}%`);
+      } else {
+        toast.error(`Questions not passed. Score: ${result.scorePercent}%`);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to submit questions");
+    } finally {
+      setIsSubmittingQuestions(false);
+    }
   }
 
   if (isLoading || (isAuthenticated && content === undefined)) {
@@ -304,10 +347,33 @@ export function LessonViewPage() {
             <CardHeader>
               <CardTitle>Questions</CardTitle>
               <CardDescription>
-                Complete these questions after reviewing the lesson content.
+                Complete and pass these questions before the lesson can be marked complete.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {visibleContent.latestQuizAttempt && (
+                <div className="rounded-md border p-4 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={
+                        visibleContent.latestQuizAttempt.status === "passed"
+                          ? "default"
+                          : "outline"
+                      }
+                    >
+                      {visibleContent.latestQuizAttempt.status}
+                      {visibleContent.latestQuizAttempt.scorePercent === undefined
+                        ? ""
+                        : ` ${visibleContent.latestQuizAttempt.scorePercent}%`}
+                    </Badge>
+                    {hasPassedQuestions && (
+                      <span className="text-muted-foreground">
+                        This lesson was marked complete after passing.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
               {visibleContent.questions.map((question, questionIndex) => {
                 const answer = answers[question._id];
                 const selectedAnswers = Array.isArray(answer) ? answer : [];
@@ -359,14 +425,26 @@ export function LessonViewPage() {
                     {question.type === "fill_blank" && (
                       <div className="mt-4 space-y-2">
                         <Label>Answer</Label>
-                        <Input placeholder="Type your answer" />
+                        <Input
+                          placeholder="Type your answer"
+                          value={typeof answer === "string" ? answer : ""}
+                          onChange={(event) =>
+                            setSingleAnswer(question._id, event.target.value)
+                          }
+                        />
                       </div>
                     )}
 
                     {question.type === "short_answer" && (
                       <div className="mt-4 space-y-2">
                         <Label>Response</Label>
-                        <Textarea placeholder="Write your response" />
+                        <Textarea
+                          placeholder="Write your response"
+                          value={typeof answer === "string" ? answer : ""}
+                          onChange={(event) =>
+                            setSingleAnswer(question._id, event.target.value)
+                          }
+                        />
                       </div>
                     )}
 
@@ -403,6 +481,20 @@ export function LessonViewPage() {
                   </div>
                 );
               })}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  onClick={handleSubmitQuestions}
+                  disabled={isSubmittingQuestions || hasPassedQuestions}
+                >
+                  <Send className="size-4" />
+                  {hasPassedQuestions
+                    ? "Questions passed"
+                    : isSubmittingQuestions
+                      ? "Submitting..."
+                      : "Submit answers"}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -415,18 +507,18 @@ export function LessonViewPage() {
                 Back to training
               </Link>
             </Button>
-            <Button type="button" variant="ghost" onClick={handleResetProgress}>
-              <RotateCcw className="size-4" />
-              Reset completed lessons
-            </Button>
           </div>
           <Button
             onClick={handleCompleteLesson}
-            disabled={isComplete}
+            disabled={isComplete || !isPlainVideoLesson}
             variant={isComplete ? "secondary" : "default"}
           >
             <PlayCircle className="size-4" />
-            {isComplete ? "Completed" : "Mark lesson complete"}
+            {isComplete
+              ? "Completed"
+              : isPlainVideoLesson
+                ? "Mark lesson complete"
+                : "Complete activity to finish"}
           </Button>
         </div>
       </div>

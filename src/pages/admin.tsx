@@ -1,6 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useQuery } from "convex/react";
-import { Database, Eye, LockKeyhole, Settings2, Users } from "lucide-react";
+import { Award, Database, Eye, LockKeyhole, Users } from "lucide-react";
 import { Link } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
@@ -16,13 +16,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEffectiveRole, useRolePreview } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
-
-const adminAreas = [
-  "Users and roles",
-  "Training tracks and units",
-  "Quizzes and safety tests",
-  "Badges and equipment records",
-];
 
 export function AdminPage() {
   const { isAuthenticated } = useConvexAuth();
@@ -98,52 +91,53 @@ export function AdminPage() {
             </CardHeader>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <Users className="size-5 text-primary" />
-                <CardTitle>People</CardTitle>
-                <CardDescription>
-                  Manage users, roles, graduation years, and active status.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild variant="outline">
-                  <Link to="/admin/people">Open people</Link>
-                </Button>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <Database className="size-5 text-primary" />
-                <CardTitle>LMS content</CardTitle>
-                <CardDescription>
-                  Manage tracks, units, lessons, quizzes, badges, and equipment.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                Convex tables are already drafted for these records.
-              </CardContent>
-            </Card>
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card>
+                <CardHeader>
+                  <Users className="size-5 text-primary" />
+                  <CardTitle>People</CardTitle>
+                  <CardDescription>
+                    Manage users, roles, graduation years, and active status.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline">
+                    <Link to="/admin/people">Open people</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <Database className="size-5 text-primary" />
+                  <CardTitle>LMS management</CardTitle>
+                  <CardDescription>
+                    Manage tracks, units, lessons, quizzes, badges, and equipment.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline">
+                    <Link to="/admin/lms">Open LMS management</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <Award className="size-5 text-primary" />
+                  <CardTitle>Badges</CardTitle>
+                  <CardDescription>
+                    Force awards, remove awards, and review badge records.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline">
+                    <Link to="/admin/badges">Open badges</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         )}
-
-        <Card className="mt-4">
-          <CardHeader>
-            <Settings2 className="size-5 text-primary" />
-            <CardTitle>Planned admin sections</CardTitle>
-            <CardDescription>
-              These are intentionally placeholders in the foundation version.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-            {adminAreas.map((area) => (
-              <p key={area} className="rounded-md border p-3">
-                {area}
-              </p>
-            ))}
-          </CardContent>
-        </Card>
       </Authenticated>
     </div>
   );

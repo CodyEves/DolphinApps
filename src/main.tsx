@@ -4,10 +4,14 @@ import { RouterProvider, createBrowserRouter } from "react-router";
 
 import { AppProviders } from "@/providers/app-providers";
 import { RootLayout } from "@/routes/root-layout";
+import { AdminBadgesPage } from "@/pages/admin-badges";
+import { AdminLmsPage } from "@/pages/admin-lms";
 import { AdminPeoplePage } from "@/pages/admin-people";
 import { AdminPage } from "@/pages/admin";
 import { AuthPage } from "@/pages/auth";
+import { BadgeAwardsPage } from "@/pages/badge-awards";
 import { BadgesPage } from "@/pages/badges";
+import { BadgeEditorPage } from "@/pages/badge-editor";
 import { DashboardPage } from "@/pages/dashboard";
 import { EquipmentDetailPage } from "@/pages/equipment-detail";
 import { EquipmentPage } from "@/pages/equipment";
@@ -35,7 +39,12 @@ const router = createBrowserRouter([
       { path: "equipment", element: <EquipmentPage /> },
       { path: "equipment/:equipmentId", element: <EquipmentDetailPage /> },
       { path: "badges", element: <BadgesPage /> },
+      { path: "badges/awards", element: <BadgeAwardsPage /> },
+      { path: "badges/new", element: <BadgeEditorPage /> },
+      { path: "badges/:badgeId/edit", element: <BadgeEditorPage /> },
       { path: "admin", element: <AdminPage /> },
+      { path: "admin/badges", element: <AdminBadgesPage /> },
+      { path: "admin/lms", element: <AdminLmsPage /> },
       { path: "admin/people", element: <AdminPeoplePage /> },
       { path: "auth", element: <AuthPage /> },
     ],

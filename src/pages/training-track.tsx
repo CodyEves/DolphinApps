@@ -55,8 +55,12 @@ export function TrainingTrackPage() {
   const completedLessonIds = new Set(progress?.map((item) => item.lessonId));
 
   async function handleCompleteLesson(lessonId: string) {
-    await markDemoLessonComplete({ lessonId });
-    toast.success("Lesson marked complete");
+    try {
+      await markDemoLessonComplete({ lessonId });
+      toast.success("Lesson marked complete");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to complete lesson");
+    }
   }
 
   if (isLoading || (isAuthenticated && track === undefined)) {
@@ -170,6 +174,7 @@ export function TrainingTrackPage() {
 
               {unit.lessons.map((lesson) => {
                 const isComplete = completedLessonIds.has(lesson._id);
+                const canMarkComplete = lesson.lessonType === "video";
 
                 return (
                   <div key={lesson._id} className="rounded-md border p-4">
@@ -211,13 +216,19 @@ export function TrainingTrackPage() {
                             Open lesson
                           </Link>
                         </Button>
-                        <Button
-                          onClick={() => handleCompleteLesson(lesson._id)}
-                          disabled={isComplete}
-                          variant={isComplete ? "secondary" : "default"}
-                        >
-                          {isComplete ? "Completed" : "Mark complete"}
-                        </Button>
+                        {canMarkComplete ? (
+                          <Button
+                            onClick={() => handleCompleteLesson(lesson._id)}
+                            disabled={isComplete}
+                            variant={isComplete ? "secondary" : "default"}
+                          >
+                            {isComplete ? "Completed" : "Mark complete"}
+                          </Button>
+                        ) : (
+                          <Badge variant={isComplete ? "default" : "outline"}>
+                            {isComplete ? "Completed" : "Complete in lesson"}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -66,6 +66,33 @@ export const markDemoLessonComplete = mutation({
       throw new Error("Lesson not found.");
     }
 
+    if (lesson.lessonType !== "video") {
+      throw new Error("Only video lessons can be manually marked complete.");
+    }
+
+    const quiz = await ctx.db
+      .query("quizzes")
+      .withIndex("by_lesson", (q) => q.eq("linkedLessonId", lessonId))
+      .first();
+
+    if (quiz) {
+      const questions = await ctx.db
+        .query("questions")
+        .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+        .collect();
+      const passedAttempt = await ctx.db
+        .query("quizAttempts")
+        .withIndex("by_user_quiz", (q) =>
+          q.eq("userId", userId).eq("quizId", quiz._id),
+        )
+        .filter((q) => q.eq(q.field("status"), "passed"))
+        .first();
+
+      if (questions.length > 0 && !passedAttempt) {
+        throw new Error("Pass the lesson questions before marking this lesson complete.");
+      }
+    }
+
     const now = Date.now();
     const existing = await ctx.db
       .query("lessonProgress")

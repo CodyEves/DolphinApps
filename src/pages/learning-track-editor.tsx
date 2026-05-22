@@ -365,6 +365,14 @@ export function LearningTrackEditorPage() {
             <Badge variant={existingTrack?.isPublished ? "default" : "secondary"}>
               {existingTrack?.isPublished ? "Published" : "Draft"}
             </Badge>
+            <Button
+              type="button"
+              onClick={handlePublish}
+              disabled={isPublishing}
+            >
+              <CheckCircle2 className="size-4" />
+              {isPublishing ? "Publishing..." : "Publish"}
+            </Button>
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
@@ -451,14 +459,6 @@ export function LearningTrackEditorPage() {
               <Button type="submit" variant="secondary" disabled={isSavingTrack}>
                 <Save className="size-4" />
                 {isSavingTrack ? "Saving..." : "Save track"}
-              </Button>
-              <Button
-                type="button"
-                onClick={handlePublish}
-                disabled={isPublishing}
-              >
-                <CheckCircle2 className="size-4" />
-                {isPublishing ? "Publishing..." : "Publish"}
               </Button>
             </div>
           </CardContent>
@@ -668,6 +668,23 @@ export function LearningTrackEditorPage() {
             </Card>
           );
         })}
+
+        <div className="flex flex-col gap-3 rounded-md border p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="font-semibold">Ready for students?</h2>
+            <p className="text-sm text-muted-foreground">
+              Publish this track when the outline, lessons, and tests are ready.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={handlePublish}
+            disabled={isPublishing}
+          >
+            <CheckCircle2 className="size-4" />
+            {isPublishing ? "Publishing..." : "Publish"}
+          </Button>
+        </div>
       </div>
     </div>
   );

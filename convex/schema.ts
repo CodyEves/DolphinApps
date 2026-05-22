@@ -185,6 +185,8 @@ export default defineSchema({
     linkedTrackId: v.optional(v.id("trainingTracks")),
     linkedUnitId: v.optional(v.id("units")),
     linkedEquipmentId: v.optional(v.id("equipment")),
+    requiredTrackIds: v.optional(v.array(v.id("trainingTracks"))),
+    requiredEquipmentIds: v.optional(v.array(v.id("equipment"))),
     isActive: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
