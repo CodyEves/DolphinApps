@@ -4,6 +4,7 @@ import { RouterProvider, createBrowserRouter } from "react-router";
 
 import { AppProviders } from "@/providers/app-providers";
 import { RootLayout } from "@/routes/root-layout";
+import { AdminPeoplePage } from "@/pages/admin-people";
 import { AdminPage } from "@/pages/admin";
 import { AuthPage } from "@/pages/auth";
 import { BadgesPage } from "@/pages/badges";
@@ -35,6 +36,7 @@ const router = createBrowserRouter([
       { path: "equipment/:equipmentId", element: <EquipmentDetailPage /> },
       { path: "badges", element: <BadgesPage /> },
       { path: "admin", element: <AdminPage /> },
+      { path: "admin/people", element: <AdminPeoplePage /> },
       { path: "auth", element: <AuthPage /> },
     ],
   },

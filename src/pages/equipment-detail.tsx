@@ -5,10 +5,12 @@ import {
   CheckCircle2,
   ClipboardCheck,
   ExternalLink,
+  FileText,
   Plus,
   Save,
   ShieldCheck,
   Trash2,
+  Upload,
   Wrench,
   XCircle,
 } from "lucide-react";
@@ -125,6 +127,33 @@ function formatDate(timestamp: number | undefined) {
   }).format(new Date(timestamp));
 }
 
+function formatFileSize(size: number | undefined) {
+  if (size === undefined) {
+    return "";
+  }
+
+  if (size < 1024 * 1024) {
+    return `${Math.max(1, Math.round(size / 1024))} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function isAllowedSopFile(file: File) {
+  const allowedTypes = new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ]);
+  const allowedExtensions = [".pdf", ".doc", ".docx"];
+  const fileName = file.name.toLowerCase();
+
+  return (
+    allowedTypes.has(file.type) ||
+    allowedExtensions.some((extension) => fileName.endsWith(extension))
+  );
+}
+
 export function EquipmentDetailPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
@@ -148,11 +177,16 @@ export function EquipmentDetailPage() {
   const submitEquipmentSafetyTest = useMutation(
     api.equipment.submitEquipmentSafetyTest,
   );
+  const generateSopUploadUrl = useMutation(api.equipment.generateSopUploadUrl);
+  const addSopDocument = useMutation(api.equipment.addSopDocument);
+  const deleteSopDocument = useMutation(api.equipment.deleteSopDocument);
   const [forms, setForms] = useState<Record<string, EquipmentForm>>({});
   const [testAnswers, setTestAnswers] = useState<Record<string, string | string[]>>({});
   const [savingEquipmentId, setSavingEquipmentId] = useState<string | null>(null);
   const [savingSignOffKey, setSavingSignOffKey] = useState<string | null>(null);
   const [submittingTestId, setSubmittingTestId] = useState<string | null>(null);
+  const [uploadingSopId, setUploadingSopId] = useState<string | null>(null);
+  const [deletingSopId, setDeletingSopId] = useState<string | null>(null);
   const equipment = useMemo(
     () =>
       equipmentRecord && (isAdmin || equipmentRecord.isActive)
@@ -482,6 +516,75 @@ export function EquipmentDetailPage() {
     }
   }
 
+  async function handleSopUpload(
+    equipmentId: Id<"equipment">,
+    files: FileList | null,
+  ) {
+    if (!files || files.length === 0) {
+      return;
+    }
+
+    const selectedFiles = [...files];
+    const invalidFile = selectedFiles.find((file) => !isAllowedSopFile(file));
+
+    if (invalidFile) {
+      toast.error(`${invalidFile.name} must be a PDF, DOC, or DOCX file.`);
+      return;
+    }
+
+    setUploadingSopId(equipmentId);
+
+    try {
+      for (const file of selectedFiles) {
+        const uploadUrl = await generateSopUploadUrl({});
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+          },
+          body: file,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Unable to upload ${file.name}.`);
+        }
+
+        const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
+
+        await addSopDocument({
+          equipmentId,
+          storageId,
+          fileName: file.name,
+          contentType: file.type || undefined,
+          size: file.size,
+        });
+      }
+
+      toast.success(
+        selectedFiles.length === 1
+          ? "SOP document uploaded"
+          : `${selectedFiles.length} SOP documents uploaded`,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to upload SOP documents");
+    } finally {
+      setUploadingSopId(null);
+    }
+  }
+
+  async function handleDeleteSopDocument(documentId: Id<"equipmentSopDocuments">) {
+    setDeletingSopId(documentId);
+
+    try {
+      await deleteSopDocument({ documentId });
+      toast.success("SOP document removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to remove SOP document");
+    } finally {
+      setDeletingSopId(null);
+    }
+  }
+
   async function handleSubmitSafetyTest(item: NonNullable<typeof equipment>[number]) {
     if (!item.quiz) {
       return;
@@ -676,6 +779,40 @@ export function EquipmentDetailPage() {
                               : "Waiting for admin check-off."}
                           </p>
                         </div>
+                      </div>
+
+                      <div className="rounded-md border p-4">
+                        <div className="flex items-center gap-2 font-medium">
+                          <FileText className="size-4 text-primary" />
+                          SOP documents
+                        </div>
+                        {item.sopDocuments.length === 0 ? (
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            No SOP documents have been added yet.
+                          </p>
+                        ) : (
+                          <div className="mt-3 grid gap-2 md:grid-cols-2">
+                            {item.sopDocuments.map((document) => (
+                              <a
+                                key={document._id}
+                                href={document.url ?? undefined}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-start gap-3 rounded-md border p-3 text-sm transition-colors hover:bg-accent"
+                              >
+                                <FileText className="mt-0.5 size-4 shrink-0 text-primary" />
+                                <span className="min-w-0">
+                                  <span className="block truncate font-medium">
+                                    {document.fileName}
+                                  </span>
+                                  <span className="block text-muted-foreground">
+                                    {formatFileSize(document.size) || "Document"}
+                                  </span>
+                                </span>
+                              </a>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {item.quiz && item.questions.length > 0 && hasPassedSafetyTest && (
@@ -909,6 +1046,76 @@ export function EquipmentDetailPage() {
                           />
                           Active equipment
                         </label>
+                      </div>
+
+                      <Separator />
+
+                      <div className="space-y-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <h2 className="text-lg font-semibold">SOP documents</h2>
+                            <p className="text-sm text-muted-foreground">
+                              Upload PDFs or Word documents students should review for this tool.
+                            </p>
+                          </div>
+                          <Button asChild variant="outline">
+                            <label>
+                              <Upload className="size-4" />
+                              {uploadingSopId === item._id ? "Uploading..." : "Upload SOP"}
+                              <input
+                                type="file"
+                                multiple
+                                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                className="sr-only"
+                                disabled={uploadingSopId === item._id}
+                                onChange={(event) => {
+                                  void handleSopUpload(item._id, event.target.files);
+                                  event.target.value = "";
+                                }}
+                              />
+                            </label>
+                          </Button>
+                        </div>
+
+                        {item.sopDocuments.length === 0 && (
+                          <div className="rounded-md border p-4 text-sm text-muted-foreground">
+                            No SOP documents have been uploaded yet.
+                          </div>
+                        )}
+
+                        <div className="grid gap-2 md:grid-cols-2">
+                          {item.sopDocuments.map((document) => (
+                            <div
+                              key={document._id}
+                              className="flex items-start gap-3 rounded-md border p-3 text-sm"
+                            >
+                              <FileText className="mt-0.5 size-4 shrink-0 text-primary" />
+                              <a
+                                href={document.url ?? undefined}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="min-w-0 flex-1 hover:text-primary"
+                              >
+                                <span className="block truncate font-medium">
+                                  {document.fileName}
+                                </span>
+                                <span className="block text-muted-foreground">
+                                  {formatFileSize(document.size) || "Document"}
+                                </span>
+                              </a>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => void handleDeleteSopDocument(document._id)}
+                                disabled={deletingSopId === document._id}
+                                aria-label={`Remove ${document.fileName}`}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
                       <Separator />

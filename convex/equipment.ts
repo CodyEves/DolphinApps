@@ -144,12 +144,23 @@ async function collectEquipmentRecord(
           .order("desc")
           .first()
       : null;
+  const sopDocuments = await ctx.db
+    .query("equipmentSopDocuments")
+    .withIndex("by_equipment", (q) => q.eq("equipmentId", equipment._id))
+    .collect();
+  const sopDocumentsWithUrls = await Promise.all(
+    sopDocuments.map(async (document) => ({
+      ...document,
+      url: await ctx.storage.getUrl(document.storageId),
+    })),
+  );
 
   return {
     ...equipment,
     quiz,
     questions,
     latestQuizAttempt,
+    sopDocuments: sopDocumentsWithUrls,
     signOffs: signOffDetails,
   };
 }
@@ -348,6 +359,69 @@ export const createEquipment = mutation({
       createdAt: now,
       updatedAt: now,
     });
+  },
+});
+
+export const generateSopUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const addSopDocument = mutation({
+  args: {
+    equipmentId: v.id("equipment"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    contentType: v.optional(v.string()),
+    size: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const profile = await requireAdmin(ctx);
+    const equipment = await ctx.db.get(args.equipmentId);
+
+    if (!equipment) {
+      throw new Error("Equipment not found.");
+    }
+
+    const fileName = args.fileName.trim();
+
+    if (!fileName) {
+      throw new Error("SOP document name is required.");
+    }
+
+    return await ctx.db.insert("equipmentSopDocuments", {
+      equipmentId: args.equipmentId,
+      storageId: args.storageId,
+      fileName,
+      contentType: args.contentType,
+      size: args.size,
+      uploadedBy: profile.userId,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const deleteSopDocument = mutation({
+  args: {
+    documentId: v.id("equipmentSopDocuments"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const document = await ctx.db.get(args.documentId);
+
+    if (!document) {
+      return args.documentId;
+    }
+
+    await ctx.storage.delete(document.storageId);
+    await ctx.db.delete(args.documentId);
+
+    return args.documentId;
   },
 });
 

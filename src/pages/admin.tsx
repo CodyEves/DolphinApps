@@ -1,9 +1,11 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useQuery } from "convex/react";
 import { Database, Eye, LockKeyhole, Settings2, Users } from "lucide-react";
+import { Link } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -105,8 +107,10 @@ export function AdminPage() {
                   Manage users, roles, graduation years, and active status.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="text-sm text-muted-foreground">
-                Full user management will build on the profile schema.
+              <CardContent>
+                <Button asChild variant="outline">
+                  <Link to="/admin/people">Open people</Link>
+                </Button>
               </CardContent>
             </Card>
             <Card>

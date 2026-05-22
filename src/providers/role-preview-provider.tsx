@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 
-type Role = "student" | "instructor" | "admin";
+type Role = "student" | "instructor" | "mentor" | "guest" | "admin";
 
 type RolePreviewContextValue = {
   isStudentPreview: boolean;

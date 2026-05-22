@@ -2,7 +2,13 @@ import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const role = v.union(v.literal("student"), v.literal("instructor"), v.literal("admin"));
+const role = v.union(
+  v.literal("student"),
+  v.literal("instructor"),
+  v.literal("mentor"),
+  v.literal("guest"),
+  v.literal("admin"),
+);
 const activeStatus = v.union(v.literal("active"), v.literal("inactive"));
 const lessonType = v.union(
   v.literal("video"),
@@ -208,6 +214,18 @@ export default defineSchema({
   })
     .index("by_category", ["category"])
     .index("by_active", ["isActive"]),
+
+  equipmentSopDocuments: defineTable({
+    equipmentId: v.id("equipment"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    contentType: v.optional(v.string()),
+    size: v.optional(v.number()),
+    uploadedBy: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_equipment", ["equipmentId"])
+    .index("by_storage", ["storageId"]),
 
   equipmentSignOffs: defineTable({
     equipmentId: v.id("equipment"),
