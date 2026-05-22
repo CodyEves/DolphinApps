@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/sonner";
 import { convex, hasConvexUrl } from "@/lib/convex";
+import { RolePreviewProvider } from "@/providers/role-preview-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 
 function MissingConvexConfig() {
@@ -38,11 +39,13 @@ function MissingConvexConfig() {
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
-      {hasConvexUrl && convex ? (
-        <ConvexAuthProvider client={convex}>{children}</ConvexAuthProvider>
-      ) : (
-        <MissingConvexConfig />
-      )}
+      <RolePreviewProvider>
+        {hasConvexUrl && convex ? (
+          <ConvexAuthProvider client={convex}>{children}</ConvexAuthProvider>
+        ) : (
+          <MissingConvexConfig />
+        )}
+      </RolePreviewProvider>
       <Toaster richColors closeButton />
     </ThemeProvider>
   );

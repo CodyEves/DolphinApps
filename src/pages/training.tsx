@@ -13,14 +13,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
 export function TrainingPage() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
-
-  const isAdmin = viewer?.profile.role === "admin";
+  const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const isAdmin = effectiveRole === "admin";
+  const visibleTracks = isAdmin
+    ? tracks
+    : tracks?.filter((track) => track.isPublished);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -62,15 +66,15 @@ export function TrainingPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {tracks === undefined && (
+            {visibleTracks === undefined && (
               <p className="text-sm text-muted-foreground">Loading tracks...</p>
             )}
-            {tracks?.length === 0 && (
+            {visibleTracks?.length === 0 && (
               <div className="rounded-md border p-4 text-sm text-muted-foreground sm:col-span-2 xl:col-span-3">
                 No tracks yet. Admins can create a learning track to get started.
               </div>
             )}
-            {tracks?.map((track) => (
+            {visibleTracks?.map((track) => (
               <div
                 key={track._id}
                 className="flex min-h-44 flex-col justify-between gap-4 rounded-md border p-4 transition-colors hover:bg-accent"

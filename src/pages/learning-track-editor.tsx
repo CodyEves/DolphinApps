@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -79,7 +80,8 @@ export function LearningTrackEditorPage() {
   const params = useParams();
   const trackId = params.trackId as Id<"trainingTracks"> | undefined;
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const isAdmin = viewer?.profile.role === "admin";
+  const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const isAdmin = effectiveRole === "admin";
   const existingTrack = useQuery(
     api.training.getTrainingTrackForEdit,
     isAuthenticated && isAdmin && trackId ? { trackId } : "skip",

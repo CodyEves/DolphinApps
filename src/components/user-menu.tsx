@@ -14,6 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useEffectiveRole, useRolePreview } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
 function initials(nameOrEmail?: string | null) {
@@ -33,8 +34,12 @@ export function UserMenu() {
   const { signOut } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const { isStudentPreview, setStudentPreview } = useRolePreview();
+  const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const canPreviewAsStudent = viewer?.profile.role === "admin";
 
   async function handleSignOut() {
+    setStudentPreview(false);
     await signOut();
     toast.success("Signed out");
   }
@@ -61,10 +66,18 @@ export function UserMenu() {
                 {viewer?.user.email ?? "Signed in"}
               </span>
               <span className="text-xs font-normal text-muted-foreground">
-                {viewer?.profile.role ?? "student"}
+                {isStudentPreview ? "student preview" : effectiveRole}
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {canPreviewAsStudent && isStudentPreview && (
+              <>
+                <DropdownMenuItem onClick={() => setStudentPreview(false)}>
+                  Exit student preview
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem onClick={handleSignOut}>
               <LogOut className="size-4" />
               Sign out

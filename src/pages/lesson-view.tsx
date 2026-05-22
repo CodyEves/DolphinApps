@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -116,6 +117,7 @@ export function LessonViewPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const params = useParams();
   const lessonId = params.lessonId as Id<"lessons"> | undefined;
+  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const content = useQuery(
     api.training.getLessonForStudent,
     isAuthenticated && lessonId ? { lessonId } : "skip",
@@ -124,11 +126,15 @@ export function LessonViewPage() {
   const markDemoLessonComplete = useMutation(api.demo.markDemoLessonComplete);
   const resetMyLessonProgress = useMutation(api.demo.resetMyLessonProgress);
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
+  const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const isAdmin = effectiveRole === "admin";
+  const visibleContent =
+    content && (isAdmin || content.track.isPublished) ? content : null;
 
   const isComplete = progress?.some((item) => item.lessonId === lessonId) ?? false;
-  const embedUrl = youtubeEmbedUrl(content?.lesson.youtubeUrl);
-  const videoUrl = externalVideoUrl(content?.lesson.youtubeUrl);
-  const hasQuestions = content !== undefined && content !== null && content.questions.length > 0;
+  const embedUrl = youtubeEmbedUrl(visibleContent?.lesson.youtubeUrl);
+  const videoUrl = externalVideoUrl(visibleContent?.lesson.youtubeUrl);
+  const hasQuestions = Boolean(visibleContent && visibleContent.questions.length > 0);
 
   async function handleCompleteLesson() {
     if (!lessonId) {
@@ -205,7 +211,7 @@ export function LessonViewPage() {
     );
   }
 
-  if (!content) {
+  if (!visibleContent) {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
@@ -228,9 +234,9 @@ export function LessonViewPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeading
-        eyebrow={content.track.title}
-        title={content.lesson.title}
-        description={content.lesson.description || content.unit.title}
+        eyebrow={visibleContent.track.title}
+        title={visibleContent.lesson.title}
+        description={visibleContent.lesson.description || visibleContent.unit.title}
         actions={
           <Button asChild variant="outline">
             <Link to="/training">
@@ -245,8 +251,8 @@ export function LessonViewPage() {
         <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{lessonTypeLabel(content.lesson.lessonType)}</Badge>
-              {content.lesson.required && <Badge variant="secondary">Required</Badge>}
+              <Badge variant="outline">{lessonTypeLabel(visibleContent.lesson.lessonType)}</Badge>
+              {visibleContent.lesson.required && <Badge variant="secondary">Required</Badge>}
               {isComplete && (
                 <Badge>
                   <CheckCircle2 className="size-3" />
@@ -255,7 +261,7 @@ export function LessonViewPage() {
               )}
               <Badge variant="outline">
                 <Clock className="size-3" />
-                {content.lesson.estimatedMinutes} min
+                {visibleContent.lesson.estimatedMinutes} min
               </Badge>
             </div>
           </CardHeader>
@@ -265,21 +271,21 @@ export function LessonViewPage() {
                 <iframe
                   className="aspect-video w-full"
                   src={embedUrl}
-                  title={content.lesson.title}
+                  title={visibleContent.lesson.title}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                   allowFullScreen
                   referrerPolicy="strict-origin-when-cross-origin"
                 />
               </div>
-            ) : content.lesson.lessonType !== "exam" ? (
+            ) : visibleContent.lesson.lessonType !== "exam" ? (
               <div className="rounded-md border p-4 text-sm text-muted-foreground">
                 No video URL has been added for this lesson yet.
               </div>
             ) : null}
 
-            {content.lesson.description && (
+            {visibleContent.lesson.description && (
               <p className="text-sm leading-6 text-muted-foreground">
-                {content.lesson.description}
+                {visibleContent.lesson.description}
               </p>
             )}
 
@@ -302,7 +308,7 @@ export function LessonViewPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {content.questions.map((question, questionIndex) => {
+              {visibleContent.questions.map((question, questionIndex) => {
                 const answer = answers[question._id];
                 const selectedAnswers = Array.isArray(answer) ? answer : [];
 

@@ -8,6 +8,7 @@ import { AdminPage } from "@/pages/admin";
 import { AuthPage } from "@/pages/auth";
 import { BadgesPage } from "@/pages/badges";
 import { DashboardPage } from "@/pages/dashboard";
+import { EquipmentDetailPage } from "@/pages/equipment-detail";
 import { EquipmentPage } from "@/pages/equipment";
 import { HomePage } from "@/pages/home";
 import { LearningTrackEditorPage } from "@/pages/learning-track-editor";
@@ -31,6 +32,7 @@ const router = createBrowserRouter([
       { path: "training/lessons/:lessonId/edit", element: <LessonEditorPage /> },
       { path: "training/lessons/:lessonId", element: <LessonViewPage /> },
       { path: "equipment", element: <EquipmentPage /> },
+      { path: "equipment/:equipmentId", element: <EquipmentDetailPage /> },
       { path: "badges", element: <BadgesPage /> },
       { path: "admin", element: <AdminPage /> },
       { path: "auth", element: <AuthPage /> },

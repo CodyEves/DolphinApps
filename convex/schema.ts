@@ -129,7 +129,9 @@ export default defineSchema({
     isPublished: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_lesson", ["linkedLessonId"]),
+  })
+    .index("by_lesson", ["linkedLessonId"])
+    .index("by_equipment", ["linkedEquipmentId"]),
 
   questions: defineTable({
     quizId: v.id("quizzes"),
@@ -196,6 +198,7 @@ export default defineSchema({
     name: v.string(),
     category: v.string(),
     description: v.string(),
+    videoUrl: v.optional(v.string()),
     requiredTrainingTrackId: v.optional(v.id("trainingTracks")),
     requiredQuizId: v.optional(v.id("quizzes")),
     instructorApprovalRequired: v.boolean(),

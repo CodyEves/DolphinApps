@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -48,7 +49,9 @@ export function TrainingTrackPage() {
   );
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
   const markDemoLessonComplete = useMutation(api.demo.markDemoLessonComplete);
-  const isAdmin = viewer?.profile.role === "admin";
+  const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const isAdmin = effectiveRole === "admin";
+  const visibleTrack = track && (isAdmin || track.isPublished) ? track : null;
   const completedLessonIds = new Set(progress?.map((item) => item.lessonId));
 
   async function handleCompleteLesson(lessonId: string) {
@@ -88,7 +91,7 @@ export function TrainingTrackPage() {
     );
   }
 
-  if (!track) {
+  if (!visibleTrack) {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
@@ -112,13 +115,13 @@ export function TrainingTrackPage() {
     <div className="mx-auto max-w-5xl">
       <PageHeading
         eyebrow="Training"
-        title={track.title}
-        description={track.description}
+        title={visibleTrack.title}
+        description={visibleTrack.description}
         actions={
           <>
             {isAdmin && (
               <Button asChild variant="secondary">
-                <Link to={`/training/tracks/${track._id}/edit`}>
+                <Link to={`/training/tracks/${visibleTrack._id}/edit`}>
                   <Pencil className="size-4" />
                   Edit track
                 </Link>
@@ -135,7 +138,7 @@ export function TrainingTrackPage() {
       />
 
       <div className="space-y-4">
-        {track.units.length === 0 && (
+        {visibleTrack.units.length === 0 && (
           <Card>
             <CardHeader>
               <CardTitle>No units yet</CardTitle>
@@ -146,7 +149,7 @@ export function TrainingTrackPage() {
           </Card>
         )}
 
-        {track.units.map((unit, unitIndex) => (
+        {visibleTrack.units.map((unit, unitIndex) => (
           <Card key={unit._id}>
             <CardHeader>
               <div className="flex flex-wrap items-center gap-2">

@@ -1,3 +1,5 @@
+import { useConvexAuth } from "@convex-dev/auth/react";
+import { useQuery } from "convex/react";
 import {
   Award,
   BookOpen,
@@ -25,8 +27,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { useUiStore } from "@/stores/use-ui-store";
 import { cn } from "@/lib/utils";
+import { api } from "@convex/_generated/api";
 
 const navItems = [
   { href: "/", label: "Home", icon: Home },
@@ -34,16 +38,22 @@ const navItems = [
   { href: "/training", label: "Training", icon: BookOpen },
   { href: "/equipment", label: "Equipment", icon: Wrench },
   { href: "/badges", label: "Badges", icon: Award },
-  { href: "/admin", label: "Admin", icon: SlidersHorizontal },
+  { href: "/admin", label: "Admin", icon: SlidersHorizontal, adminOnly: true },
 ];
 
 function NavList({ collapsed = false }: { collapsed?: boolean }) {
   const setMobileNavOpen = useUiStore((state) => state.setMobileNavOpen);
+  const { isAuthenticated } = useConvexAuth();
+  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const visibleNavItems = navItems.filter(
+    (item) => !item.adminOnly || effectiveRole === "admin",
+  );
 
   return (
     <TooltipProvider delayDuration={100}>
       <nav className="grid gap-1">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <Tooltip key={item.href}>
             <TooltipTrigger asChild>
               <NavLink
@@ -136,8 +146,14 @@ export function MobileNav() {
   const isOpen = useUiStore((state) => state.isMobileNavOpen);
   const setOpen = useUiStore((state) => state.setMobileNavOpen);
   const location = useLocation();
+  const { isAuthenticated } = useConvexAuth();
+  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const visibleNavItems = navItems.filter(
+    (item) => !item.adminOnly || effectiveRole === "admin",
+  );
 
-  const current = navItems.find((item) =>
+  const current = visibleNavItems.find((item) =>
     item.href === "/" ? location.pathname === "/" : location.pathname.startsWith(item.href),
   );
 

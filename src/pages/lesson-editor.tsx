@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -126,7 +127,8 @@ export function LessonEditorPage() {
   const params = useParams();
   const lessonId = params.lessonId as Id<"lessons"> | undefined;
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const isAdmin = viewer?.profile.role === "admin";
+  const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const isAdmin = effectiveRole === "admin";
   const lessonRecord = useQuery(
     api.training.getLessonForEdit,
     isAuthenticated && isAdmin && lessonId ? { lessonId } : "skip",

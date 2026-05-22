@@ -13,6 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
 function ProgressLink({
@@ -45,10 +46,12 @@ export function DashboardPage() {
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
-  const role = viewer?.profile.role ?? "student";
+  const role = useEffectiveRole(viewer?.profile.role);
   const completedLessonIds = new Set(progress?.map((item) => item.lessonId));
+  const visibleTracks =
+    role === "admin" ? tracks : tracks?.filter((track) => track.isPublished);
   const trackProgress =
-    tracks?.map((track) => {
+    visibleTracks?.map((track) => {
       const completedLessons = track.lessons.filter((lesson) =>
         completedLessonIds.has(lesson._id),
       ).length;
@@ -108,7 +111,7 @@ export function DashboardPage() {
           <CardContent className="space-y-5">
             <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
               <div className="space-y-3">
-                {tracks === undefined || progress === undefined ? (
+                {visibleTracks === undefined || progress === undefined ? (
                   <div className="rounded-md border p-3 text-sm text-muted-foreground">
                     Loading learning path progress...
                   </div>

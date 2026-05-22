@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as demo from "../demo.js";
+import type * as equipment from "../equipment.js";
 import type * as http from "../http.js";
 import type * as profiles from "../profiles.js";
 import type * as training from "../training.js";
@@ -23,6 +24,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   demo: typeof demo;
+  equipment: typeof equipment;
   http: typeof http;
   profiles: typeof profiles;
   training: typeof training;
