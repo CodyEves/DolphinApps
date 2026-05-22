@@ -32,17 +32,17 @@ const focusAreas = [
 export function HomePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <section className="grid gap-6 rounded-lg border bg-card p-6 shadow-sm lg:grid-cols-[1.25fr_0.75fr] lg:p-8">
+      <section className="grid gap-6 overflow-hidden rounded-lg border bg-card p-6 shadow-sm lg:grid-cols-[1.25fr_0.75fr] lg:p-8">
         <div className="space-y-6">
-          <Badge variant="secondary">FIRST Robotics Competition LMS</Badge>
+          <Badge variant="secondary">Team 5199 training system</Badge>
           <div className="space-y-3">
             <h1 className="max-w-3xl text-3xl font-semibold tracking-normal sm:text-4xl">
-              DolphinLMS
+              The Robot Dolphins From Outer Space
             </h1>
             <p className="max-w-2xl text-base leading-7 text-muted-foreground">
               A team-owned training hub for safety, skills, progress, badges,
-              and mentor approvals. This first version is the foundation your
-              team can keep building on.
+              and mentor approvals for a FIRST Robotics Competition team based
+              in Orange County, California.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -57,14 +57,15 @@ export function HomePage() {
             </Button>
           </div>
         </div>
-        <div className="grid gap-3 rounded-lg border bg-background p-4">
+        <div className="relative grid gap-3 rounded-lg border bg-background p-4">
+          <div className="absolute inset-x-0 top-0 h-1 bg-primary" />
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <div className="flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_0_24px_rgba(56,189,248,0.35)]">
               <ShieldCheck className="size-5" />
             </div>
             <div>
-              <p className="text-sm font-semibold">Foundation status</p>
-              <p className="text-xs text-muted-foreground">Ready for LMS features</p>
+              <p className="text-sm font-semibold">FRC Team 5199</p>
+              <p className="text-xs text-muted-foreground">A FIRST Robotics team</p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
@@ -102,9 +103,10 @@ export function HomePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>What this version proves</CardTitle>
+          <CardTitle>Built for the team website identity</CardTitle>
           <CardDescription>
-            The app is intentionally small, but the wiring is the important part.
+            The LMS now uses the team name, space/ocean color direction, and a
+            brighter competition-ready interface.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">

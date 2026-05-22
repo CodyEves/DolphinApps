@@ -79,7 +79,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "sticky top-0 hidden h-screen shrink-0 border-r bg-card/70 p-3 transition-[width] lg:block",
+        "sticky top-0 hidden h-screen shrink-0 border-r bg-card/85 p-3 shadow-[0_0_40px_rgba(14,165,233,0.08)] backdrop-blur transition-[width] lg:block",
         collapsed ? "w-18" : "w-64",
       )}
     >
@@ -91,14 +91,14 @@ export function Sidebar() {
               collapsed && "justify-center",
             )}
           >
-            <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_0_24px_rgba(56,189,248,0.35)]">
               <ShieldCheck className="size-5" />
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">DolphinLMS</p>
+                <p className="truncate text-sm font-semibold">Team 5199 LMS</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  FRC training
+                  Robot Dolphins
                 </p>
               </div>
             )}
@@ -151,7 +151,7 @@ export function MobileNav() {
         </SheetTrigger>
         <SheetContent side="left" className="w-72">
           <SheetHeader>
-            <SheetTitle>DolphinLMS</SheetTitle>
+            <SheetTitle>Team 5199 LMS</SheetTitle>
           </SheetHeader>
           <div className="px-4">
             <NavList />
@@ -160,7 +160,7 @@ export function MobileNav() {
       </Sheet>
       <div>
         <p className="text-xs text-muted-foreground">Section</p>
-        <p className="text-sm font-semibold">{current?.label ?? "DolphinLMS"}</p>
+        <p className="text-sm font-semibold">{current?.label ?? "Team 5199 LMS"}</p>
       </div>
     </div>
   );

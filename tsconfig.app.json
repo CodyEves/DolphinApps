@@ -20,6 +20,7 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "types": ["node", "vite/client"],
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {

@@ -10,6 +10,7 @@ import { BadgesPage } from "@/pages/badges";
 import { DashboardPage } from "@/pages/dashboard";
 import { EquipmentPage } from "@/pages/equipment";
 import { HomePage } from "@/pages/home";
+import { LearningTrackEditorPage } from "@/pages/learning-track-editor";
 import { TrainingPage } from "@/pages/training";
 import "./index.css";
 
@@ -21,6 +22,8 @@ const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: "dashboard", element: <DashboardPage /> },
       { path: "training", element: <TrainingPage /> },
+      { path: "training/tracks/new", element: <LearningTrackEditorPage /> },
+      { path: "training/tracks/:trackId/edit", element: <LearningTrackEditorPage /> },
       { path: "equipment", element: <EquipmentPage /> },
       { path: "badges", element: <BadgesPage /> },
       { path: "admin", element: <AdminPage /> },

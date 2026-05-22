@@ -1,6 +1,7 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
-import { BookOpen, CheckCircle2, Clock, PlayCircle, Plus } from "lucide-react";
+import { BookOpen, CheckCircle2, Clock, Pencil, PlayCircle, Plus } from "lucide-react";
+import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { PageHeading } from "@/components/page-heading";
@@ -20,13 +21,15 @@ import { api } from "@convex/_generated/api";
 
 export function TrainingPage() {
   const { isAuthenticated } = useConvexAuth();
-  const tracks = useQuery(api.demo.listTrainingTracks, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
   const seedDemoData = useMutation(api.demo.seedDemoData);
   const markDemoLessonComplete = useMutation(api.demo.markDemoLessonComplete);
   const selectedTrackId = useUiStore((state) => state.selectedTrainingTrackId);
   const setSelectedTrackId = useUiStore((state) => state.setSelectedTrainingTrackId);
 
+  const isAdmin = viewer?.profile.role === "admin";
   const selectedTrack = tracks?.find((track) => track._id === selectedTrackId) ?? tracks?.[0];
   const completedLessonIds = new Set(progress?.map((item) => item.lessonId));
 
@@ -48,6 +51,14 @@ export function TrainingPage() {
         description="A small Convex-backed demo for the future lesson catalog, video progress, quizzes, exercises, and unit completion."
         actions={
           <Authenticated>
+            {isAdmin && (
+              <Button asChild>
+                <Link to="/training/tracks/new">
+                  <Plus className="size-4" />
+                  Create a new Learning Track
+                </Link>
+              </Button>
+            )}
             <Button onClick={handleSeedDemoData} variant="outline">
               <Plus className="size-4" />
               Seed demo data
@@ -82,29 +93,46 @@ export function TrainingPage() {
               )}
               {tracks?.length === 0 && (
                 <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                  No tracks yet. Seed the demo data to prove Convex mutations and
-                  queries are connected.
+                  No tracks yet. Admins can create a learning track or seed demo
+                  data to prove Convex mutations and queries are connected.
                 </div>
               )}
               {tracks?.map((track) => (
-                <button
+                <div
                   key={track._id}
-                  type="button"
-                  onClick={() => setSelectedTrackId(track._id)}
-                  className="rounded-md border p-4 text-left transition-colors hover:bg-accent"
+                  className="flex flex-col gap-3 rounded-md border p-4 transition-colors hover:bg-accent sm:flex-row sm:items-start sm:justify-between"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTrackId(track._id)}
+                    className="min-w-0 flex-1 text-left"
+                  >
                     <div>
-                      <p className="font-medium">{track.title}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{track.title}</p>
+                        {!track.isPublished && <Badge variant="secondary">Draft</Badge>}
+                      </div>
                       <p className="mt-1 text-sm text-muted-foreground">
                         {track.description}
                       </p>
                     </div>
-                    <Badge variant={selectedTrack?._id === track._id ? "default" : "outline"}>
+                  </button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {isAdmin && (
+                      <Button asChild variant="ghost" size="sm">
+                        <Link to={`/training/tracks/${track._id}/edit`}>
+                          <Pencil className="size-4" />
+                          Edit
+                        </Link>
+                      </Button>
+                    )}
+                    <Badge
+                      variant={selectedTrack?._id === track._id ? "default" : "outline"}
+                    >
                       {track.level}
                     </Badge>
                   </div>
-                </button>
+                </div>
               ))}
             </CardContent>
           </Card>
