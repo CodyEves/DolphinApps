@@ -233,3 +233,25 @@ export const markDemoLessonComplete = mutation({
     });
   },
 });
+
+export const resetMyLessonProgress = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+
+    if (!userId) {
+      throw new Error("Sign in before resetting lesson progress.");
+    }
+
+    const progress = await ctx.db
+      .query("lessonProgress")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    for (const item of progress) {
+      await ctx.db.delete(item._id);
+    }
+
+    return progress.length;
+  },
+});

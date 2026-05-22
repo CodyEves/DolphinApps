@@ -4,7 +4,13 @@ import { v } from "convex/values";
 
 const role = v.union(v.literal("student"), v.literal("instructor"), v.literal("admin"));
 const activeStatus = v.union(v.literal("active"), v.literal("inactive"));
-const lessonType = v.union(v.literal("video"), v.literal("reading"), v.literal("exercise"));
+const lessonType = v.union(
+  v.literal("video"),
+  v.literal("video_assignment"),
+  v.literal("exam"),
+  v.literal("reading"),
+  v.literal("exercise"),
+);
 const progressStatus = v.union(
   v.literal("not_started"),
   v.literal("started"),
@@ -14,6 +20,8 @@ const questionType = v.union(
   v.literal("multiple_choice"),
   v.literal("true_false"),
   v.literal("short_answer"),
+  v.literal("fill_blank"),
+  v.literal("file_upload"),
 );
 const attemptStatus = v.union(
   v.literal("in_progress"),
@@ -129,6 +137,7 @@ export default defineSchema({
     prompt: v.string(),
     choices: v.optional(v.array(v.string())),
     correctAnswer: v.optional(v.string()),
+    allowMultipleCorrect: v.optional(v.boolean()),
     order: v.number(),
     points: v.number(),
   })

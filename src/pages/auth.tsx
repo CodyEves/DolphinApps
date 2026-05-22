@@ -2,7 +2,7 @@ import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { Loader2, LogIn, UserPlus } from "lucide-react";
 import { FormEvent, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router";
+import { Link, Navigate } from "react-router";
 import { toast } from "sonner";
 
 import { PageHeading } from "@/components/page-heading";
@@ -21,7 +21,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 type AuthMode = "signIn" | "signUp";
 
 export function AuthPage() {
-  const navigate = useNavigate();
   const { signIn } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const [mode, setMode] = useState<AuthMode>("signIn");
@@ -38,8 +37,11 @@ export function AuthPage() {
 
     try {
       await signIn("password", formData);
-      toast.success(mode === "signUp" ? "Account created" : "Signed in");
-      navigate("/dashboard");
+      toast.success(
+        mode === "signUp"
+          ? "Account created. Opening your dashboard..."
+          : "Signed in. Opening your dashboard...",
+      );
     } catch (caughtError) {
       const message =
         caughtError instanceof Error
