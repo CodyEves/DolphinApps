@@ -1,8 +1,7 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { Authenticated, Unauthenticated, useQuery } from "convex/react";
 import { Pencil, Plus } from "lucide-react";
 import { Link } from "react-router";
-import { toast } from "sonner";
 
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
@@ -20,14 +19,8 @@ export function TrainingPage() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
-  const seedDemoData = useMutation(api.demo.seedDemoData);
 
   const isAdmin = viewer?.profile.role === "admin";
-
-  async function handleSeedDemoData() {
-    await seedDemoData({});
-    toast.success("Demo training data is ready");
-  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -45,10 +38,6 @@ export function TrainingPage() {
                 </Link>
               </Button>
             )}
-            <Button onClick={handleSeedDemoData} variant="outline">
-              <Plus className="size-4" />
-              Seed demo data
-            </Button>
           </Authenticated>
         }
       />
@@ -78,8 +67,7 @@ export function TrainingPage() {
             )}
             {tracks?.length === 0 && (
               <div className="rounded-md border p-4 text-sm text-muted-foreground sm:col-span-2 xl:col-span-3">
-                No tracks yet. Admins can create a learning track or seed demo
-                data to prove Convex mutations and queries are connected.
+                No tracks yet. Admins can create a learning track to get started.
               </div>
             )}
             {tracks?.map((track) => (

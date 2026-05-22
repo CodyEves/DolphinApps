@@ -1,11 +1,10 @@
-import { ArrowRight, Award, BookOpen, ShieldCheck, Wrench } from "lucide-react";
+import { ArrowRight, Award, BookOpen, Wrench } from "lucide-react";
 import { Link } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -16,23 +15,26 @@ const focusAreas = [
     title: "Training tracks",
     description: "Organize safety, mechanical, electrical, CAD, programming, and drive team lessons.",
     icon: BookOpen,
+    href: "/training",
   },
   {
     title: "Equipment sign-offs",
     description: "Give mentors a clear place to review readiness and approve shop equipment use.",
     icon: Wrench,
+    href: "/equipment",
   },
   {
     title: "Badges",
     description: "Recognize completed units, safety tests, and subteam readiness milestones.",
     icon: Award,
+    href: "/badges",
   },
 ];
 
 export function HomePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <section className="grid gap-6 overflow-hidden rounded-lg border bg-card p-6 shadow-sm lg:grid-cols-[1.25fr_0.75fr] lg:p-8">
+      <section className="overflow-hidden rounded-lg border bg-card p-6 shadow-sm lg:p-8">
         <div className="space-y-6">
           <Badge variant="secondary">Team 5199 training system</Badge>
           <div className="space-y-3">
@@ -57,65 +59,25 @@ export function HomePage() {
             </Button>
           </div>
         </div>
-        <div className="relative grid gap-3 rounded-lg border bg-background p-4">
-          <div className="absolute inset-x-0 top-0 h-1 bg-primary" />
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_0_24px_rgba(56,189,248,0.35)]">
-              <ShieldCheck className="size-5" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold">FRC Team 5199</p>
-              <p className="text-xs text-muted-foreground">A FIRST Robotics team</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-md border p-3">
-              <p className="font-semibold">Routes</p>
-              <p className="text-muted-foreground">React Router</p>
-            </div>
-            <div className="rounded-md border p-3">
-              <p className="font-semibold">Data</p>
-              <p className="text-muted-foreground">Convex</p>
-            </div>
-            <div className="rounded-md border p-3">
-              <p className="font-semibold">Theme</p>
-              <p className="text-muted-foreground">Light/dark/system</p>
-            </div>
-            <div className="rounded-md border p-3">
-              <p className="font-semibold">Auth</p>
-              <p className="text-muted-foreground">Email/password</p>
-            </div>
-          </div>
-        </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
         {focusAreas.map((area) => (
-          <Card key={area.title}>
-            <CardHeader>
-              <area.icon className="size-5 text-primary" />
-              <CardTitle>{area.title}</CardTitle>
-              <CardDescription>{area.description}</CardDescription>
-            </CardHeader>
-          </Card>
+          <Link
+            key={area.title}
+            to={area.href}
+            className="rounded-lg focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
+          >
+            <Card className="h-full transition-colors hover:bg-accent">
+              <CardHeader>
+                <area.icon className="size-5 text-primary" />
+                <CardTitle>{area.title}</CardTitle>
+                <CardDescription>{area.description}</CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
         ))}
       </section>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Built for the team website identity</CardTitle>
-          <CardDescription>
-            The LMS now uses the team name, space/ocean color direction, and a
-            brighter competition-ready interface.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
-          <p>Vite, React, TypeScript, and Tailwind render correctly.</p>
-          <p>shadcn/ui components and Sonner are available.</p>
-          <p>Convex is the source of truth for app data.</p>
-          <p>Zustand is limited to temporary interface state.</p>
-        </CardContent>
-      </Card>
     </div>
   );
 }

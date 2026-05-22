@@ -685,6 +685,51 @@ export const deleteLessonFromUnit = mutation({
   },
 });
 
+async function deleteAllTrainingContentRecords(ctx: MutationCtx) {
+  const tracks = await ctx.db.query("trainingTracks").collect();
+  let deletedLessons = 0;
+  let deletedUnits = 0;
+
+  for (const track of tracks) {
+    const units = await ctx.db
+      .query("units")
+      .withIndex("by_track", (q) => q.eq("trackId", track._id))
+      .collect();
+
+    for (const unit of units) {
+      const lessons = await ctx.db
+        .query("lessons")
+        .withIndex("by_unit", (q) => q.eq("unitId", unit._id))
+        .collect();
+
+      for (const lesson of lessons) {
+        await deleteLesson(ctx, lesson._id);
+        deletedLessons += 1;
+      }
+
+      await ctx.db.delete(unit._id);
+      deletedUnits += 1;
+    }
+
+    await ctx.db.delete(track._id);
+  }
+
+  return {
+    deletedTracks: tracks.length,
+    deletedUnits,
+    deletedLessons,
+  };
+}
+
+export const deleteAllTrainingContent = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+
+    return await deleteAllTrainingContentRecords(ctx);
+  },
+});
+
 export const saveLearningTrackDraft = mutation({
   args: {
     trackId: v.optional(v.id("trainingTracks")),
