@@ -2,6 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
+  CheckCircle2,
   ClipboardCheck,
   ExternalLink,
   Plus,
@@ -9,9 +10,10 @@ import {
   ShieldCheck,
   Trash2,
   Wrench,
+  XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { PageHeading } from "@/components/page-heading";
@@ -125,6 +127,7 @@ function formatDate(timestamp: number | undefined) {
 
 export function EquipmentDetailPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const navigate = useNavigate();
   const params = useParams();
   const equipmentId = params.equipmentId as Id<"equipment"> | undefined;
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
@@ -134,17 +137,22 @@ export function EquipmentDetailPage() {
   );
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
-  const students = useQuery(
-    api.equipment.listStudentsForSignOff,
-    isAuthenticated && isAdmin ? {} : "skip",
+  const usersReadyForSignOff = useQuery(
+    api.equipment.listUsersReadyForEquipmentSignOff,
+    isAuthenticated && isAdmin && equipmentId ? { equipmentId } : "skip",
   );
   const saveEquipment = useMutation(api.equipment.saveEquipment);
   const setHandsOnDemonstration = useMutation(
     api.equipment.setHandsOnDemonstration,
   );
+  const submitEquipmentSafetyTest = useMutation(
+    api.equipment.submitEquipmentSafetyTest,
+  );
   const [forms, setForms] = useState<Record<string, EquipmentForm>>({});
+  const [testAnswers, setTestAnswers] = useState<Record<string, string | string[]>>({});
   const [savingEquipmentId, setSavingEquipmentId] = useState<string | null>(null);
   const [savingSignOffKey, setSavingSignOffKey] = useState<string | null>(null);
+  const [submittingTestId, setSubmittingTestId] = useState<string | null>(null);
   const equipment = useMemo(
     () =>
       equipmentRecord && (isAdmin || equipmentRecord.isActive)
@@ -379,6 +387,31 @@ export function EquipmentDetailPage() {
     });
   }
 
+  function setSingleTestAnswer(questionId: Id<"questions">, answer: string) {
+    setTestAnswers((current) => ({
+      ...current,
+      [questionId]: answer,
+    }));
+  }
+
+  function toggleMultiTestAnswer(
+    questionId: Id<"questions">,
+    answer: string,
+    checked: boolean,
+  ) {
+    setTestAnswers((current) => {
+      const existingAnswer = current[questionId];
+      const existingAnswers = Array.isArray(existingAnswer) ? existingAnswer : [];
+
+      return {
+        ...current,
+        [questionId]: checked
+          ? [...existingAnswers, answer]
+          : existingAnswers.filter((item) => item !== answer),
+      };
+    });
+  }
+
   async function handleSaveEquipment(equipmentId: Id<"equipment">) {
     const form = forms[equipmentId];
 
@@ -449,6 +482,47 @@ export function EquipmentDetailPage() {
     }
   }
 
+  async function handleSubmitSafetyTest(item: NonNullable<typeof equipment>[number]) {
+    if (!item.quiz) {
+      return;
+    }
+
+    setSubmittingTestId(item._id);
+
+    try {
+      const result = await submitEquipmentSafetyTest({
+        equipmentId: item._id,
+        answers: item.questions.map((question) => {
+          const answer = testAnswers[question._id];
+
+          return {
+            questionId: question._id,
+            answer: Array.isArray(answer)
+              ? JSON.stringify(answer)
+              : typeof answer === "string"
+                ? answer
+                : "",
+          };
+        }),
+      });
+
+      toast.success(
+        result.status === "passed"
+          ? `Safety test passed with ${result.scorePercent}%`
+          : `Safety test submitted with ${result.scorePercent}%`,
+      );
+      setTestAnswers({});
+
+      if (result.status === "passed") {
+        navigate("/equipment");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to submit safety test");
+    } finally {
+      setSubmittingTestId(null);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="mx-auto max-w-6xl">
@@ -515,6 +589,7 @@ export function EquipmentDetailPage() {
             const mySignOff = item.signOffs.find(
               (signOff) => signOff.userId === viewer?.user._id,
             );
+            const hasPassedSafetyTest = item.latestQuizAttempt?.status === "passed";
             const signOffByStudent = new Map(
               item.signOffs.map((signOff) => [signOff.userId, signOff]),
             );
@@ -544,49 +619,228 @@ export function EquipmentDetailPage() {
                 </CardHeader>
                 <CardContent className="space-y-5">
                   {!isAdmin && (
-                    <div className="grid gap-3 md:grid-cols-3">
-                      <div className="rounded-md border p-4">
-                        <div className="flex items-center gap-2 font-medium">
-                          <ExternalLink className="size-4 text-primary" />
-                          Video
+                    <div className="space-y-4">
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-md border p-4">
+                          <div className="flex items-center gap-2 font-medium">
+                            <ExternalLink className="size-4 text-primary" />
+                            Video
+                          </div>
+                          {item.videoUrl ? (
+                            <a
+                              href={item.videoUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 inline-flex text-sm text-primary hover:underline"
+                            >
+                              Open training video
+                            </a>
+                          ) : (
+                            <p className="mt-2 text-sm text-muted-foreground">
+                              No video has been added yet.
+                            </p>
+                          )}
                         </div>
-                        {item.videoUrl ? (
-                          <a
-                            href={item.videoUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="mt-2 inline-flex text-sm text-primary hover:underline"
-                          >
-                            Open training video
-                          </a>
-                        ) : (
+                        <div className="rounded-md border p-4">
+                          <div className="flex items-center gap-2 font-medium">
+                            <ClipboardCheck className="size-4 text-primary" />
+                            Safety test
+                          </div>
                           <p className="mt-2 text-sm text-muted-foreground">
-                            No video has been added yet.
+                            {item.quiz
+                              ? `${item.questions.length} questions, ${item.quiz.passingScorePercent}% to pass`
+                              : "No safety test has been added yet."}
                           </p>
-                        )}
-                      </div>
-                      <div className="rounded-md border p-4">
-                        <div className="flex items-center gap-2 font-medium">
-                          <ClipboardCheck className="size-4 text-primary" />
-                          Safety test
+                          {item.latestQuizAttempt && (
+                            <Badge
+                              className="mt-3"
+                              variant={hasPassedSafetyTest ? "default" : "secondary"}
+                            >
+                              {hasPassedSafetyTest ? (
+                                <CheckCircle2 className="size-3" />
+                              ) : (
+                                <XCircle className="size-3" />
+                              )}
+                              {item.latestQuizAttempt.scorePercent}% latest attempt
+                            </Badge>
+                          )}
                         </div>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {item.quiz
-                            ? `${item.questions.length} questions, ${item.quiz.passingScorePercent}% to pass`
-                            : "No safety test has been added yet."}
-                        </p>
-                      </div>
-                      <div className="rounded-md border p-4">
-                        <div className="flex items-center gap-2 font-medium">
-                          <ShieldCheck className="size-4 text-primary" />
-                          Hands-on demo
+                        <div className="rounded-md border p-4">
+                          <div className="flex items-center gap-2 font-medium">
+                            <ShieldCheck className="size-4 text-primary" />
+                            Hands-on demo
+                          </div>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {mySignOff?.status === "approved"
+                              ? `Completed ${formatDate(mySignOff.approvedAt)}`
+                              : "Waiting for admin check-off."}
+                          </p>
                         </div>
-                        <p className="mt-2 text-sm text-muted-foreground">
-                          {mySignOff?.status === "approved"
-                            ? `Completed ${formatDate(mySignOff.approvedAt)}`
-                            : "Waiting for admin check-off."}
-                        </p>
                       </div>
+
+                      {item.quiz && item.questions.length > 0 && hasPassedSafetyTest && (
+                        <div className="rounded-md border p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <h2 className="text-lg font-semibold">Safety test complete</h2>
+                              <p className="text-sm text-muted-foreground">
+                                You passed this safety test with {item.latestQuizAttempt?.scorePercent}%.
+                              </p>
+                            </div>
+                            <Badge>
+                              <CheckCircle2 className="size-3" />
+                              Passed
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+
+                      {item.quiz && item.questions.length > 0 && !hasPassedSafetyTest && (
+                        <div className="rounded-md border p-4">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <h2 className="text-lg font-semibold">Safety test</h2>
+                              <p className="text-sm text-muted-foreground">
+                                Answer each question, then submit for a score.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 space-y-4">
+                            {item.questions.map((question, questionIndex) => {
+                              const answer = testAnswers[question._id];
+                              const selectedAnswers = Array.isArray(answer) ? answer : [];
+
+                              return (
+                                <div key={question._id} className="rounded-md border p-4">
+                                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                                    <Badge variant="outline">
+                                      Question {questionIndex + 1}
+                                    </Badge>
+                                    <Badge variant="secondary">
+                                      {question.type.replace("_", " ")}
+                                    </Badge>
+                                    <Badge variant="outline">{question.points} pt</Badge>
+                                  </div>
+                                  <p className="font-medium">{question.prompt}</p>
+
+                                  {question.type === "multiple_choice" && (
+                                    <div className="mt-4 space-y-2">
+                                      {question.choices?.map((choice) => (
+                                        <label
+                                          key={choice}
+                                          className="flex items-center gap-2 rounded-md border p-3 text-sm"
+                                        >
+                                          {question.allowMultipleCorrect ? (
+                                            <Checkbox
+                                              checked={selectedAnswers.includes(choice)}
+                                              onCheckedChange={(checked) =>
+                                                toggleMultiTestAnswer(
+                                                  question._id,
+                                                  choice,
+                                                  checked === true,
+                                                )
+                                              }
+                                            />
+                                          ) : (
+                                            <input
+                                              type="radio"
+                                              name={`${question._id}-answer`}
+                                              checked={answer === choice}
+                                              onChange={() =>
+                                                setSingleTestAnswer(question._id, choice)
+                                              }
+                                              className="size-4 accent-primary"
+                                            />
+                                          )}
+                                          {choice}
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {question.type === "true_false" && (
+                                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                      {["true", "false"].map((choice) => (
+                                        <label
+                                          key={choice}
+                                          className="flex items-center gap-2 rounded-md border p-3 text-sm"
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`${question._id}-answer`}
+                                            checked={answer === choice}
+                                            onChange={() =>
+                                              setSingleTestAnswer(question._id, choice)
+                                            }
+                                            className="size-4 accent-primary"
+                                          />
+                                          {choice === "true" ? "True" : "False"}
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {question.type === "fill_blank" && (
+                                    <div className="mt-4 space-y-2">
+                                      <Label htmlFor={`${question._id}-answer`}>
+                                        Answer
+                                      </Label>
+                                      <Input
+                                        id={`${question._id}-answer`}
+                                        value={typeof answer === "string" ? answer : ""}
+                                        onChange={(event) =>
+                                          setSingleTestAnswer(
+                                            question._id,
+                                            event.target.value,
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                  )}
+
+                                  {question.type === "short_answer" && (
+                                    <div className="mt-4 space-y-2">
+                                      <Label htmlFor={`${question._id}-response`}>
+                                        Response
+                                      </Label>
+                                      <Textarea
+                                        id={`${question._id}-response`}
+                                        value={typeof answer === "string" ? answer : ""}
+                                        onChange={(event) =>
+                                          setSingleTestAnswer(
+                                            question._id,
+                                            event.target.value,
+                                          )
+                                        }
+                                      />
+                                    </div>
+                                  )}
+
+                                  {question.type === "file_upload" && (
+                                    <div className="mt-4 rounded-md border p-4 text-sm text-muted-foreground">
+                                      File upload questions cannot be submitted here yet.
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          <div className="mt-4 flex justify-end">
+                            <Button
+                              type="button"
+                              onClick={() => void handleSubmitSafetyTest(item)}
+                              disabled={submittingTestId === item._id}
+                            >
+                              <ClipboardCheck className="size-4" />
+                              {submittingTestId === item._id
+                                ? "Submitting..."
+                                : "Submit safety test"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -932,25 +1186,25 @@ export function EquipmentDetailPage() {
                             Check off students after they safely demonstrate this tool.
                           </p>
                         </div>
-                        {students === undefined && (
+                        {usersReadyForSignOff === undefined && (
                           <p className="text-sm text-muted-foreground">
-                            Loading students...
+                            Loading passed safety tests...
                           </p>
                         )}
-                        {students?.length === 0 && (
+                        {usersReadyForSignOff?.length === 0 && (
                           <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                            No active student profiles yet.
+                            No accounts have passed this safety test yet.
                           </div>
                         )}
                         <div className="grid gap-2 md:grid-cols-2">
-                          {students?.map((student) => {
-                            const signOff = signOffByStudent.get(student.userId);
+                          {usersReadyForSignOff?.map((user) => {
+                            const signOff = signOffByStudent.get(user.userId);
                             const completed = signOff?.status === "approved";
-                            const signOffKey = `${item._id}:${student.userId}`;
+                            const signOffKey = `${item._id}:${user.userId}`;
 
                             return (
                               <label
-                                key={student.userId}
+                                key={user.userId}
                                 className="flex items-start gap-3 rounded-md border p-3 text-sm"
                               >
                                 <Checkbox
@@ -959,19 +1213,19 @@ export function EquipmentDetailPage() {
                                   onCheckedChange={(checked) =>
                                     void handleSetHandsOnDemo(
                                       item._id,
-                                      student.userId,
+                                      user.userId,
                                       checked === true,
                                     )
                                   }
                                 />
                                 <span className="min-w-0 flex-1">
                                   <span className="block font-medium">
-                                    {student.displayName ?? student.email ?? "Student"}
+                                    {user.displayName ?? user.email ?? "Account"}
                                   </span>
                                   <span className="block text-muted-foreground">
                                     {completed
                                       ? `Completed ${formatDate(signOff?.approvedAt)}`
-                                      : student.email}
+                                      : `Passed safety test${user.scorePercent === undefined ? "" : ` with ${user.scorePercent}%`}`}
                                   </span>
                                 </span>
                               </label>

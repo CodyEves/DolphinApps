@@ -23,6 +23,11 @@ const questionInputValidator = v.object({
   points: v.number(),
 });
 
+const answerInputValidator = v.object({
+  questionId: v.id("questions"),
+  answer: v.string(),
+});
+
 async function currentProfile(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx);
 
@@ -129,13 +134,63 @@ async function collectEquipmentRecord(
       };
     }),
   );
+  const latestQuizAttempt =
+    quiz && currentUserId
+      ? await ctx.db
+          .query("quizAttempts")
+          .withIndex("by_user_quiz", (q) =>
+            q.eq("userId", currentUserId).eq("quizId", quiz._id),
+          )
+          .order("desc")
+          .first()
+      : null;
 
   return {
     ...equipment,
     quiz,
     questions,
+    latestQuizAttempt,
     signOffs: signOffDetails,
   };
+}
+
+function normalizeAnswer(value: string | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function parseAnswerList(value: string | undefined) {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((item): item is string => typeof item === "string")
+        .map(normalizeAnswer)
+        .sort();
+    }
+  } catch {
+    return [normalizeAnswer(value)];
+  }
+
+  return [normalizeAnswer(value)];
+}
+
+function answerMatches(question: { type: string; correctAnswer?: string }, answer: string) {
+  if (question.type === "multiple_choice") {
+    const expected = parseAnswerList(question.correctAnswer);
+    const submitted = parseAnswerList(answer);
+
+    return (
+      expected.length === submitted.length &&
+      expected.every((expectedAnswer, index) => expectedAnswer === submitted[index])
+    );
+  }
+
+  return normalizeAnswer(question.correctAnswer) === normalizeAnswer(answer);
 }
 
 export const listEquipment = query({
@@ -215,6 +270,65 @@ export const listStudentsForSignOff = query({
         displayName: profile.displayName,
         email: profile.email,
       }));
+  },
+});
+
+export const listUsersReadyForEquipmentSignOff = query({
+  args: {
+    equipmentId: v.id("equipment"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    const equipment = await ctx.db.get(args.equipmentId);
+
+    if (!equipment) {
+      throw new Error("Equipment not found.");
+    }
+
+    const quiz = await getEquipmentQuiz(ctx, args.equipmentId);
+
+    if (!quiz) {
+      return [];
+    }
+
+    const attempts = await ctx.db
+      .query("quizAttempts")
+      .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+      .filter((q) => q.eq(q.field("status"), "passed"))
+      .collect();
+    const latestPassedAttemptByUser = new Map<Id<"users">, (typeof attempts)[number]>();
+
+    for (const attempt of attempts) {
+      const existing = latestPassedAttemptByUser.get(attempt.userId);
+
+      if (!existing || attempt.completedAt! > (existing.completedAt ?? 0)) {
+        latestPassedAttemptByUser.set(attempt.userId, attempt);
+      }
+    }
+
+    const users = await Promise.all(
+      [...latestPassedAttemptByUser.entries()].map(async ([userId, attempt]) => {
+        const profile = await ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .unique();
+        const user = await ctx.db.get(userId);
+
+        return {
+          userId,
+          displayName: profile?.displayName ?? user?.name,
+          email: profile?.email ?? user?.email,
+          role: profile?.role ?? "student",
+          passedAt: attempt.completedAt,
+          scorePercent: attempt.scorePercent,
+        };
+      }),
+    );
+
+    return users.sort((a, b) =>
+      (a.displayName ?? a.email ?? "").localeCompare(b.displayName ?? b.email ?? ""),
+    );
   },
 });
 
@@ -475,5 +589,95 @@ export const setHandsOnDemonstration = mutation({
     });
 
     return signOffId;
+  },
+});
+
+export const submitEquipmentSafetyTest = mutation({
+  args: {
+    equipmentId: v.id("equipment"),
+    answers: v.array(answerInputValidator),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+
+    if (!userId) {
+      throw new Error("You must be signed in to submit a safety test.");
+    }
+
+    const equipment = await ctx.db.get(args.equipmentId);
+
+    if (!equipment || !equipment.isActive) {
+      throw new Error("Equipment not found.");
+    }
+
+    const quiz = await getEquipmentQuiz(ctx, args.equipmentId);
+
+    if (!quiz || !quiz.isPublished) {
+      throw new Error("No safety test is available for this equipment.");
+    }
+
+    const existingPassedAttempt = await ctx.db
+      .query("quizAttempts")
+      .withIndex("by_user_quiz", (q) =>
+        q.eq("userId", userId).eq("quizId", quiz._id),
+      )
+      .filter((q) => q.eq(q.field("status"), "passed"))
+      .first();
+
+    if (existingPassedAttempt) {
+      throw new Error("You have already passed this safety test.");
+    }
+
+    const questions = await ctx.db
+      .query("questions")
+      .withIndex("by_quiz_order", (q) => q.eq("quizId", quiz._id))
+      .collect();
+
+    if (questions.length === 0) {
+      throw new Error("No safety test questions are available for this equipment.");
+    }
+
+    const answersByQuestionId = new Map(
+      args.answers.map((answer) => [answer.questionId, answer.answer]),
+    );
+    const totalPoints = questions.reduce((total, question) => total + question.points, 0);
+    let earnedPoints = 0;
+
+    for (const question of questions) {
+      const answer = answersByQuestionId.get(question._id);
+
+      if (question.type === "file_upload") {
+        throw new Error("File upload questions cannot be graded automatically yet.");
+      }
+
+      if (!answer) {
+        continue;
+      }
+
+      if (answerMatches(question, answer)) {
+        earnedPoints += question.points;
+      }
+    }
+
+    const scorePercent =
+      totalPoints > 0 ? Math.round((earnedPoints / totalPoints) * 100) : 0;
+    const status = scorePercent >= quiz.passingScorePercent ? "passed" : "failed";
+    const now = Date.now();
+
+    const attemptId = await ctx.db.insert("quizAttempts", {
+      quizId: quiz._id,
+      userId,
+      status,
+      scorePercent,
+      answers: args.answers,
+      startedAt: now,
+      completedAt: now,
+    });
+
+    return {
+      attemptId,
+      status,
+      scorePercent,
+    };
   },
 });

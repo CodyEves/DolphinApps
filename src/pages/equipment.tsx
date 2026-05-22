@@ -1,6 +1,7 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
+  CheckCircle2,
   ClipboardCheck,
   ExternalLink,
   Plus,
@@ -130,6 +131,13 @@ export function EquipmentPage() {
             const completedSignOffs = item.signOffs.filter(
               (signOff) => signOff.status === "approved",
             ).length;
+            const hasPassedSafetyTest = item.latestQuizAttempt?.status === "passed";
+            const hasCompletedHandsOn = mySignOff?.status === "approved";
+            const safetyRequirementComplete = !item.quiz || hasPassedSafetyTest;
+            const handsOnRequirementComplete =
+              !item.instructorApprovalRequired || hasCompletedHandsOn;
+            const isEquipmentComplete =
+              !isAdmin && safetyRequirementComplete && handsOnRequirementComplete;
 
             return (
               <Link
@@ -144,6 +152,12 @@ export function EquipmentPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <Wrench className="size-5 text-primary" />
                           <CardTitle>{item.name}</CardTitle>
+                          {isEquipmentComplete && (
+                            <Badge>
+                              <CheckCircle2 className="size-3" />
+                              Complete
+                            </Badge>
+                          )}
                         </div>
                         <CardDescription>{item.description || item.category}</CardDescription>
                       </div>
@@ -157,12 +171,20 @@ export function EquipmentPage() {
                       </Badge>
                       {item.videoUrl && <Badge variant="outline">Video</Badge>}
                       {item.quiz && (
-                        <Badge variant="outline">
-                          {item.questions.length} test questions
+                        <Badge variant={hasPassedSafetyTest ? "default" : "outline"}>
+                          {hasPassedSafetyTest && <CheckCircle2 className="size-3" />}
+                          {hasPassedSafetyTest
+                            ? "Safety test complete"
+                            : `${item.questions.length} test questions`}
                         </Badge>
                       )}
                       {item.instructorApprovalRequired && (
-                        <Badge variant="outline">Hands-on required</Badge>
+                        <Badge variant={hasCompletedHandsOn ? "default" : "outline"}>
+                          {hasCompletedHandsOn && <CheckCircle2 className="size-3" />}
+                          {hasCompletedHandsOn
+                            ? "Hands-on complete"
+                            : "Hands-on required"}
+                        </Badge>
                       )}
                     </div>
                     {isAdmin ? (
@@ -172,8 +194,23 @@ export function EquipmentPage() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {hasPassedSafetyTest ? (
+                          <>
+                            <CheckCircle2 className="size-4 text-primary" />
+                            Safety test checked off
+                          </>
+                        ) : (
+                          <>
+                            <ClipboardCheck className="size-4 text-primary" />
+                            Safety test pending
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {!isAdmin && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <ShieldCheck className="size-4 text-primary" />
-                        {mySignOff?.status === "approved"
+                        {hasCompletedHandsOn
                           ? `Hands-on completed ${formatDate(mySignOff.approvedAt)}`
                           : "Hands-on demonstration pending"}
                       </div>

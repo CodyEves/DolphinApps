@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -70,11 +71,15 @@ export function UserMenu() {
               </span>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {canPreviewAsStudent && isStudentPreview && (
+            {canPreviewAsStudent && (
               <>
-                <DropdownMenuItem onClick={() => setStudentPreview(false)}>
-                  Exit student preview
-                </DropdownMenuItem>
+                <DropdownMenuCheckboxItem
+                  checked={isStudentPreview}
+                  onCheckedChange={(checked) => setStudentPreview(checked === true)}
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  Student view
+                </DropdownMenuCheckboxItem>
                 <DropdownMenuSeparator />
               </>
             )}
