@@ -110,7 +110,7 @@ export function LearningTrackEditorPage() {
       return;
     }
 
-    // Hydrate editable form state after the Convex record loads.
+    // Hydrate editable form state after the record loads.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setTrackForm({
       title: existingTrack.title,

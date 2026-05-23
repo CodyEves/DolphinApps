@@ -1,6 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useQuery } from "convex/react";
-import { Award, Database, Eye, LockKeyhole, Users } from "lucide-react";
+import { Award, ClipboardCheck, Database, Eye, LockKeyhole, Users } from "lucide-react";
 import { Link } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
@@ -30,7 +30,7 @@ export function AdminPage() {
       <PageHeading
         eyebrow="Admin"
         title="Administration foundation"
-        description="A placeholder admin area for the future management tools. Access is role-aware, with roles stored in Convex profiles."
+        description="Manage people, training content, equipment, badges, and approvals."
         actions={
           <Badge variant={isAdmin ? "default" : "outline"}>
             {isStudentPreview ? "Student preview" : isAdmin ? "Admin access" : "Limited view"}
@@ -44,7 +44,7 @@ export function AdminPage() {
             <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Sign in required</CardTitle>
             <CardDescription>
-              Admin tooling depends on an authenticated Convex profile.
+              Sign in with an admin account to use these tools.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -85,14 +85,27 @@ export function AdminPage() {
               <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin tools are restricted</CardTitle>
               <CardDescription>
-                Your account can still preview the planned admin surface, but
-                editing will require the admin role.
+                Your account can view this area, but editing requires the admin role.
               </CardDescription>
             </CardHeader>
           </Card>
         ) : (
           <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <Card>
+                <CardHeader>
+                  <ClipboardCheck className="size-5 text-primary" />
+                  <CardTitle>Reviews</CardTitle>
+                  <CardDescription>
+                    Review uploaded lesson files and hands-on equipment checks.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline">
+                    <Link to="/reviews">Open reviews</Link>
+                  </Button>
+                </CardContent>
+              </Card>
               <Card>
                 <CardHeader>
                   <Users className="size-5 text-primary" />

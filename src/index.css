@@ -92,4 +92,16 @@
   select {
     font: inherit;
   }
+
+  .website-builder-active [data-website-builder-target],
+  .website-builder-active [data-website-builder-key] {
+    cursor: crosshair;
+    outline: 1px dashed color-mix(in oklch, var(--primary) 65%, transparent);
+    outline-offset: 3px;
+  }
+
+  .website-builder-active [data-website-builder-key]:hover {
+    background-color: color-mix(in oklch, var(--primary) 9%, transparent);
+    outline: 2px solid var(--primary);
+  }
 }

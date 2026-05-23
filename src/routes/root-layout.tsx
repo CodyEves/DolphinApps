@@ -4,6 +4,7 @@ import { EnsureProfile } from "@/components/ensure-profile";
 import { MobileNav, Sidebar } from "@/components/navigation";
 import { ThemeModeToggle } from "@/components/theme-mode-toggle";
 import { UserMenu } from "@/components/user-menu";
+import { WebsiteBuilder } from "@/components/website-builder";
 
 export function RootLayout() {
   return (
@@ -11,7 +12,7 @@ export function RootLayout() {
       <EnsureProfile />
       <div className="flex min-h-screen">
         <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col" data-website-builder-scope>
           <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">
             <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
               <MobileNav />
@@ -22,6 +23,7 @@ export function RootLayout() {
                 </p>
               </div>
               <div className="ml-auto flex items-center gap-2">
+                <WebsiteBuilder />
                 <ThemeModeToggle />
                 <UserMenu />
               </div>

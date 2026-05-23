@@ -46,8 +46,20 @@ export function DashboardPage() {
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
+  const equipment = useQuery(api.equipment.listEquipment, isAuthenticated ? {} : "skip");
+  const badges = useQuery(api.badges.listBadges, isAuthenticated ? {} : "skip");
+  const badgeAwards = useQuery(
+    api.badges.listMyBadgeAwards,
+    isAuthenticated ? {} : "skip",
+  );
   const role = useEffectiveRole(viewer?.profile.role);
+  const canReview = role === "admin" || role === "mentor" || role === "instructor";
+  const reviewQueue = useQuery(
+    api.adminLms.listReviewQueue,
+    isAuthenticated && canReview ? {} : "skip",
+  );
   const completedLessonIds = new Set(progress?.map((item) => item.lessonId));
+  const earnedBadgeIds = new Set(badgeAwards?.map((award) => award.badgeId));
   const visibleTracks =
     role === "admin" ? tracks : tracks?.filter((track) => track.isPublished);
   const trackProgress =
@@ -74,13 +86,43 @@ export function DashboardPage() {
   );
   const completedTrackCount = trackProgress.filter((track) => track.isComplete).length;
   const totalTrackCount = trackProgress.filter((track) => track.totalLessons > 0).length;
+  const earnedVisibleBadgeCount =
+    badges?.filter((badge) => badge && earnedBadgeIds.has(badge._id)).length ?? 0;
+  const equipmentApprovalSummary = equipment?.reduce(
+    (summary, item) => {
+      if (!item.instructorApprovalRequired) {
+        return summary;
+      }
+
+      const mySignOff = item.signOffs.find(
+        (signOff) => signOff.userId === viewer?.user._id,
+      );
+
+      if (mySignOff?.status === "approved") {
+        return { ...summary, approved: summary.approved + 1 };
+      }
+
+      return { ...summary, pending: summary.pending + 1 };
+    },
+    { approved: 0, pending: 0 },
+  );
+  const equipmentApprovalLabel =
+    equipment === undefined
+      ? "..."
+      : equipmentApprovalSummary && equipmentApprovalSummary.pending > 0
+        ? `${equipmentApprovalSummary.pending} pending`
+        : `${equipmentApprovalSummary?.approved ?? 0} approved`;
+  const isLoadingBadges = badges === undefined || badgeAwards === undefined;
+  const lessonReviewCount = reviewQueue?.lessonSubmissions.length ?? 0;
+  const handsOnReviewCount = reviewQueue?.handsOnReviews.length ?? 0;
+  const reviewCount = lessonReviewCount + handsOnReviewCount;
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
         eyebrow="Dashboard"
         title="Team training overview"
-        description="Role-aware placeholders for the student, instructor, and admin workflows this LMS will grow into."
+        description="Review your training, equipment approvals, and badge progress."
         actions={<Badge variant="outline">Current role: {role}</Badge>}
       />
 
@@ -89,7 +131,7 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle>Sign in to see your dashboard</CardTitle>
             <CardDescription>
-              Email/password authentication is wired through Convex Auth.
+              Your dashboard is available after you sign in.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -101,6 +143,47 @@ export function DashboardPage() {
       </Unauthenticated>
 
       <Authenticated>
+        <div className="space-y-4">
+        {canReview && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Needs review</CardTitle>
+              <CardDescription>
+                Student submissions and hands-on demonstrations waiting for attention.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-3">
+              <ProgressLink
+                to="/reviews"
+                label="Open reviews"
+                badge={
+                  <Badge variant={reviewCount > 0 ? "default" : "outline"}>
+                    {reviewQueue === undefined ? "..." : reviewCount}
+                  </Badge>
+                }
+              />
+              <ProgressLink
+                to="/reviews"
+                label="Lesson files"
+                badge={
+                  <Badge variant="outline">
+                    {reviewQueue === undefined ? "..." : lessonReviewCount}
+                  </Badge>
+                }
+              />
+              <ProgressLink
+                to="/reviews"
+                label="Hands-on checks"
+                badge={
+                  <Badge variant="outline">
+                    {reviewQueue === undefined ? "..." : handsOnReviewCount}
+                  </Badge>
+                }
+              />
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>My progress</CardTitle>
@@ -156,17 +239,28 @@ export function DashboardPage() {
                 <ProgressLink
                   to="/equipment"
                   label="Equipment approvals"
-                  badge={<Badge variant="outline">1 pending</Badge>}
+                  badge={
+                    <Badge
+                      variant={
+                        equipmentApprovalSummary && equipmentApprovalSummary.pending > 0
+                          ? "outline"
+                          : "secondary"
+                      }
+                    >
+                      {equipmentApprovalLabel}
+                    </Badge>
+                  }
                 />
                 <ProgressLink
                   to="/badges"
                   label="Badges earned"
-                  badge={<Badge>1</Badge>}
+                  badge={<Badge>{isLoadingBadges ? "..." : earnedVisibleBadgeCount}</Badge>}
                 />
               </div>
             </div>
           </CardContent>
         </Card>
+        </div>
       </Authenticated>
     </div>
   );

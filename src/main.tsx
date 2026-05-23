@@ -19,6 +19,7 @@ import { HomePage } from "@/pages/home";
 import { LearningTrackEditorPage } from "@/pages/learning-track-editor";
 import { LessonEditorPage } from "@/pages/lesson-editor";
 import { LessonViewPage } from "@/pages/lesson-view";
+import { ReviewsPage } from "@/pages/reviews";
 import { TrainingPage } from "@/pages/training";
 import { TrainingTrackPage } from "@/pages/training-track";
 import "./index.css";
@@ -38,6 +39,7 @@ const router = createBrowserRouter([
       { path: "training/lessons/:lessonId", element: <LessonViewPage /> },
       { path: "equipment", element: <EquipmentPage /> },
       { path: "equipment/:equipmentId", element: <EquipmentDetailPage /> },
+      { path: "reviews", element: <ReviewsPage /> },
       { path: "badges", element: <BadgesPage /> },
       { path: "badges/awards", element: <BadgeAwardsPage /> },
       { path: "badges/new", element: <BadgeEditorPage /> },

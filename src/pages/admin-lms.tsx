@@ -62,7 +62,7 @@ const managementAreas = [
   },
   {
     title: "Badges",
-    description: "Review badge categories and future award criteria.",
+    description: "Review badge categories and award criteria.",
     href: "/badges",
     action: "Open badges",
     icon: Award,

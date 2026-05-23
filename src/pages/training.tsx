@@ -51,7 +51,7 @@ export function TrainingPage() {
           <CardHeader>
             <CardTitle>Sign in to load training data</CardTitle>
             <CardDescription>
-              Training tracks are stored in Convex and update live.
+              Sign in to view available training tracks.
             </CardDescription>
           </CardHeader>
         </Card>

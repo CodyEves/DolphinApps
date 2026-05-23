@@ -6,6 +6,7 @@ import {
   Clock,
   PlayCircle,
   Send,
+  Upload,
 } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams } from "react-router";
@@ -124,8 +125,11 @@ export function LessonViewPage() {
   );
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
   const markDemoLessonComplete = useMutation(api.demo.markDemoLessonComplete);
+  const generateLessonUploadUrl = useMutation(api.training.generateLessonUploadUrl);
   const submitLessonQuiz = useMutation(api.training.submitLessonQuiz);
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
+  const [uploadedFiles, setUploadedFiles] = useState<Record<string, string>>({});
+  const [uploadingQuestionId, setUploadingQuestionId] = useState<string | null>(null);
   const [isSubmittingQuestions, setIsSubmittingQuestions] = useState(false);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
@@ -179,6 +183,39 @@ export function LessonViewPage() {
     });
   }
 
+  async function handleFileUpload(questionId: string, file: File | undefined) {
+    if (!file) {
+      return;
+    }
+
+    setUploadingQuestionId(questionId);
+
+    try {
+      const uploadUrl = await generateLessonUploadUrl({});
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Unable to upload ${file.name}.`);
+      }
+
+      const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
+      setSingleAnswer(questionId, JSON.stringify({ fileName: file.name, storageId }));
+      setUploadedFiles((current) => ({
+        ...current,
+        [questionId]: file.name,
+      }));
+      toast.success(`${file.name} uploaded`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to upload file");
+    } finally {
+      setUploadingQuestionId(null);
+    }
+  }
+
   async function handleSubmitQuestions() {
     if (!lessonId || !visibleContent) {
       return;
@@ -210,7 +247,9 @@ export function LessonViewPage() {
         answers: submittedAnswers,
       });
 
-      if (result.status === "passed") {
+      if (result.status === "submitted") {
+        toast.success("Submission sent for review");
+      } else if (result.status === "passed") {
         toast.success(`Questions passed with ${result.scorePercent}%`);
       } else {
         toast.error(`Questions not passed. Score: ${result.scorePercent}%`);
@@ -449,8 +488,29 @@ export function LessonViewPage() {
                     )}
 
                     {question.type === "file_upload" && (
-                      <div className="mt-4 rounded-md border p-4 text-sm text-muted-foreground">
-                        File uploads are not enabled for students yet.
+                      <div className="mt-4 space-y-3 rounded-md border p-4 text-sm">
+                        <div className="space-y-1">
+                          <Label htmlFor={`${question._id}-file`}>Upload file</Label>
+                          <Input
+                            id={`${question._id}-file`}
+                            type="file"
+                            disabled={uploadingQuestionId === question._id}
+                            onChange={(event) =>
+                              void handleFileUpload(
+                                question._id,
+                                event.currentTarget.files?.[0],
+                              )
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Upload className="size-4" />
+                          {uploadingQuestionId === question._id
+                            ? "Uploading..."
+                            : uploadedFiles[question._id]
+                              ? `Ready to submit: ${uploadedFiles[question._id]}`
+                              : "Choose a file, then submit your answers."}
+                        </div>
                       </div>
                     )}
 

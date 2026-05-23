@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import {
   Award,
   BookOpen,
+  ClipboardCheck,
   Gauge,
   Home,
   Menu,
@@ -37,9 +38,14 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/training", label: "Training", icon: BookOpen },
   { href: "/equipment", label: "Equipment", icon: Wrench },
+  { href: "/reviews", label: "Reviews", icon: ClipboardCheck, reviewOnly: true },
   { href: "/badges", label: "Badges", icon: Award },
   { href: "/admin", label: "Admin", icon: SlidersHorizontal, adminOnly: true },
 ];
+
+function canReview(role: string) {
+  return role === "admin" || role === "mentor" || role === "instructor";
+}
 
 function NavList({ collapsed = false }: { collapsed?: boolean }) {
   const setMobileNavOpen = useUiStore((state) => state.setMobileNavOpen);
@@ -47,7 +53,9 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const visibleNavItems = navItems.filter(
-    (item) => !item.adminOnly || effectiveRole === "admin",
+    (item) =>
+      (!item.adminOnly || effectiveRole === "admin") &&
+      (!item.reviewOnly || canReview(effectiveRole)),
   );
 
   return (
@@ -150,7 +158,9 @@ export function MobileNav() {
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const visibleNavItems = navItems.filter(
-    (item) => !item.adminOnly || effectiveRole === "admin",
+    (item) =>
+      (!item.adminOnly || effectiveRole === "admin") &&
+      (!item.reviewOnly || canReview(effectiveRole)),
   );
 
   const current = visibleNavItems.find((item) =>

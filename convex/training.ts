@@ -42,6 +42,19 @@ const answerInputValidator = v.object({
   answer: v.string(),
 });
 
+export const generateLessonUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+
+    if (!userId) {
+      throw new Error("Sign in before uploading files.");
+    }
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
 const lessonInputValidator = v.object({
   id: v.optional(v.id("lessons")),
   title: v.string(),
@@ -379,6 +392,10 @@ export const submitLessonQuiz = mutation({
     const answersByQuestionId = new Map(
       args.answers.map((answer) => [answer.questionId, answer.answer]),
     );
+    const fileUploadQuestions = content.questions.filter(
+      (question) => question.type === "file_upload",
+    );
+    const hasFileUploadQuestions = fileUploadQuestions.length > 0;
     const totalPoints = content.questions.reduce(
       (total, question) => total + question.points,
       0,
@@ -388,17 +405,53 @@ export const submitLessonQuiz = mutation({
     for (const question of content.questions) {
       const answer = answersByQuestionId.get(question._id);
 
-      if (question.type === "file_upload") {
-        throw new Error("File upload questions cannot be graded automatically yet.");
+      if (!answer) {
+        continue;
       }
 
-      if (!answer) {
+      if (question.type === "file_upload") {
+        earnedPoints += question.points;
         continue;
       }
 
       if (answerMatches(question, answer)) {
         earnedPoints += question.points;
       }
+    }
+
+    if (hasFileUploadQuestions) {
+      const now = Date.now();
+      const attemptId = await ctx.db.insert("quizAttempts", {
+        quizId: content.quiz._id,
+        userId,
+        status: "in_progress",
+        answers: args.answers,
+        startedAt: now,
+      });
+
+      for (const question of fileUploadQuestions) {
+        const answer = answersByQuestionId.get(question._id);
+
+        if (!answer) {
+          continue;
+        }
+
+        await ctx.db.insert("exerciseSubmissions", {
+          userId,
+          lessonId: args.lessonId,
+          prompt: question.prompt,
+          response: answer,
+          status: "submitted",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+
+      return {
+        attemptId,
+        status: "submitted",
+        scorePercent: undefined,
+      };
     }
 
     const scorePercent =

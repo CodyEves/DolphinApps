@@ -26,6 +26,43 @@ async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   }
 }
 
+async function requireReviewer(ctx: QueryCtx | MutationCtx) {
+  const profile = await currentProfile(ctx);
+
+  if (
+    profile?.role !== "admin" &&
+    profile?.role !== "mentor" &&
+    profile?.role !== "instructor"
+  ) {
+    throw new Error("Only mentors and admins can review submissions.");
+  }
+
+  return profile;
+}
+
+function parseSubmissionResponse(response: string) {
+  try {
+    const parsed = JSON.parse(response) as {
+      fileName?: unknown;
+      storageId?: unknown;
+    };
+
+    if (typeof parsed.storageId === "string") {
+      return {
+        fileName: typeof parsed.fileName === "string" ? parsed.fileName : "Uploaded file",
+        storageId: parsed.storageId as Id<"_storage">,
+      };
+    }
+  } catch {
+    // Older answers may be raw storage ids.
+  }
+
+  return {
+    fileName: "Uploaded file",
+    storageId: response as Id<"_storage">,
+  };
+}
+
 async function collectTrackLessonIds(ctx: QueryCtx | MutationCtx, trackId: Id<"trainingTracks">) {
   const units = await ctx.db
     .query("units")
@@ -348,6 +385,252 @@ export const getUserProgressForAdmin = query({
       quizAttempts: quizAttemptDetails,
       equipmentSignOffs: signOffDetails,
     };
+  },
+});
+
+export const listReviewQueue = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireReviewer(ctx);
+
+    const submittedFiles = await ctx.db
+      .query("exerciseSubmissions")
+      .withIndex("by_status", (q) => q.eq("status", "submitted"))
+      .collect();
+    const lessonSubmissions = (
+      await Promise.all(
+        submittedFiles.map(async (submission) => {
+          if (!submission.lessonId) {
+            return null;
+          }
+
+          const lesson = await ctx.db.get(submission.lessonId);
+          const user = await ctx.db.get(submission.userId);
+          const profile = await ctx.db
+            .query("profiles")
+            .withIndex("by_user", (q) => q.eq("userId", submission.userId))
+            .unique();
+
+          if (!lesson || !user) {
+            return null;
+          }
+
+          const unit = await ctx.db.get(lesson.unitId);
+          const track = unit ? await ctx.db.get(unit.trackId) : null;
+          const file = parseSubmissionResponse(submission.response);
+
+          return {
+            ...submission,
+            fileName: file.fileName,
+            fileUrl: await ctx.storage.getUrl(file.storageId),
+            lessonTitle: lesson.title,
+            trackTitle: track?.title,
+            studentName: profile?.displayName ?? user.name ?? user.email ?? "Unknown student",
+            studentEmail: profile?.email ?? user.email,
+          };
+        }),
+      )
+    )
+      .filter((item) => item !== null)
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    const equipment = await ctx.db.query("equipment").withIndex("by_active").collect();
+    const handsOnReviews = (
+      await Promise.all(
+        equipment
+          .filter((item) => item.isActive && item.instructorApprovalRequired)
+          .map(async (item) => {
+            const quizzes = await ctx.db
+              .query("quizzes")
+              .withIndex("by_equipment", (q) => q.eq("linkedEquipmentId", item._id))
+              .collect();
+            const quiz = quizzes[0];
+
+            if (!quiz) {
+              return [];
+            }
+
+            const attempts = await ctx.db
+              .query("quizAttempts")
+              .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+              .filter((q) => q.eq(q.field("status"), "passed"))
+              .collect();
+            const latestByUser = new Map<Id<"users">, (typeof attempts)[number]>();
+
+            for (const attempt of attempts) {
+              const existing = latestByUser.get(attempt.userId);
+
+              if (!existing || (attempt.completedAt ?? 0) > (existing.completedAt ?? 0)) {
+                latestByUser.set(attempt.userId, attempt);
+              }
+            }
+
+            return await Promise.all(
+              [...latestByUser.values()].map(async (attempt) => {
+                const signOff = await ctx.db
+                  .query("equipmentSignOffs")
+                  .withIndex("by_user_equipment", (q) =>
+                    q.eq("userId", attempt.userId).eq("equipmentId", item._id),
+                  )
+                  .unique();
+
+                if (signOff?.status === "approved") {
+                  return null;
+                }
+
+                const user = await ctx.db.get(attempt.userId);
+                const profile = await ctx.db
+                  .query("profiles")
+                  .withIndex("by_user", (q) => q.eq("userId", attempt.userId))
+                  .unique();
+
+                if (!user) {
+                  return null;
+                }
+
+                return {
+                  equipmentId: item._id,
+                  equipmentName: item.name,
+                  signOffId: signOff?._id,
+                  status: signOff?.status ?? "requested",
+                  studentUserId: attempt.userId,
+                  studentName:
+                    profile?.displayName ?? user.name ?? user.email ?? "Unknown student",
+                  studentEmail: profile?.email ?? user.email,
+                  passedAt: attempt.completedAt ?? attempt.startedAt,
+                  scorePercent: attempt.scorePercent,
+                };
+              }),
+            );
+          }),
+      )
+    )
+      .flat()
+      .filter((item) => item !== null)
+      .sort((a, b) => b.passedAt - a.passedAt);
+
+    return {
+      lessonSubmissions,
+      handsOnReviews,
+    };
+  },
+});
+
+export const reviewLessonSubmission = mutation({
+  args: {
+    submissionId: v.id("exerciseSubmissions"),
+    approved: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const reviewer = await requireReviewer(ctx);
+    const submission = await ctx.db.get(args.submissionId);
+
+    if (!submission) {
+      throw new Error("Submission not found.");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.submissionId, {
+      status: args.approved ? "approved" : "needs_revision",
+      reviewedBy: reviewer.userId,
+      reviewedAt: now,
+      updatedAt: now,
+    });
+
+    if (args.approved && submission.lessonId) {
+      const existingProgress = await ctx.db
+        .query("lessonProgress")
+        .withIndex("by_user_lesson", (q) =>
+          q.eq("userId", submission.userId).eq("lessonId", submission.lessonId!),
+        )
+        .unique();
+
+      if (existingProgress) {
+        await ctx.db.patch(existingProgress._id, {
+          status: "completed",
+          completedAt: now,
+          updatedAt: now,
+        });
+      } else {
+        await ctx.db.insert("lessonProgress", {
+          userId: submission.userId,
+          lessonId: submission.lessonId,
+          status: "completed",
+          startedAt: submission.createdAt,
+          completedAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+
+    return args.submissionId;
+  },
+});
+
+export const reviewHandsOnVerification = mutation({
+  args: {
+    equipmentId: v.id("equipment"),
+    userId: v.id("users"),
+    approved: v.boolean(),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const reviewer = await requireReviewer(ctx);
+    const equipment = await ctx.db.get(args.equipmentId);
+
+    if (!equipment) {
+      throw new Error("Equipment not found.");
+    }
+
+    const now = Date.now();
+    const notes = args.notes?.trim();
+    const existing = await ctx.db
+      .query("equipmentSignOffs")
+      .withIndex("by_user_equipment", (q) =>
+        q.eq("userId", args.userId).eq("equipmentId", args.equipmentId),
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        status: args.approved ? "approved" : "rejected",
+        approvedAt: args.approved ? now : undefined,
+        approvedBy: args.approved ? reviewer.userId : undefined,
+        notes: notes || undefined,
+        updatedAt: now,
+      });
+
+      await ctx.db.insert("approvalEvents", {
+        signOffId: existing._id,
+        actorUserId: reviewer.userId,
+        action: args.approved ? "approved" : "rejected",
+        note: notes || (args.approved ? "Hands-on demonstration complete." : "Hands-on demonstration needs more practice."),
+        createdAt: now,
+      });
+
+      return existing._id;
+    }
+
+    const signOffId = await ctx.db.insert("equipmentSignOffs", {
+      equipmentId: args.equipmentId,
+      userId: args.userId,
+      status: args.approved ? "approved" : "rejected",
+      requestedAt: now,
+      approvedAt: args.approved ? now : undefined,
+      approvedBy: args.approved ? reviewer.userId : undefined,
+      notes: notes || undefined,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert("approvalEvents", {
+      signOffId,
+      actorUserId: reviewer.userId,
+      action: args.approved ? "approved" : "rejected",
+      note: notes || (args.approved ? "Hands-on demonstration complete." : "Hands-on demonstration needs more practice."),
+      createdAt: now,
+    });
+
+    return signOffId;
   },
 });
 

@@ -147,7 +147,7 @@ export function LessonEditorPage() {
       return;
     }
 
-    // Hydrate editable form state after the Convex lesson record loads.
+    // Hydrate editable form state after the lesson record loads.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm({
       title: lessonRecord.lesson.title,

@@ -96,7 +96,7 @@ export function EquipmentPage() {
           <CardHeader>
             <CardTitle>Sign in to load equipment</CardTitle>
             <CardDescription>
-              Equipment records and hands-on sign-offs are stored in Convex.
+              Sign in to view equipment training and sign-offs.
             </CardDescription>
           </CardHeader>
         </Card>

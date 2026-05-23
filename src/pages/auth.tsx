@@ -1,6 +1,6 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated } from "convex/react";
-import { Loader2, LogIn, UserPlus } from "lucide-react";
+import { useQuery } from "convex/react";
+import { Loader2, LogIn, LogOut, UserPlus } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { Link, Navigate } from "react-router";
 import { toast } from "sonner";
@@ -17,12 +17,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { api } from "@convex/_generated/api";
 
 type AuthMode = "signIn" | "signUp";
 
 export function AuthPage() {
-  const { signIn } = useAuthActions();
+  const { signIn, signOut } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const [mode, setMode] = useState<AuthMode>("signIn");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,24 +56,26 @@ export function AuthPage() {
     }
   }
 
-  if (!isLoading && isAuthenticated) {
+  if (!isLoading && isAuthenticated && viewer) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  const hasStaleSession = !isLoading && isAuthenticated && viewer === null;
 
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeading
         eyebrow="Authentication"
         title="Sign in to DolphinLMS"
-        description="Email/password authentication is handled by Convex Auth. New accounts receive the student role by default."
+        description="Use your team account to access training, equipment sign-offs, badges, and admin tools."
       />
 
-      <Authenticated>
+      {viewer && (
         <Card>
           <CardHeader>
             <CardTitle>You are already signed in</CardTitle>
             <CardDescription>
-              Continue to your role-aware dashboard.
+              Continue to your dashboard.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -80,79 +84,87 @@ export function AuthPage() {
             </Button>
           </CardContent>
         </Card>
-      </Authenticated>
+      )}
 
-      <Unauthenticated>
+      {!viewer && (
         <Card>
           <CardHeader>
-            <CardTitle>Team account</CardTitle>
+            <CardTitle>{hasStaleSession ? "Refresh your session" : "Team account"}</CardTitle>
             <CardDescription>
-              Use the same form for first-time signup and returning students or
-              mentors.
+              {hasStaleSession
+                ? "Your browser has an incomplete sign-in session. Sign out here, then sign in again."
+                : "Use the same form for first-time signup and returning students or mentors."}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs value={mode} onValueChange={(value) => setMode(value as AuthMode)}>
-              <TabsList className="mb-6 grid w-full grid-cols-2">
-                <TabsTrigger value="signIn">
-                  <LogIn className="size-4" />
-                  Sign in
-                </TabsTrigger>
-                <TabsTrigger value="signUp">
-                  <UserPlus className="size-4" />
-                  Create account
-                </TabsTrigger>
-              </TabsList>
+            {hasStaleSession ? (
+              <Button onClick={() => void signOut()}>
+                <LogOut className="size-4" />
+                Sign out and reset
+              </Button>
+            ) : (
+              <Tabs value={mode} onValueChange={(value) => setMode(value as AuthMode)}>
+                <TabsList className="mb-6 grid w-full grid-cols-2">
+                  <TabsTrigger value="signIn">
+                    <LogIn className="size-4" />
+                    Sign in
+                  </TabsTrigger>
+                  <TabsTrigger value="signUp">
+                    <UserPlus className="size-4" />
+                    Create account
+                  </TabsTrigger>
+                </TabsList>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <TabsContent value="signUp" className="mt-0">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <TabsContent value="signUp" className="mt-0">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Name</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        autoComplete="name"
+                        placeholder="Avery Student"
+                        required={mode === "signUp"}
+                      />
+                    </div>
+                  </TabsContent>
                   <div className="space-y-2">
-                    <Label htmlFor="name">Name</Label>
+                    <Label htmlFor="email">Email</Label>
                     <Input
-                      id="name"
-                      name="name"
-                      autoComplete="name"
-                      placeholder="Avery Student"
-                      required={mode === "signUp"}
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="student@example.com"
+                      required
                     />
                   </div>
-                </TabsContent>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="student@example.com"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete={mode === "signIn" ? "current-password" : "new-password"}
-                    minLength={8}
-                    required
-                  />
-                </div>
-                {error && (
-                  <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {error}
-                  </p>
-                )}
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-                  {mode === "signUp" ? "Create account" : "Sign in"}
-                </Button>
-              </form>
-            </Tabs>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      name="password"
+                      type="password"
+                      autoComplete={mode === "signIn" ? "current-password" : "new-password"}
+                      minLength={8}
+                      required
+                    />
+                  </div>
+                  {error && (
+                    <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {error}
+                    </p>
+                  )}
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting && <Loader2 className="size-4 animate-spin" />}
+                    {mode === "signUp" ? "Create account" : "Sign in"}
+                  </Button>
+                </form>
+              </Tabs>
+            )}
           </CardContent>
         </Card>
-      </Unauthenticated>
+      )}
     </div>
   );
 }

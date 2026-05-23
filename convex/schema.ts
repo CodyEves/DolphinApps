@@ -52,6 +52,12 @@ const approvalAction = v.union(
   v.literal("rejected"),
   v.literal("commented"),
 );
+const websiteEditKind = v.union(
+  v.literal("text"),
+  v.literal("color"),
+  v.literal("background"),
+  v.literal("image"),
+);
 
 export default defineSchema({
   ...authTables,
@@ -176,7 +182,10 @@ export default defineSchema({
     reviewedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_user", ["userId"]),
+  })
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"])
+    .index("by_lesson", ["lessonId"]),
 
   badges: defineTable({
     title: v.string(),
@@ -254,4 +263,15 @@ export default defineSchema({
   })
     .index("by_signoff", ["signOffId"])
     .index("by_actor", ["actorUserId"]),
+
+  websiteEdits: defineTable({
+    pagePath: v.string(),
+    targetKey: v.string(),
+    kind: websiteEditKind,
+    value: v.string(),
+    updatedBy: v.id("users"),
+    updatedAt: v.number(),
+  })
+    .index("by_page", ["pagePath"])
+    .index("by_page_target_kind", ["pagePath", "targetKey", "kind"]),
 });

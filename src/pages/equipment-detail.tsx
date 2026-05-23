@@ -202,7 +202,7 @@ export function EquipmentDetailPage() {
       return;
     }
 
-    // Hydrate editable form state after the Convex equipment records load.
+    // Hydrate editable form state after the equipment records load.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setForms((current) => {
       const next = { ...current };
@@ -659,7 +659,7 @@ export function EquipmentDetailPage() {
           <CardHeader>
             <CardTitle>Sign in to load equipment</CardTitle>
             <CardDescription>
-              Equipment records and hands-on sign-offs are stored in Convex.
+              Sign in to view equipment training and sign-offs.
             </CardDescription>
           </CardHeader>
         </Card>

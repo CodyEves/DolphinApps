@@ -9,27 +9,22 @@ import { convex, hasConvexUrl } from "@/lib/convex";
 import { RolePreviewProvider } from "@/providers/role-preview-provider";
 import { ThemeProvider } from "@/providers/theme-provider";
 
-function MissingConvexConfig() {
+function MissingBackendConfig() {
   return (
     <main className="flex min-h-screen items-center justify-center p-6">
       <Card className="max-w-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wrench className="size-5 text-primary" />
-            Convex is not configured yet
+            DolphinLMS is not ready yet
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">
           <p>
-            Run <code>bunx convex dev</code> and choose your personal Convex
-            team when prompted. Convex will create a local environment file with
-            <code> VITE_CONVEX_URL</code>.
+            The training service is not connected. Ask an administrator to finish
+            setup before signing in.
           </p>
-          <Button asChild>
-            <a href="https://docs.convex.dev/quickstart/react" target="_blank">
-              Open Convex React docs
-            </a>
-          </Button>
+          <Button disabled>Setup required</Button>
         </CardContent>
       </Card>
     </main>
@@ -43,7 +38,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
         {hasConvexUrl && convex ? (
           <ConvexAuthProvider client={convex}>{children}</ConvexAuthProvider>
         ) : (
-          <MissingConvexConfig />
+          <MissingBackendConfig />
         )}
       </RolePreviewProvider>
       <Toaster richColors closeButton />
