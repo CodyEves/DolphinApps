@@ -9,6 +9,8 @@
     "preview": "bun node_modules/vite/bin/vite.js preview",
     "typecheck": "bun node_modules/typescript/bin/tsc -b",
     "lint": "bun node_modules/eslint/bin/eslint.js .",
+    "check": "bun run lint && bun run typecheck && bun run build",
+    "deploy:convex": "bun node_modules/convex/bin/main.js deploy",
     "convex:dev": "bun node_modules/convex/bin/main.js dev"
   },
   "dependencies": {

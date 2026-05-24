@@ -74,6 +74,7 @@ bun run convex:dev
 bun run lint
 bun run typecheck
 bun run build
+bun run check
 bun run preview
 ```
 
@@ -174,3 +175,7 @@ Also confirm that the Convex deployment you point production at does not contain
 ## Security Notes
 
 See [SECURITY.md](./SECURITY.md) for the short version of what should never be committed.
+
+## Deployment
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for the public hosting checklist and Vercel + Convex setup.
