@@ -60,11 +60,11 @@ Public template values live in `.env.example`. Real values belong in `.env.local
 
 ```bash
 CONVEX_DEPLOYMENT=
-CONVEX_SITE_URL=
+SITE_URL=
 VITE_CONVEX_URL=
 ```
 
-`CONVEX_SITE_URL` is read by `convex/auth.config.ts`. `VITE_` variables are visible to browser code, so do not put private API keys, tokens, or service secrets in a `VITE_` variable. Use Convex environment variables or another backend-only secret store for private values.
+`SITE_URL` is used by Convex Auth and should be your public web app URL in production, such as `https://your-site.vercel.app`. `CONVEX_SITE_URL` is a Convex-provided system variable used by `convex/auth.config.ts`; do not add or override it yourself. `VITE_` variables are visible to browser code, so do not put private API keys, tokens, or service secrets in a `VITE_` variable. Use Convex environment variables or another backend-only secret store for private values.
 
 ## Useful Commands
 

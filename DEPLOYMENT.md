@@ -30,13 +30,23 @@ Record the production Convex URL. It will look like:
 https://your-deployment.convex.cloud
 ```
 
-For Convex Auth, also set `CONVEX_SITE_URL` in the Convex deployment environment to the public URL where the web app will live, for example:
+Convex automatically provides `CONVEX_SITE_URL`; do not add or override it in the dashboard. It is the `.convex.site` HTTP Actions URL used as the auth issuer, not your Vercel URL.
+
+Convex Auth also needs a user-set `SITE_URL` pointing at the public web app, for example:
 
 ```text
-https://your-site.vercel.app
+SITE_URL=https://your-site.vercel.app
 ```
 
-If the public URL changes later, update `CONVEX_SITE_URL` to match.
+For Convex Auth password sign-in, make sure the production deployment has the auth signing keys created by the Convex Auth setup:
+
+```text
+SITE_URL
+JWT_PRIVATE_KEY
+JWKS
+```
+
+If these are missing, run the Convex Auth setup/sync command for your production deployment or copy the generated production values into the Convex dashboard. Missing signing keys commonly show up as `auth:signIn` server errors in production.
 
 ## Vercel
 

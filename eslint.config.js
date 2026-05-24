@@ -7,6 +7,13 @@ import tseslint from "typescript-eslint";
 export default [
   { ignores: ["dist", "node_modules", "convex/_generated"] },
   js.configs.recommended,
+  {
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { ...globals.node },
+      sourceType: "module",
+    },
+  },
   ...tseslint.configs.recommended,
   {
     files: ["**/*.{ts,tsx}"],
