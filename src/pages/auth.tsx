@@ -66,7 +66,7 @@ export function AuthPage() {
     <div className="mx-auto max-w-3xl">
       <PageHeading
         eyebrow="Authentication"
-        title="Sign in to DolphinLMS"
+        title="Sign in to Dolphin Apps"
         description="Use your team account to access training, equipment sign-offs, badges, and admin tools."
       />
 
@@ -168,3 +168,4 @@ export function AuthPage() {
     </div>
   );
 }
+

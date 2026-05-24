@@ -1,5 +1,5 @@
 {
-  "name": "dolphin-lms",
+  "name": "dolphin-apps",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -11,7 +11,8 @@
     "lint": "bun node_modules/eslint/bin/eslint.js .",
     "check": "bun run lint && bun run typecheck && bun run build",
     "deploy:convex": "bun node_modules/convex/bin/main.js deploy",
-    "convex:dev": "bun node_modules/convex/bin/main.js dev"
+    "convex:dev": "bun node_modules/convex/bin/main.js dev",
+    "codex:run": "concurrently -k -n convex,vite \"bun run convex:dev\" \"bun run dev -- --host 127.0.0.1\""
   },
   "dependencies": {
     "@convex-dev/auth": "^0.0.92",

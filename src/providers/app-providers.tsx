@@ -16,7 +16,7 @@ function MissingBackendConfig() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wrench className="size-5 text-primary" />
-            DolphinLMS is not ready yet
+            Dolphin Apps is not ready yet
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">
@@ -45,3 +45,4 @@ export function AppProviders({ children }: { children: ReactNode }) {
     </ThemeProvider>
   );
 }
+

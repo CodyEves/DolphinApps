@@ -8,39 +8,57 @@ import {
 } from "react";
 
 type Role = "student" | "instructor" | "mentor" | "guest" | "admin";
+export type RoleView = "actual" | "student" | "mentor" | "admin";
 
 type RolePreviewContextValue = {
+  roleView: RoleView;
+  setRoleView: (roleView: RoleView) => void;
   isStudentPreview: boolean;
   setStudentPreview: (enabled: boolean) => void;
 };
 
-const storageKey = "dolphin-lms-student-preview";
+const storageKey = "dolphin-apps-role-view";
+const legacyStudentPreviewKey = "dolphin-lms-student-preview";
 const RolePreviewContext = createContext<RolePreviewContextValue | null>(null);
 
-export function RolePreviewProvider({ children }: { children: ReactNode }) {
-  const [isStudentPreview, setIsStudentPreview] = useState(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
+function initialRoleView(): RoleView {
+  if (typeof window === "undefined") {
+    return "actual";
+  }
 
-    return window.localStorage.getItem(storageKey) === "true";
-  });
+  const stored = window.localStorage.getItem(storageKey);
+  if (stored === "student" || stored === "mentor" || stored === "admin") {
+    return stored;
+  }
+
+  return window.localStorage.getItem(legacyStudentPreviewKey) === "true"
+    ? "student"
+    : "actual";
+}
+
+export function RolePreviewProvider({ children }: { children: ReactNode }) {
+  const [roleView, setRoleView] = useState<RoleView>(initialRoleView);
 
   useEffect(() => {
-    if (isStudentPreview) {
-      window.localStorage.setItem(storageKey, "true");
+    window.localStorage.removeItem(legacyStudentPreviewKey);
+
+    if (roleView === "actual") {
+      window.localStorage.removeItem(storageKey);
       return;
     }
 
-    window.localStorage.removeItem(storageKey);
-  }, [isStudentPreview]);
+    window.localStorage.setItem(storageKey, roleView);
+  }, [roleView]);
 
   const value = useMemo(
     () => ({
-      isStudentPreview,
-      setStudentPreview: setIsStudentPreview,
+      roleView,
+      setRoleView,
+      isStudentPreview: roleView === "student",
+      setStudentPreview: (enabled: boolean) =>
+        setRoleView(enabled ? "student" : "actual"),
     }),
-    [isStudentPreview],
+    [roleView],
   );
 
   return (
@@ -61,10 +79,10 @@ export function useRolePreview() {
 }
 
 export function useEffectiveRole(role: Role | undefined) {
-  const { isStudentPreview } = useRolePreview();
+  const { roleView } = useRolePreview();
 
-  if (role === "admin" && isStudentPreview) {
-    return "student";
+  if (role === "admin" && roleView !== "actual") {
+    return roleView;
   }
 
   return role ?? "student";

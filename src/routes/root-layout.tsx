@@ -1,12 +1,28 @@
 import { Suspense } from "react";
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 
 import { EnsureProfile } from "@/components/ensure-profile";
 import { MobileNav, Sidebar } from "@/components/navigation";
 import { ThemeModeToggle } from "@/components/theme-mode-toggle";
 import { UserMenu } from "@/components/user-menu";
 
+function currentAppCopy(pathname: string) {
+  if (pathname.startsWith("/parts")) {
+    return {
+      title: "Dolphin Parts",
+      description: "Team 5199 parts, BOM, manufacturing, transmissions, and orders",
+    };
+  }
+
+  return {
+    title: "Dolphin Training",
+    description: "Team 5199 training, safety, badges, and sign-offs",
+  };
+}
+
 export function RootLayout() {
+  const location = useLocation();
+  const appCopy = currentAppCopy(location.pathname);
   return (
     <div className="min-h-screen bg-background">
       <EnsureProfile />
@@ -17,9 +33,9 @@ export function RootLayout() {
             <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
               <MobileNav />
               <div className="hidden min-w-0 lg:block">
-                <p className="text-sm font-semibold">Robot Dolphins From Outer Space</p>
+                <p className="text-sm font-semibold">{appCopy.title}</p>
                 <p className="text-xs text-muted-foreground">
-                  Team 5199 training, safety, and sign-offs
+                  {appCopy.description}
                 </p>
               </div>
               <div className="ml-auto flex items-center gap-2">
@@ -44,3 +60,4 @@ export function RootLayout() {
     </div>
   );
 }
+

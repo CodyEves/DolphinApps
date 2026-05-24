@@ -13,14 +13,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useEffectiveRole, useRolePreview } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
 export function AdminPage() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const { isStudentPreview, setStudentPreview } = useRolePreview();
+  const { roleView, setRoleView } = useRolePreview();
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isRealAdmin = viewer?.profile.role === "admin";
   const isAdmin = effectiveRole === "admin";
@@ -33,7 +32,7 @@ export function AdminPage() {
         description="Manage people, training content, equipment, badges, and approvals."
         actions={
           <Badge variant={isAdmin ? "default" : "outline"}>
-            {isStudentPreview ? "Student preview" : isAdmin ? "Admin access" : "Limited view"}
+            {roleView !== "actual" ? `${roleView} preview` : isAdmin ? "Admin access" : "Limited view"}
           </Badge>
         }
       />
@@ -55,26 +54,24 @@ export function AdminPage() {
           <Card className="mb-4">
             <CardHeader>
               <Eye className="size-5 text-primary" />
-              <CardTitle>Preview student experience</CardTitle>
+              <CardTitle>Preview another role</CardTitle>
               <CardDescription>
-                Use your admin account as a student to check what students can see
-                and do. Your admin role is not changed.
+                Use the account menu to switch between student, mentor, and admin
+                views. Your real account role is not changed.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <label className="flex items-start gap-3 rounded-md border p-4 text-sm">
-                <Checkbox
-                  checked={isStudentPreview}
-                  onCheckedChange={(checked) => setStudentPreview(checked === true)}
-                />
-                <span>
-                  <span className="block font-medium">Use student preview mode</span>
-                  <span className="block text-muted-foreground">
-                    Admin-only buttons, draft content, and editing tools will be hidden
-                    while this is on.
-                  </span>
-                </span>
-              </label>
+              <div className="flex flex-wrap gap-2">
+                {(["actual", "student", "mentor", "admin"] as const).map((view) => (
+                  <Button
+                    key={view}
+                    variant={roleView === view ? "default" : "outline"}
+                    onClick={() => setRoleView(view)}
+                  >
+                    {view === "actual" ? "Actual role" : `${view} view`}
+                  </Button>
+                ))}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -123,14 +120,14 @@ export function AdminPage() {
               <Card>
                 <CardHeader>
                   <Database className="size-5 text-primary" />
-                  <CardTitle>LMS management</CardTitle>
+                  <CardTitle>Dolphin Training</CardTitle>
                   <CardDescription>
                     Manage tracks, units, lessons, quizzes, badges, and equipment.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Button asChild variant="outline">
-                    <Link to="/admin/lms">Open LMS management</Link>
+                    <Link to="/admin/lms">Open Dolphin Training</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -155,3 +152,7 @@ export function AdminPage() {
     </div>
   );
 }
+
+
+
+

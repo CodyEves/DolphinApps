@@ -283,3 +283,39 @@ export const setRoleForEmail = mutation({
     });
   },
 });
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const profiles = await ctx.db.query("profiles").take(500);
+
+    return profiles
+      .map((profile) => ({
+        ...profile,
+        name: profile.displayName ?? profile.email ?? "Team member",
+        isActive: profile.status === "active",
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+});
+
+export const updateRole = mutation({
+  args: {
+    profileId: v.id("profiles"),
+    role: roleValidator,
+    isActive: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    await ctx.db.patch(args.profileId, {
+      role: args.role,
+      status: args.isActive ? "active" : "inactive",
+      updatedAt: Date.now(),
+    });
+
+    return args.profileId;
+  },
+});
+
+

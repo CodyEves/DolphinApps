@@ -7,7 +7,8 @@ import {
   Gauge,
   Home,
   Menu,
-  ShieldCheck,
+  Package,
+  FishSymbol,
   SlidersHorizontal,
   Wrench,
 } from "lucide-react";
@@ -35,9 +36,10 @@ import { api } from "@convex/_generated/api";
 
 const navItems = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/dashboard", label: "Dashboard", icon: Gauge },
+  { href: "/dashboard", label: "Training", icon: Gauge },
   { href: "/training", label: "Training", icon: BookOpen },
   { href: "/equipment", label: "Equipment", icon: Wrench },
+  { href: "/parts", label: "Parts", icon: Package },
   { href: "/reviews", label: "Reviews", icon: ClipboardCheck, reviewOnly: true },
   { href: "/badges", label: "Badges", icon: Award },
   { href: "/admin", label: "Admin", icon: SlidersHorizontal, adminOnly: true },
@@ -110,13 +112,13 @@ export function Sidebar() {
             )}
           >
             <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_0_24px_rgba(56,189,248,0.35)]">
-              <ShieldCheck className="size-5" />
+              <FishSymbol className="size-5" />
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">Team 5199 LMS</p>
+                <p className="truncate text-sm font-semibold">Dolphin Apps</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  Robot Dolphins
+                  Training and Parts
                 </p>
               </div>
             )}
@@ -177,7 +179,7 @@ export function MobileNav() {
         </SheetTrigger>
         <SheetContent side="left" className="w-72">
           <SheetHeader>
-            <SheetTitle>Team 5199 LMS</SheetTitle>
+            <SheetTitle>Dolphin Apps</SheetTitle>
           </SheetHeader>
           <div className="px-4">
             <NavList />
@@ -186,8 +188,11 @@ export function MobileNav() {
       </Sheet>
       <div>
         <p className="text-xs text-muted-foreground">Section</p>
-        <p className="text-sm font-semibold">{current?.label ?? "Team 5199 LMS"}</p>
+        <p className="text-sm font-semibold">{current?.label ?? "Dolphin Apps"}</p>
       </div>
     </div>
   );
 }
+
+
+

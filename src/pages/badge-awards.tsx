@@ -103,7 +103,7 @@ export function BadgeAwardsPage() {
               <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin access required</CardTitle>
               <CardDescription>
-                Turn off student preview or sign in with an admin account.
+                Switch back to your actual role or sign in with an admin account.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -184,3 +184,4 @@ export function BadgeAwardsPage() {
     </div>
   );
 }
+

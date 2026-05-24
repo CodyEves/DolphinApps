@@ -58,6 +58,48 @@ const websiteEditKind = v.union(
   v.literal("background"),
   v.literal("image"),
 );
+const partStatus = v.union(
+  v.literal("draft"),
+  v.literal("inDesign"),
+  v.literal("readyForFab"),
+  v.literal("inManufacturing"),
+  v.literal("manufactured"),
+  v.literal("stored"),
+  v.literal("onRobot"),
+  v.literal("deprecated"),
+);
+const partPriority = v.union(
+  v.literal("low"),
+  v.literal("normal"),
+  v.literal("high"),
+  v.literal("critical"),
+);
+const partKind = v.union(v.literal("part"), v.literal("assembly"));
+const catalogKind = v.union(
+  v.literal("material"),
+  v.literal("tool"),
+  v.literal("bitSize"),
+  v.literal("storageLocation"),
+);
+const partEventType = v.union(
+  v.literal("createdDraft"),
+  v.literal("generated"),
+  v.literal("designed"),
+  v.literal("statusChanged"),
+  v.literal("manufactured"),
+  v.literal("stored"),
+  v.literal("installed"),
+  v.literal("deprecated"),
+  v.literal("note"),
+);
+const orderStatus = v.union(
+  v.literal("requested"),
+  v.literal("approved"),
+  v.literal("ordered"),
+  v.literal("backordered"),
+  v.literal("delivered"),
+  v.literal("canceled"),
+);
 
 export default defineSchema({
   ...authTables,
@@ -264,6 +306,130 @@ export default defineSchema({
     .index("by_signoff", ["signOffId"])
     .index("by_actor", ["actorUserId"]),
 
+  seasons: defineTable({
+    name: v.string(),
+    year: v.number(),
+    isActive: v.boolean(),
+    createdByProfileId: v.id("profiles"),
+  })
+    .index("by_isActive", ["isActive"])
+    .index("by_year", ["year"]),
+
+  subsystems: defineTable({
+    seasonId: v.id("seasons"),
+    letter: v.string(),
+    name: v.string(),
+    nextPartNumber: v.number(),
+    isEnabled: v.boolean(),
+    sortOrder: v.number(),
+  })
+    .index("by_seasonId", ["seasonId"])
+    .index("by_seasonId_and_letter", ["seasonId", "letter"])
+    .index("by_seasonId_and_sortOrder", ["seasonId", "sortOrder"]),
+
+  catalogOptions: defineTable({
+    kind: catalogKind,
+    label: v.string(),
+    isEnabled: v.boolean(),
+    sortOrder: v.number(),
+  })
+    .index("by_kind", ["kind"])
+    .index("by_kind_and_label", ["kind", "label"]),
+
+  parts: defineTable({
+    seasonId: v.id("seasons"),
+    subsystemId: v.id("subsystems"),
+    partNumber: v.union(v.string(), v.null()),
+    sequenceNumber: v.union(v.number(), v.null()),
+    name: v.string(),
+    kind: partKind,
+    status: partStatus,
+    quantity: v.number(),
+    priority: partPriority,
+    materialOptionId: v.union(v.id("catalogOptions"), v.null()),
+    toolOptionId: v.union(v.id("catalogOptions"), v.null()),
+    bitSizeOptionId: v.union(v.id("catalogOptions"), v.null()),
+    storageLocationOptionId: v.union(v.id("catalogOptions"), v.null()),
+    onshapeDocumentUrl: v.string(),
+    onshapePartStudioUrl: v.string(),
+    onshapeDrawingUrl: v.string(),
+    notes: v.string(),
+    designedByProfileId: v.union(v.id("profiles"), v.null()),
+    manufacturedByProfileId: v.union(v.id("profiles"), v.null()),
+    supersedesPartId: v.union(v.id("parts"), v.null()),
+    designedAt: v.union(v.number(), v.null()),
+    manufacturedAt: v.union(v.number(), v.null()),
+    installedAt: v.union(v.number(), v.null()),
+    deprecatedAt: v.union(v.number(), v.null()),
+  })
+    .index("by_seasonId", ["seasonId"])
+    .index("by_seasonId_and_partNumber", ["seasonId", "partNumber"])
+    .index("by_seasonId_and_subsystemId", ["seasonId", "subsystemId"])
+    .index("by_seasonId_and_status", ["seasonId", "status"])
+    .index("by_subsystemId_and_status", ["subsystemId", "status"]),
+
+  partLinks: defineTable({
+    parentPartId: v.id("parts"),
+    childPartId: v.id("parts"),
+    quantity: v.number(),
+    notes: v.string(),
+  })
+    .index("by_parentPartId", ["parentPartId"])
+    .index("by_childPartId", ["childPartId"])
+    .index("by_parentPartId_and_childPartId", ["parentPartId", "childPartId"]),
+
+  partEvents: defineTable({
+    partId: v.id("parts"),
+    eventType: partEventType,
+    profileId: v.union(v.id("profiles"), v.null()),
+    occurredAt: v.number(),
+    fromStatus: v.union(partStatus, v.null()),
+    toStatus: v.union(partStatus, v.null()),
+    note: v.string(),
+  })
+    .index("by_partId", ["partId"])
+    .index("by_partId_and_occurredAt", ["partId", "occurredAt"]),
+
+  transmissions: defineTable({
+    seasonId: v.id("seasons"),
+    subsystemId: v.id("subsystems"),
+    name: v.string(),
+    ratio: v.string(),
+    driverTeeth: v.union(v.number(), v.null()),
+    drivenTeeth: v.union(v.number(), v.null()),
+    beltTeeth: v.union(v.number(), v.null()),
+    centerDistance: v.string(),
+    calculatorUrl: v.string(),
+    notes: v.string(),
+    updatedByProfileId: v.id("profiles"),
+    updatedAt: v.number(),
+  })
+    .index("by_seasonId", ["seasonId"])
+    .index("by_seasonId_and_subsystemId", ["seasonId", "subsystemId"]),
+
+  orderRequests: defineTable({
+    seasonId: v.id("seasons"),
+    subsystemId: v.union(v.id("subsystems"), v.null()),
+    partId: v.union(v.id("parts"), v.null()),
+    itemName: v.string(),
+    vendor: v.string(),
+    url: v.string(),
+    quantity: v.number(),
+    estimatedCost: v.union(v.number(), v.null()),
+    reason: v.string(),
+    status: orderStatus,
+    requestedByProfileId: v.id("profiles"),
+    approvedByProfileId: v.union(v.id("profiles"), v.null()),
+    orderedByProfileId: v.union(v.id("profiles"), v.null()),
+    requestedAt: v.number(),
+    approvedAt: v.union(v.number(), v.null()),
+    orderedAt: v.union(v.number(), v.null()),
+    deliveredAt: v.union(v.number(), v.null()),
+    notes: v.string(),
+  })
+    .index("by_seasonId", ["seasonId"])
+    .index("by_seasonId_and_status", ["seasonId", "status"])
+    .index("by_requestedByProfileId", ["requestedByProfileId"]),
   websiteEdits: defineTable({
     pagePath: v.string(),
     targetKey: v.string(),
@@ -275,3 +441,4 @@ export default defineSchema({
     .index("by_page", ["pagePath"])
     .index("by_page_target_kind", ["pagePath", "targetKey", "kind"]),
 });
+

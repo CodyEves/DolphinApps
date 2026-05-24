@@ -160,7 +160,7 @@ export function AdminLmsPage() {
       <div className="mx-auto max-w-6xl">
         <PageHeading
           eyebrow="Admin"
-          title="LMS management"
+          title="Dolphin Training management"
           description="Loading management tools."
         />
       </div>
@@ -171,7 +171,7 @@ export function AdminLmsPage() {
     <div className="mx-auto max-w-6xl">
       <PageHeading
         eyebrow="Admin"
-        title="LMS management"
+        title="Dolphin Training management"
         description="Manage learning content, safety tests, equipment requirements, SOPs, and recognition records."
         actions={
           <Button asChild variant="outline">
@@ -189,7 +189,7 @@ export function AdminLmsPage() {
             <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Sign in required</CardTitle>
             <CardDescription>
-              LMS management requires an authenticated admin account.
+              Dolphin Training management requires an authenticated admin account.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -202,7 +202,7 @@ export function AdminLmsPage() {
               <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin access required</CardTitle>
               <CardDescription>
-                Turn off student preview or sign in with an admin account.
+                Switch back to your actual role or sign in with an admin account.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -213,7 +213,7 @@ export function AdminLmsPage() {
                 <Database className="size-5 text-primary" />
                 <CardTitle>Management areas</CardTitle>
                 <CardDescription>
-                  Jump to the current tools for editing LMS content.
+                  Jump to the current tools for editing Dolphin Training content.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 md:grid-cols-2">
@@ -244,7 +244,7 @@ export function AdminLmsPage() {
                 <ClipboardCheck className="size-5 text-primary" />
                 <CardTitle>Current coverage</CardTitle>
                 <CardDescription>
-                  The LMS manager uses the live training and equipment builders.
+                  The Dolphin Training manager uses the live training and equipment builders.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2">
@@ -470,3 +470,5 @@ export function AdminLmsPage() {
     </div>
   );
 }
+
+

@@ -1,6 +1,6 @@
-# DolphinLMS
+# Dolphin Apps
 
-DolphinLMS is a web app for a high school FIRST Robotics Competition team training and learning management system. It combines a React front end with Convex data, authentication, role-aware admin tools, training content, badge tracking, and equipment sign-off workflows.
+Dolphin Apps is the shared web app suite for Team 5199, currently including Dolphin Training and Dolphin Parts. It combines a React front end with Convex data, authentication, role-aware admin tools, training content, badge tracking, and equipment sign-off workflows.
 
 ## What It Does
 
@@ -8,7 +8,7 @@ DolphinLMS is a web app for a high school FIRST Robotics Competition team traini
 - Training tracks with units, lessons, quizzes, reading, video, and exercise workflows
 - Equipment catalog with safety tests, SOP uploads, and hands-on sign-off requests
 - Badge catalog and admin-managed badge awards
-- Admin tools for users, LMS content, badge definitions, reviews, and progress resets
+- Admin tools for users, Dolphin Training content, badge definitions, reviews, and progress resets
 - Convex Auth email/password sign-up and sign-in
 
 ## Tech Stack
@@ -153,7 +153,7 @@ src/
 
 ## Data Rules
 
-Convex is the source of truth for persisted LMS data: users, profiles, training tracks, units, lessons, progress, quizzes, submissions, badges, equipment, SOP files, sign-offs, and approvals.
+Convex is the source of truth for persisted Dolphin Apps data: users, profiles, training tracks, units, lessons, progress, quizzes, submissions, badges, equipment, SOP files, sign-offs, and approvals.
 
 Zustand is only for temporary interface state such as sidebar state, selected local UI tabs, and selected training items. Do not copy Convex query results into Zustand.
 
@@ -179,3 +179,4 @@ See [SECURITY.md](./SECURITY.md) for the short version of what should never be c
 ## Deployment
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for the public hosting checklist and Vercel + Convex setup.
+

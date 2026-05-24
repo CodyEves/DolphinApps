@@ -58,6 +58,33 @@ const LessonViewPage = lazy(() =>
 const ReviewsPage = lazy(() =>
   import("@/pages/reviews").then((module) => ({ default: module.ReviewsPage })),
 );
+const PartsDashboardPage = lazy(() =>
+  import("@/pages/parts-app").then((module) => ({ default: module.DashboardRoute })),
+);
+const PartsListPage = lazy(() =>
+  import("@/pages/parts-app").then((module) => ({ default: module.PartsRoute })),
+);
+const PartGeneratorPage = lazy(() =>
+  import("@/pages/parts-app").then((module) => ({ default: module.GeneratePartRoute })),
+);
+const PartDetailPage = lazy(() =>
+  import("@/pages/parts-app").then((module) => ({ default: module.PartDetailRoute })),
+);
+const PartsBomPage = lazy(() =>
+  import("@/pages/parts-app").then((module) => ({ default: module.BomRoute })),
+);
+const PartsManufacturingPage = lazy(() =>
+  import("@/pages/parts-app").then((module) => ({ default: module.ManufacturingRoute })),
+);
+const PartsTransmissionsPage = lazy(() =>
+  import("@/pages/parts-app").then((module) => ({ default: module.TransmissionsRoute })),
+);
+const PartsOrdersPage = lazy(() =>
+  import("@/pages/parts-app").then((module) => ({ default: module.OrdersRoute })),
+);
+const PartsAdminPage = lazy(() =>
+  import("@/pages/parts-app").then((module) => ({ default: module.AdminRoute })),
+);
 const TrainingPage = lazy(() =>
   import("@/pages/training").then((module) => ({ default: module.TrainingPage })),
 );
@@ -81,6 +108,15 @@ const router = createBrowserRouter([
       { path: "training/lessons/:lessonId/edit", element: <LessonEditorPage /> },
       { path: "training/lessons/:lessonId", element: <LessonViewPage /> },
       { path: "equipment", element: <EquipmentPage /> },
+      { path: "parts", element: <PartsListPage /> },
+      { path: "parts/dashboard", element: <PartsDashboardPage /> },
+      { path: "parts/new", element: <PartGeneratorPage /> },
+      { path: "parts/bom", element: <PartsBomPage /> },
+      { path: "parts/manufacturing", element: <PartsManufacturingPage /> },
+      { path: "parts/transmissions", element: <PartsTransmissionsPage /> },
+      { path: "parts/orders", element: <PartsOrdersPage /> },
+      { path: "parts/admin", element: <PartsAdminPage /> },
+      { path: "parts/:partId", element: <PartDetailPage /> },
       { path: "equipment/:equipmentId", element: <EquipmentDetailPage /> },
       { path: "reviews", element: <ReviewsPage /> },
       { path: "badges", element: <BadgesPage /> },
@@ -103,3 +139,5 @@ createRoot(document.getElementById("root")!).render(
     </AppProviders>
   </StrictMode>,
 );
+
+
