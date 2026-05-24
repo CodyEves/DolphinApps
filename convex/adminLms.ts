@@ -121,7 +121,7 @@ async function hasCompletedEquipment(
     )
     .unique();
 
-  return !equipment.instructorApprovalRequired || signOff?.status === "approved";
+  return signOff?.status === "approved";
 }
 
 async function qualifiesForBadge(
