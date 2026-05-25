@@ -40,10 +40,10 @@ import type { Id } from "@convex/_generated/dataModel";
 
 const managementAreas = [
   {
-    title: "Training tracks",
+    title: "Learning tracks",
     description: "Create and edit learning tracks, units, lessons, videos, and quizzes.",
     href: "/training",
-    action: "Open training",
+    action: "Open learning",
     icon: BookOpen,
   },
   {
@@ -470,5 +470,3 @@ export function AdminLmsPage() {
     </div>
   );
 }
-
-

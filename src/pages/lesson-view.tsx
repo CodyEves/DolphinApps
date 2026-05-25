@@ -265,7 +265,7 @@ export function LessonViewPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning"
           title="Lesson"
           description="Loading lesson content."
         />
@@ -277,14 +277,14 @@ export function LessonViewPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning"
           title="Sign in required"
           description="Sign in to view lesson content."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to training
+                Back to learning
               </Link>
             </Button>
           }
@@ -297,14 +297,14 @@ export function LessonViewPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning"
           title="Lesson not found"
           description="This lesson is not available."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to training
+                Back to learning
               </Link>
             </Button>
           }
@@ -323,7 +323,7 @@ export function LessonViewPage() {
           <Button asChild variant="outline">
             <Link to="/training">
               <ArrowLeft className="size-4" />
-              Back to training
+              Back to learning
             </Link>
           </Button>
         }
@@ -564,7 +564,7 @@ export function LessonViewPage() {
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to training
+                Back to learning
               </Link>
             </Button>
           </div>

@@ -51,7 +51,7 @@ type NavItem = {
 const trainingNavItems: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
-  { href: "/training", label: "Learning Tracks", icon: BookOpen },
+  { href: "/training", label: "Learning", icon: BookOpen },
   { href: "/equipment", label: "Equipment", icon: Wrench },
   { href: "/reviews", label: "Reviews", icon: ClipboardCheck, reviewOnly: true },
   { href: "/badges", label: "Badges", icon: Award },

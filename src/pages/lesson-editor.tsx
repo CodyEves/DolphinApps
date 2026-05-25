@@ -364,7 +364,7 @@ export function LessonEditorPage() {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning"
           title="Edit lesson"
           description="Loading the lesson editor."
         />
@@ -376,14 +376,14 @@ export function LessonEditorPage() {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning"
           title="Sign in required"
           description="Sign in with an admin account to edit lessons."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to training
+                Back to learning
               </Link>
             </Button>
           }
@@ -396,7 +396,7 @@ export function LessonEditorPage() {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning"
           title="Edit lesson"
           description="Loading the lesson editor."
         />
@@ -408,14 +408,14 @@ export function LessonEditorPage() {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning"
           title="Admin access required"
           description="Only admins can edit lessons."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to training
+                Back to learning
               </Link>
             </Button>
           }
@@ -428,14 +428,14 @@ export function LessonEditorPage() {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning"
           title="Lesson not found"
           description="This lesson may have been removed."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to training
+                Back to learning
               </Link>
             </Button>
           }
@@ -447,7 +447,7 @@ export function LessonEditorPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Training"
+        eyebrow="Learning"
         title="Edit lesson"
         description="Choose whether this is video-only, video plus assignment, or an exam-style lesson."
         actions={

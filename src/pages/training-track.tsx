@@ -67,7 +67,7 @@ export function TrainingTrackPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Learning Tracks"
+          eyebrow="Learning"
           title="Learning track"
           description="Loading track lessons."
         />
@@ -79,7 +79,7 @@ export function TrainingTrackPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Learning Tracks"
+          eyebrow="Learning"
           title="Sign in required"
           description="Sign in to open learning tracks."
           actions={
@@ -99,7 +99,7 @@ export function TrainingTrackPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Learning Tracks"
+          eyebrow="Learning"
           title="Track not found"
           description="This learning track is not available."
           actions={
@@ -118,7 +118,7 @@ export function TrainingTrackPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeading
-        eyebrow="Learning Tracks"
+        eyebrow="Learning"
         title={visibleTrack.title}
         description={visibleTrack.description}
         actions={

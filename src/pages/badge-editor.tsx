@@ -229,14 +229,14 @@ export function BadgeEditorPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Training requirements</CardTitle>
+            <CardTitle>Learning requirements</CardTitle>
             <CardDescription>
-              Select training tracks that must have every lesson marked complete.
+              Select learning tracks that must have every lesson marked complete.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-2 md:grid-cols-2">
             {options.tracks.length === 0 && (
-              <p className="text-sm text-muted-foreground">No training tracks yet.</p>
+              <p className="text-sm text-muted-foreground">No learning tracks yet.</p>
             )}
             {options.tracks.map((track) => (
               <label key={track._id} className="flex items-start gap-3 rounded-md border p-3 text-sm">
