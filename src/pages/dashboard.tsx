@@ -196,12 +196,12 @@ export function DashboardPage() {
               <div className="space-y-3">
                 {visibleTracks === undefined || progress === undefined ? (
                   <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                    Loading learning path progress...
+                    Loading learning track progress...
                   </div>
                 ) : inProgressTracks.length === 0 ? (
                   <ProgressLink
                     to="/training"
-                    label="Learning paths in progress"
+                    label="Learning tracks in progress"
                     badge={<Badge variant="outline">0 active</Badge>}
                   >
                     <p className="mt-2 text-sm text-muted-foreground">
@@ -229,7 +229,7 @@ export function DashboardPage() {
               <div className="grid gap-3 text-sm sm:grid-cols-3 lg:grid-cols-1">
                 <ProgressLink
                   to="/training"
-                  label="Learning paths completed"
+                  label="Learning tracks completed"
                   badge={
                     <Badge variant="secondary">
                       {completedTrackCount} of {totalTrackCount}

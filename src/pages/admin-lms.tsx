@@ -123,7 +123,7 @@ export function AdminLmsPage() {
           : `Removed ${removedCount} progress records`,
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to reset learning path");
+      toast.error(error instanceof Error ? error.message : "Unable to reset learning track");
     } finally {
       setSavingAction(null);
     }
@@ -262,7 +262,7 @@ export function AdminLmsPage() {
                 <RotateCcw className="size-5 text-primary" />
                 <CardTitle>Reset learning progress</CardTitle>
                 <CardDescription>
-                  Pull up an account and remove specific lessons, learning paths, tests,
+                  Pull up an account and remove specific lessons, learning tracks, tests,
                   or equipment sign-offs.
                 </CardDescription>
               </CardHeader>
@@ -286,7 +286,7 @@ export function AdminLmsPage() {
 
                 {!selectedUserId && (
                   <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                    Choose an account to see completed lessons, learning paths, tests,
+                    Choose an account to see completed lessons, learning tracks, tests,
                     and equipment sign-offs.
                   </div>
                 )}
@@ -312,11 +312,11 @@ export function AdminLmsPage() {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
                           <BookOpen className="size-4 text-primary" />
-                          <h2 className="font-semibold">Learning paths</h2>
+                          <h2 className="font-semibold">Learning tracks</h2>
                         </div>
                         {progress.trackProgress.length === 0 && (
                           <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                            No learning path progress yet.
+                            No learning track progress yet.
                           </div>
                         )}
                         {progress.trackProgress.map((track) => (
@@ -337,7 +337,7 @@ export function AdminLmsPage() {
                               disabled={savingAction === `track:${track.trackId}`}
                             >
                               <RotateCcw className="size-4" />
-                              Reset path
+                              Reset track
                             </Button>
                           </div>
                         ))}
