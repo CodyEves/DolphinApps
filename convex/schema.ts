@@ -280,6 +280,18 @@ export default defineSchema({
     .index("by_equipment", ["equipmentId"])
     .index("by_storage", ["storageId"]),
 
+
+  equipmentVideoProgress: defineTable({
+    equipmentId: v.id("equipment"),
+    userId: v.id("users"),
+    status: progressStatus,
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_equipment", ["equipmentId"])
+    .index("by_user_equipment", ["userId", "equipmentId"]),
   equipmentSignOffs: defineTable({
     equipmentId: v.id("equipment"),
     userId: v.id("users"),
@@ -441,4 +453,5 @@ export default defineSchema({
     .index("by_page", ["pagePath"])
     .index("by_page_target_kind", ["pagePath", "targetKey", "kind"]),
 });
+
 

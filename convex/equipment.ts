@@ -144,6 +144,14 @@ async function collectEquipmentRecord(
           .order("desc")
           .first()
       : null;
+  const videoProgress = currentUserId
+    ? await ctx.db
+        .query("equipmentVideoProgress")
+        .withIndex("by_user_equipment", (q) =>
+          q.eq("userId", currentUserId).eq("equipmentId", equipment._id),
+        )
+        .unique()
+    : null;
   const sopDocuments = await ctx.db
     .query("equipmentSopDocuments")
     .withIndex("by_equipment", (q) => q.eq("equipmentId", equipment._id))
@@ -160,6 +168,7 @@ async function collectEquipmentRecord(
     quiz,
     questions,
     latestQuizAttempt,
+    videoProgress,
     sopDocuments: sopDocumentsWithUrls,
     signOffs: signOffDetails,
   };
@@ -755,3 +764,52 @@ export const submitEquipmentSafetyTest = mutation({
     };
   },
 });
+export const markEquipmentVideoComplete = mutation({
+  args: {
+    equipmentId: v.id("equipment"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+
+    if (!userId) {
+      throw new Error("You must be signed in to complete equipment video training.");
+    }
+
+    const equipment = await ctx.db.get(args.equipmentId);
+
+    if (!equipment || !equipment.isActive) {
+      throw new Error("Equipment not found.");
+    }
+
+    if (!equipment.videoUrl) {
+      throw new Error("No training video is available for this equipment.");
+    }
+
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("equipmentVideoProgress")
+      .withIndex("by_user_equipment", (q) =>
+        q.eq("userId", userId).eq("equipmentId", args.equipmentId),
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        status: "completed",
+        completedAt: now,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("equipmentVideoProgress", {
+      equipmentId: args.equipmentId,
+      userId,
+      status: "completed",
+      startedAt: now,
+      completedAt: now,
+      updatedAt: now,
+    });
+  },
+});
+

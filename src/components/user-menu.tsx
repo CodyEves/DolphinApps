@@ -1,6 +1,14 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { GraduationCap, LogIn, LogOut, Package, ShieldCheck, Users, type LucideIcon } from "lucide-react";
+import {
+  GraduationCap,
+  LogIn,
+  LogOut,
+  Package,
+  ShieldCheck,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { toast } from "sonner";
 
@@ -20,6 +28,7 @@ import {
   useEffectiveRole,
   useRolePreview,
   type RoleView,
+  type VisibleRoleView,
 } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
@@ -28,12 +37,11 @@ const apps = [
   { href: "/parts", label: "Dolphin Parts", icon: Package },
 ] as const;
 
-const roleViews: Array<{ value: RoleView; label: string; icon: LucideIcon }> = [
-  { value: "actual", label: "Actual role", icon: ShieldCheck },
-  { value: "student", label: "Student view", icon: GraduationCap },
-  { value: "mentor", label: "Mentor view", icon: Users },
-  { value: "admin", label: "Admin view", icon: ShieldCheck },
-];
+const roleViewMeta: Record<VisibleRoleView, { label: string; icon: LucideIcon }> = {
+  student: { label: "Student view", icon: GraduationCap },
+  mentor: { label: "Mentor view", icon: Users },
+  admin: { label: "Admin view", icon: ShieldCheck },
+};
 
 function initials(nameOrEmail?: string | null) {
   if (!nameOrEmail) {
@@ -52,6 +60,36 @@ function appLabelForPath(pathname: string) {
   return pathname.startsWith("/parts") ? "Dolphin Parts" : "Dolphin Training";
 }
 
+function allowedRoleViews(role: string | undefined): VisibleRoleView[] {
+  if (role === "admin") {
+    return ["student", "mentor", "admin"];
+  }
+
+  if (role === "mentor" || role === "instructor") {
+    return ["student", "mentor"];
+  }
+
+  return [];
+}
+
+function selectedRoleView(roleView: RoleView, role: string | undefined): VisibleRoleView | undefined {
+  const allowed = allowedRoleViews(role);
+
+  if (allowed.includes(roleView as VisibleRoleView)) {
+    return roleView as VisibleRoleView;
+  }
+
+  if (role === "admin") {
+    return "admin";
+  }
+
+  if (role === "mentor" || role === "instructor") {
+    return "mentor";
+  }
+
+  return undefined;
+}
+
 export function UserMenu() {
   const { signOut } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
@@ -59,8 +97,9 @@ export function UserMenu() {
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const { roleView, setRoleView } = useRolePreview();
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const canPreviewRoles = viewer?.profile.role === "admin";
   const currentApp = appLabelForPath(location.pathname);
+  const roleOptions = allowedRoleViews(viewer?.profile.role);
+  const selectedView = selectedRoleView(roleView, viewer?.profile.role);
 
   async function handleSignOut() {
     setRoleView("actual");
@@ -115,29 +154,28 @@ export function UserMenu() {
             </Link>
           </DropdownMenuItem>
         ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
-          View as
-        </DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={roleView}
-          onValueChange={(value) => setRoleView(value as RoleView)}
-        >
-          {roleViews.map((item) => (
-            <DropdownMenuRadioItem
-              key={item.value}
-              value={item.value}
-              disabled={!canPreviewRoles && item.value !== "actual"}
+        {roleOptions.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              View as
+            </DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={selectedView}
+              onValueChange={(value) => setRoleView(value as VisibleRoleView)}
             >
-              <item.icon className="size-4" />
-              {item.label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-        {!canPreviewRoles && (
-          <p className="px-2 py-1 text-xs text-muted-foreground">
-            Role previews are available to admins.
-          </p>
+              {roleOptions.map((value) => {
+                const item = roleViewMeta[value];
+
+                return (
+                  <DropdownMenuRadioItem key={value} value={value}>
+                    <item.icon className="size-4" />
+                    {item.label}
+                  </DropdownMenuRadioItem>
+                );
+              })}
+            </DropdownMenuRadioGroup>
+          </>
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} variant="destructive">
@@ -148,4 +186,3 @@ export function UserMenu() {
     </DropdownMenu>
   );
 }
-

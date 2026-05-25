@@ -79,6 +79,58 @@ type EquipmentForm = {
   questions: QuestionForm[];
 };
 
+
+function youtubeEmbedUrl(url: string | undefined) {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+    const host = parsedUrl.hostname.replace(/^www\./, "");
+    let videoId: string | null = null;
+
+    if (host === "youtu.be") {
+      videoId = parsedUrl.pathname.split("/").filter(Boolean)[0] ?? null;
+    } else if (host.endsWith("youtube.com")) {
+      if (parsedUrl.pathname.startsWith("/embed/")) {
+        videoId = parsedUrl.pathname.split("/").filter(Boolean)[1] ?? null;
+      } else if (parsedUrl.pathname.startsWith("/shorts/")) {
+        videoId = parsedUrl.pathname.split("/").filter(Boolean)[1] ?? null;
+      } else {
+        videoId = parsedUrl.searchParams.get("v");
+      }
+    }
+
+    if (!videoId) {
+      return null;
+    }
+
+    const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
+    embedUrl.searchParams.set("rel", "0");
+    embedUrl.searchParams.set("modestbranding", "1");
+
+    if (typeof window !== "undefined") {
+      embedUrl.searchParams.set("origin", window.location.origin);
+    }
+
+    return embedUrl.toString();
+  } catch {
+    return null;
+  }
+}
+
+function externalVideoUrl(url: string | undefined) {
+  if (!url) {
+    return null;
+  }
+
+  try {
+    return new URL(url).toString();
+  } catch {
+    return null;
+  }
+}
 function createQuestion(type: QuestionType = "multiple_choice"): QuestionForm {
   return {
     clientId: crypto.randomUUID(),
@@ -177,6 +229,9 @@ export function EquipmentDetailPage() {
   const submitEquipmentSafetyTest = useMutation(
     api.equipment.submitEquipmentSafetyTest,
   );
+  const markEquipmentVideoComplete = useMutation(
+    api.equipment.markEquipmentVideoComplete,
+  );
   const generateSopUploadUrl = useMutation(api.equipment.generateSopUploadUrl);
   const addSopDocument = useMutation(api.equipment.addSopDocument);
   const deleteSopDocument = useMutation(api.equipment.deleteSopDocument);
@@ -185,6 +240,7 @@ export function EquipmentDetailPage() {
   const [savingEquipmentId, setSavingEquipmentId] = useState<string | null>(null);
   const [savingSignOffKey, setSavingSignOffKey] = useState<string | null>(null);
   const [submittingTestId, setSubmittingTestId] = useState<string | null>(null);
+  const [completingVideoId, setCompletingVideoId] = useState<string | null>(null);
   const [uploadingSopId, setUploadingSopId] = useState<string | null>(null);
   const [deletingSopId, setDeletingSopId] = useState<string | null>(null);
   const equipment = useMemo(
@@ -585,6 +641,19 @@ export function EquipmentDetailPage() {
     }
   }
 
+
+  async function handleMarkVideoComplete(equipmentId: Id<"equipment">) {
+    setCompletingVideoId(equipmentId);
+
+    try {
+      await markEquipmentVideoComplete({ equipmentId });
+      toast.success("Training video marked complete");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to complete video");
+    } finally {
+      setCompletingVideoId(null);
+    }
+  }
   async function handleSubmitSafetyTest(item: NonNullable<typeof equipment>[number]) {
     if (!item.quiz) {
       return;
@@ -693,6 +762,9 @@ export function EquipmentDetailPage() {
               (signOff) => signOff.userId === viewer?.user._id,
             );
             const hasPassedSafetyTest = item.latestQuizAttempt?.status === "passed";
+            const hasCompletedVideo = item.videoProgress?.status === "completed";
+            const embedUrl = youtubeEmbedUrl(item.videoUrl);
+            const videoUrl = externalVideoUrl(item.videoUrl);
             const signOffByStudent = new Map(
               item.signOffs.map((signOff) => [signOff.userId, signOff]),
             );
@@ -729,18 +801,14 @@ export function EquipmentDetailPage() {
                             <ExternalLink className="size-4 text-primary" />
                             Video
                           </div>
-                          {item.videoUrl ? (
-                            <a
-                              href={item.videoUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-2 inline-flex text-sm text-primary hover:underline"
-                            >
-                              Open training video
-                            </a>
+                          {hasCompletedVideo ? (
+                            <Badge className="mt-3">
+                              <CheckCircle2 className="size-3" />
+                              Completed
+                            </Badge>
                           ) : (
                             <p className="mt-2 text-sm text-muted-foreground">
-                              No video has been added yet.
+                              Watch the training video, then mark it complete.
                             </p>
                           )}
                         </div>
@@ -781,6 +849,54 @@ export function EquipmentDetailPage() {
                         </div>
                       </div>
 
+                      <div className="rounded-md border p-4">
+                        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div>
+                            <h2 className="text-lg font-semibold">Training video</h2>
+                            <p className="text-sm text-muted-foreground">
+                              Watch this before taking the safety test or requesting hands-on approval.
+                            </p>
+                          </div>
+                          {hasCompletedVideo && (
+                            <Badge>
+                              <CheckCircle2 className="size-3" />
+                              Completed {formatDate(item.videoProgress?.completedAt)}
+                            </Badge>
+                          )}
+                        </div>
+                        {embedUrl ? (
+                          <iframe
+                            className="aspect-video w-full rounded-md border"
+                            src={embedUrl}
+                            title={`${item.name} training video`}
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            referrerPolicy="strict-origin-when-cross-origin"
+                            allowFullScreen
+                          />
+                        ) : videoUrl ? (
+                          <Button asChild variant="outline">
+                            <a href={videoUrl} target="_blank" rel="noreferrer">
+                              <ExternalLink className="size-4" />
+                              Open training video
+                            </a>
+                          </Button>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            No video has been added yet.
+                          </p>
+                        )}
+                        {videoUrl && !hasCompletedVideo && (
+                          <Button
+                            type="button"
+                            className="mt-4"
+                            onClick={() => void handleMarkVideoComplete(item._id)}
+                            disabled={completingVideoId === item._id}
+                          >
+                            <CheckCircle2 className="size-4" />
+                            {completingVideoId === item._id ? "Saving..." : "Mark video complete"}
+                          </Button>
+                        )}
+                      </div>
                       <div className="rounded-md border p-4">
                         <div className="flex items-center gap-2 font-medium">
                           <FileText className="size-4 text-primary" />
@@ -1462,3 +1578,8 @@ export function EquipmentDetailPage() {
     </div>
   );
 }
+
+
+
+
+

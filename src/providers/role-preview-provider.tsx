@@ -10,6 +10,9 @@ import {
 type Role = "student" | "instructor" | "mentor" | "guest" | "admin";
 export type RoleView = "actual" | "student" | "mentor" | "admin";
 
+const visibleRoleViews = ["student", "mentor", "admin"] as const;
+export type VisibleRoleView = (typeof visibleRoleViews)[number];
+
 type RolePreviewContextValue = {
   roleView: RoleView;
   setRoleView: (roleView: RoleView) => void;
@@ -27,8 +30,8 @@ function initialRoleView(): RoleView {
   }
 
   const stored = window.localStorage.getItem(storageKey);
-  if (stored === "student" || stored === "mentor" || stored === "admin") {
-    return stored;
+  if (visibleRoleViews.includes(stored as VisibleRoleView)) {
+    return stored as VisibleRoleView;
   }
 
   return window.localStorage.getItem(legacyStudentPreviewKey) === "true"
@@ -82,6 +85,10 @@ export function useEffectiveRole(role: Role | undefined) {
   const { roleView } = useRolePreview();
 
   if (role === "admin" && roleView !== "actual") {
+    return roleView;
+  }
+
+  if ((role === "mentor" || role === "instructor") && (roleView === "student" || roleView === "mentor")) {
     return roleView;
   }
 

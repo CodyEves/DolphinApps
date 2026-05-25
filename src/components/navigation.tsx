@@ -2,17 +2,23 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import {
   Award,
+  BadgePlus,
   BookOpen,
   ClipboardCheck,
+  Factory,
+  FishSymbol,
   Gauge,
   Home,
+  ListTree,
   Menu,
   Package,
-  FishSymbol,
+  Settings,
+  ShoppingCart,
   SlidersHorizontal,
   Wrench,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router";
+import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -34,31 +40,62 @@ import { useUiStore } from "@/stores/use-ui-store";
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  adminOnly?: boolean;
+  reviewOnly?: boolean;
+};
+
+const trainingNavItems: NavItem[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/dashboard", label: "Training", icon: Gauge },
-  { href: "/training", label: "Training", icon: BookOpen },
+  { href: "/training", label: "Courses", icon: BookOpen },
   { href: "/equipment", label: "Equipment", icon: Wrench },
-  { href: "/parts", label: "Parts", icon: Package },
   { href: "/reviews", label: "Reviews", icon: ClipboardCheck, reviewOnly: true },
   { href: "/badges", label: "Badges", icon: Award },
   { href: "/admin", label: "Admin", icon: SlidersHorizontal, adminOnly: true },
+];
+
+const partsNavItems: NavItem[] = [
+  { href: "/parts", label: "Parts", icon: Package },
+  { href: "/parts/dashboard", label: "Dashboard", icon: Gauge },
+  { href: "/parts/new", label: "Generate", icon: BadgePlus },
+  { href: "/parts/bom", label: "BOM", icon: ListTree },
+  { href: "/parts/manufacturing", label: "Manufacturing", icon: Factory },
+  { href: "/parts/transmissions", label: "Transmissions", icon: Wrench },
+  { href: "/parts/orders", label: "Orders", icon: ShoppingCart },
+  { href: "/parts/admin", label: "Parts Admin", icon: Settings, adminOnly: true },
 ];
 
 function canReview(role: string) {
   return role === "admin" || role === "mentor" || role === "instructor";
 }
 
+function navItemsForPath(pathname: string) {
+  return pathname.startsWith("/parts") ? partsNavItems : trainingNavItems;
+}
+
+function appLabelForPath(pathname: string) {
+  return pathname.startsWith("/parts") ? "Dolphin Parts" : "Dolphin Training";
+}
+
+function visibleItems(items: NavItem[], role: string) {
+  return items.filter(
+    (item) =>
+      (!item.adminOnly || role === "admin") &&
+      (!item.reviewOnly || canReview(role)),
+  );
+}
+
 function NavList({ collapsed = false }: { collapsed?: boolean }) {
   const setMobileNavOpen = useUiStore((state) => state.setMobileNavOpen);
+  const location = useLocation();
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const visibleNavItems = navItems.filter(
-    (item) =>
-      (!item.adminOnly || effectiveRole === "admin") &&
-      (!item.reviewOnly || canReview(effectiveRole)),
-  );
+  const visibleNavItems = visibleItems(navItemsForPath(location.pathname), effectiveRole);
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -68,7 +105,7 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
             <TooltipTrigger asChild>
               <NavLink
                 to={item.href}
-                end={item.href === "/"}
+                end={item.href === "/" || item.href === "/parts"}
                 onClick={() => setMobileNavOpen(false)}
                 className={({ isActive }) =>
                   cn(
@@ -95,6 +132,8 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.isSidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const location = useLocation();
+  const appLabel = appLabelForPath(location.pathname);
 
   return (
     <aside
@@ -116,9 +155,9 @@ export function Sidebar() {
             </div>
             {!collapsed && (
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">Dolphin Apps</p>
+                <p className="truncate text-sm font-semibold">{appLabel}</p>
                 <p className="truncate text-xs text-muted-foreground">
-                  Training and Parts
+                  Dolphin Apps
                 </p>
               </div>
             )}
@@ -159,14 +198,13 @@ export function MobileNav() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const visibleNavItems = navItems.filter(
-    (item) =>
-      (!item.adminOnly || effectiveRole === "admin") &&
-      (!item.reviewOnly || canReview(effectiveRole)),
-  );
+  const appLabel = appLabelForPath(location.pathname);
+  const visibleNavItems = visibleItems(navItemsForPath(location.pathname), effectiveRole);
 
   const current = visibleNavItems.find((item) =>
-    item.href === "/" ? location.pathname === "/" : location.pathname.startsWith(item.href),
+    item.href === "/" || item.href === "/parts"
+      ? location.pathname === item.href
+      : location.pathname.startsWith(item.href),
   );
 
   return (
@@ -179,7 +217,7 @@ export function MobileNav() {
         </SheetTrigger>
         <SheetContent side="left" className="w-72">
           <SheetHeader>
-            <SheetTitle>Dolphin Apps</SheetTitle>
+            <SheetTitle>{appLabel}</SheetTitle>
           </SheetHeader>
           <div className="px-4">
             <NavList />
@@ -187,12 +225,9 @@ export function MobileNav() {
         </SheetContent>
       </Sheet>
       <div>
-        <p className="text-xs text-muted-foreground">Section</p>
-        <p className="text-sm font-semibold">{current?.label ?? "Dolphin Apps"}</p>
+        <p className="text-xs text-muted-foreground">{appLabel}</p>
+        <p className="text-sm font-semibold">{current?.label ?? appLabel}</p>
       </div>
     </div>
   );
 }
-
-
-
