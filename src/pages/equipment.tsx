@@ -132,12 +132,17 @@ export function EquipmentPage() {
               (signOff) => signOff.status === "approved",
             ).length;
             const hasPassedSafetyTest = item.latestQuizAttempt?.status === "passed";
+            const hasCompletedVideo = item.videoProgress?.status === "completed";
             const hasCompletedHandsOn = mySignOff?.status === "approved";
+            const videoRequirementComplete = !item.videoUrl || hasCompletedVideo;
             const safetyRequirementComplete = !item.quiz || hasPassedSafetyTest;
             const handsOnRequirementComplete =
               !item.instructorApprovalRequired || hasCompletedHandsOn;
             const isEquipmentComplete =
-              !isAdmin && safetyRequirementComplete && handsOnRequirementComplete;
+              !isAdmin &&
+              videoRequirementComplete &&
+              safetyRequirementComplete &&
+              handsOnRequirementComplete;
 
             return (
               <Link
@@ -169,7 +174,12 @@ export function EquipmentPage() {
                       <Badge variant={item.isActive ? "default" : "secondary"}>
                         {item.isActive ? "Active" : "Inactive"}
                       </Badge>
-                      {item.videoUrl && <Badge variant="outline">Video</Badge>}
+                      {item.videoUrl && (
+                        <Badge variant={hasCompletedVideo ? "default" : "outline"}>
+                          {hasCompletedVideo && <CheckCircle2 className="size-3" />}
+                          {hasCompletedVideo ? "Video complete" : "Video"}
+                        </Badge>
+                      )}
                       {item.quiz && (
                         <Badge variant={hasPassedSafetyTest ? "default" : "outline"}>
                           {hasPassedSafetyTest && <CheckCircle2 className="size-3" />}
@@ -194,7 +204,17 @@ export function EquipmentPage() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {hasPassedSafetyTest ? (
+                        {item.videoUrl && hasCompletedVideo ? (
+                          <>
+                            <CheckCircle2 className="size-4 text-primary" />
+                            Video checked off
+                          </>
+                        ) : item.videoUrl ? (
+                          <>
+                            <ExternalLink className="size-4 text-primary" />
+                            Video pending
+                          </>
+                        ) : hasPassedSafetyTest ? (
                           <>
                             <CheckCircle2 className="size-4 text-primary" />
                             Safety test checked off
