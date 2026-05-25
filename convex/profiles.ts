@@ -40,7 +40,7 @@ async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   const profile = await ctx.db
     .query("profiles")
     .withIndex("by_user", (q) => q.eq("userId", userId))
-    .unique();
+    .first();
 
   if (profile?.role !== "admin") {
     throw new Error("Only an admin can manage users.");
@@ -85,7 +85,7 @@ export const ensureCurrentUserProfile = mutation({
     const existing = await ctx.db
       .query("profiles")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .unique();
+      .first();
 
     const now = Date.now();
 
@@ -123,7 +123,7 @@ export const viewer = query({
     const profile = await ctx.db
       .query("profiles")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .unique();
+      .first();
 
     return {
       user,
@@ -181,7 +181,7 @@ export const setAccountLabel = mutation({
     const existing = await ctx.db
       .query("profiles")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .unique();
+      .first();
     const patch =
       args.accountLabel === "admin"
         ? { role: "admin" as const, studentGroup: undefined }
@@ -240,7 +240,7 @@ export const setRoleForEmail = mutation({
       const actingProfile = await ctx.db
         .query("profiles")
         .withIndex("by_user", (q) => q.eq("userId", actingUserId))
-        .unique();
+        .first();
 
       if (actingProfile?.role !== "admin") {
         throw new Error("Only an admin can change roles.");
@@ -260,7 +260,7 @@ export const setRoleForEmail = mutation({
     const existing = await ctx.db
       .query("profiles")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .unique();
+      .first();
 
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -317,5 +317,3 @@ export const updateRole = mutation({
     return args.profileId;
   },
 });
-
-

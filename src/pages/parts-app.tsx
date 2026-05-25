@@ -43,9 +43,11 @@ import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/use-ui-store";
 
 type ActiveContext = {
-  profile: Doc<"profiles">;
+  profile: Doc<"profiles"> | null;
   season: Doc<"seasons"> | null;
 };
+
+type ReadyActiveContext = ActiveContext & { profile: Doc<"profiles"> };
 
 type OverviewData = {
   profile: Doc<"profiles">;
@@ -173,7 +175,7 @@ function RequireSeason({
 }: {
   children: (
     data: OverviewData,
-    active: ActiveContext,
+    active: ReadyActiveContext,
     catalog: Doc<"catalogOptions">[],
   ) => ReactNode;
 }) {
@@ -198,6 +200,10 @@ function RequireSeason({
     return <LoadingState />;
   }
 
+  if (!active.profile) {
+    return <LoadingState />;
+  }
+
   if (!active.season) {
     return <SetupSeasonCallout profile={active.profile} />;
   }
@@ -206,7 +212,9 @@ function RequireSeason({
     return <LoadingState />;
   }
 
-  return children(overview, active, catalog);
+  const readyActive: ReadyActiveContext = { ...active, profile: active.profile };
+
+  return children(overview, readyActive, catalog);
 }
 
 function subsystemName(subsystems: Doc<"subsystems">[], subsystemId: Id<"subsystems">) {
@@ -1105,8 +1113,3 @@ export function AdminRoute() {
     </RequireSeason>
   );
 }
-
-
-
-
-

@@ -1,3 +1,4 @@
+import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
@@ -25,7 +26,21 @@ const defaultCatalogOptions = {
 export const activeSeason = query({
   args: {},
   handler: async (ctx) => {
-    const profile = await requireProfile(ctx);
+    const userId = await getAuthUserId(ctx);
+
+    if (!userId) {
+      return { profile: null, season: null };
+    }
+
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!profile || profile.status !== "active") {
+      return { profile: null, season: null };
+    }
+
     const season = await ctx.db
       .query("seasons")
       .withIndex("by_isActive", (q) => q.eq("isActive", true))

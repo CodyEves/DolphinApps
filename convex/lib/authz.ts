@@ -16,7 +16,7 @@ export async function requireProfile(ctx: Ctx) {
   const profile = await ctx.db
     .query("profiles")
     .withIndex("by_user", (q) => q.eq("userId", userId))
-    .unique();
+    .first();
 
   if (!profile || profile.status !== "active") {
     throw new Error("Your team profile is not active.");
