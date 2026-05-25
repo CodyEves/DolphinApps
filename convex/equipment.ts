@@ -150,7 +150,7 @@ async function collectEquipmentRecord(
         .withIndex("by_user_equipment", (q) =>
           q.eq("userId", currentUserId).eq("equipmentId", equipment._id),
         )
-        .unique()
+        .first()
     : null;
   const sopDocuments = await ctx.db
     .query("equipmentSopDocuments")
@@ -777,7 +777,7 @@ export const markEquipmentVideoComplete = mutation({
 
     const equipment = await ctx.db.get(args.equipmentId);
 
-    if (!equipment || !equipment.isActive) {
+    if (!equipment) {
       throw new Error("Equipment not found.");
     }
 
@@ -791,7 +791,7 @@ export const markEquipmentVideoComplete = mutation({
       .withIndex("by_user_equipment", (q) =>
         q.eq("userId", userId).eq("equipmentId", args.equipmentId),
       )
-      .unique();
+      .first();
 
     if (existing) {
       await ctx.db.patch(existing._id, {
@@ -812,4 +812,7 @@ export const markEquipmentVideoComplete = mutation({
     });
   },
 });
+
+
+
 

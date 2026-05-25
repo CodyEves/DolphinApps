@@ -67,7 +67,7 @@ export function TrainingTrackPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning Tracks"
           title="Learning track"
           description="Loading track lessons."
         />
@@ -79,14 +79,14 @@ export function TrainingTrackPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning Tracks"
           title="Sign in required"
           description="Sign in to open learning tracks."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to tracks
+                Back to learning tracks
               </Link>
             </Button>
           }
@@ -99,14 +99,14 @@ export function TrainingTrackPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Training"
+          eyebrow="Learning Tracks"
           title="Track not found"
           description="This learning track is not available."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to tracks
+                Back to learning tracks
               </Link>
             </Button>
           }
@@ -118,7 +118,7 @@ export function TrainingTrackPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeading
-        eyebrow="Training"
+        eyebrow="Learning Tracks"
         title={visibleTrack.title}
         description={visibleTrack.description}
         actions={
@@ -134,7 +134,7 @@ export function TrainingTrackPage() {
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to tracks
+                Back to learning tracks
               </Link>
             </Button>
           </>
