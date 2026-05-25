@@ -1,4 +1,3 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { CheckCircle2, ExternalLink, FileCheck2, LockKeyhole, Wrench, XCircle } from "lucide-react";
 import { Link } from "react-router";
@@ -36,13 +35,12 @@ function canReview(role: string) {
 }
 
 export function ReviewsPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isReviewer = canReview(effectiveRole);
   const queue = useQuery(
     api.adminLms.listReviewQueue,
-    isAuthenticated && isReviewer ? {} : "skip",
+    isReviewer ? {} : "skip",
   );
   const reviewLessonSubmission = useMutation(api.adminLms.reviewLessonSubmission);
   const reviewHandsOnVerification = useMutation(api.adminLms.reviewHandsOnVerification);
@@ -76,19 +74,7 @@ export function ReviewsPage() {
   const handsOnCount = queue?.handsOnReviews.length ?? 0;
   const totalCount = lessonCount + handsOnCount;
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Reviews"
-          title="Review queue"
-          description="Loading items that need attention."
-        />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !isReviewer) {
+  if (!isReviewer) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading

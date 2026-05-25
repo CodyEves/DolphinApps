@@ -46,6 +46,12 @@ bun run convex:dev
 
 Convex will create local project metadata in `.convex/` and print the values needed for `.env.local`.
 
+Configure Convex Auth signing keys for local sign-in:
+
+```bash
+bun run convex:auth:env
+```
+
 Keep the Convex terminal running. In a second terminal, start the Vite app:
 
 ```bash

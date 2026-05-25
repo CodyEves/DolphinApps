@@ -1,5 +1,4 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   Award,
@@ -42,17 +41,16 @@ function formatDate(timestamp: number) {
 }
 
 export function AdminBadgesPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
   const badgeAwards = useQuery(
     api.badges.listBadgeAwardsForAdmin,
-    isAuthenticated && isAdmin ? {} : "skip",
+    isAdmin ? {} : "skip",
   );
   const users = useQuery(
     api.badges.listAwardableUsersForAdmin,
-    isAuthenticated && isAdmin ? {} : "skip",
+    isAdmin ? {} : "skip",
   );
   const forceAwardBadge = useMutation(api.badges.forceAwardBadge);
   const removeBadgeAward = useMutation(api.badges.removeBadgeAward);
@@ -106,18 +104,6 @@ export function AdminBadgesPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Admin"
-          title="Badge management"
-          description="Loading badge controls."
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
@@ -134,26 +120,13 @@ export function AdminBadgesPage() {
         }
       />
 
-      <Unauthenticated>
-        <Card>
-          <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
-            <CardTitle>Sign in required</CardTitle>
-            <CardDescription>
-              Badge management requires an authenticated admin account.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </Unauthenticated>
-
-      <Authenticated>
-        {!isAdmin ? (
+      {!isAdmin ? (
           <Card>
             <CardHeader>
               <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin access required</CardTitle>
               <CardDescription>
-                Switch back to your actual role or sign in with an admin account.
+                Turn off student preview or sign in with an admin account.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -262,8 +235,6 @@ export function AdminBadgesPage() {
             </Card>
           </div>
         )}
-      </Authenticated>
     </div>
   );
 }
-

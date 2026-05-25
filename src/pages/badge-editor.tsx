@@ -1,4 +1,3 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Award, Save } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
@@ -49,20 +48,19 @@ function toggleId<T extends string>(ids: T[], id: T, checked: boolean) {
 }
 
 export function BadgeEditorPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
   const params = useParams();
   const badgeId = params.badgeId as Id<"badges"> | undefined;
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
   const badge = useQuery(
     api.badges.getBadgeForEdit,
-    isAuthenticated && isAdmin && badgeId ? { badgeId } : "skip",
+    isAdmin && badgeId ? { badgeId } : "skip",
   );
   const options = useQuery(
     api.badges.listRequirementOptions,
-    isAuthenticated && isAdmin ? {} : "skip",
+    isAdmin ? {} : "skip",
   );
   const saveBadge = useMutation(api.badges.saveBadge);
   const [form, setForm] = useState<BadgeForm>(emptyForm);
@@ -100,15 +98,7 @@ export function BadgeEditorPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading eyebrow="Badges" title="Edit badge" description="Loading badge editor." />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated || !isAdmin) {
+  if (!isAdmin) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
@@ -229,14 +219,14 @@ export function BadgeEditorPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Learning requirements</CardTitle>
+            <CardTitle>Training requirements</CardTitle>
             <CardDescription>
-              Select learning tracks that must have every lesson marked complete.
+              Select training tracks that must have every lesson marked complete.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-2 md:grid-cols-2">
             {options.tracks.length === 0 && (
-              <p className="text-sm text-muted-foreground">No learning tracks yet.</p>
+              <p className="text-sm text-muted-foreground">No training tracks yet.</p>
             )}
             {options.tracks.map((track) => (
               <label key={track._id} className="flex items-start gap-3 rounded-md border p-3 text-sm">

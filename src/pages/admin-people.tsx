@@ -1,5 +1,4 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, LockKeyhole, Save, Users } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
@@ -37,13 +36,12 @@ const accountLabelText: Record<AccountLabel, string> = {
 };
 
 export function AdminPeoplePage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
   const users = useQuery(
     api.profiles.listUsersForAdmin,
-    isAuthenticated && isAdmin ? {} : "skip",
+    isAdmin ? {} : "skip",
   );
   const setAccountLabel = useMutation(api.profiles.setAccountLabel);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
@@ -64,18 +62,6 @@ export function AdminPeoplePage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Admin"
-          title="People"
-          description="Loading user management."
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
@@ -92,26 +78,13 @@ export function AdminPeoplePage() {
         }
       />
 
-      <Unauthenticated>
-        <Card>
-          <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
-            <CardTitle>Sign in required</CardTitle>
-            <CardDescription>
-              User management requires an authenticated admin account.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </Unauthenticated>
-
-      <Authenticated>
-        {!isAdmin ? (
+      {!isAdmin ? (
           <Card>
             <CardHeader>
               <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin access required</CardTitle>
               <CardDescription>
-                Switch back to your actual role or sign in with an admin account.
+                Turn off student preview or sign in with an admin account.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -191,8 +164,6 @@ export function AdminPeoplePage() {
             </CardContent>
           </Card>
         )}
-      </Authenticated>
     </div>
   );
 }
-

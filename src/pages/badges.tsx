@@ -1,5 +1,4 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { Award, CheckCircle2, Pencil, Plus, Users } from "lucide-react";
 import { useEffect } from "react";
 import { Link } from "react-router";
@@ -27,21 +26,18 @@ function formatDate(timestamp: number) {
 }
 
 export function BadgesPage() {
-  const { isAuthenticated } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const badges = useQuery(api.badges.listBadges, isAuthenticated ? {} : "skip");
-  const awards = useQuery(api.badges.listMyBadgeAwards, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
+  const badges = useQuery(api.badges.listBadges, {});
+  const awards = useQuery(api.badges.listMyBadgeAwards, {});
   const syncMyBadges = useMutation(api.badges.syncMyBadges);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
   const earnedAwards = new Map(awards?.map((award) => [award.badgeId, award]));
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      return;
-    }
+    if (!viewer) return;
 
-    void syncMyBadges({})
+    syncMyBadges({})
       .then((awardedBadgeIds) => {
         if (awardedBadgeIds.length > 0) {
           toast.success(
@@ -52,7 +48,7 @@ export function BadgesPage() {
         }
       })
       .catch(() => undefined);
-  }, [isAuthenticated, syncMyBadges]);
+  }, [syncMyBadges, viewer]);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -61,40 +57,26 @@ export function BadgesPage() {
         title="Achievements and certifications"
         description="Badges are automatically awarded when assigned training and equipment requirements are complete."
         actions={
-          <Authenticated>
-            {isAdmin && (
-              <>
-                <Button asChild variant="outline">
-                  <Link to="/badges/awards">
-                    <Users className="size-4" />
-                    View awards
-                  </Link>
-                </Button>
-                <Button asChild>
-                  <Link to="/badges/new">
-                    <Plus className="size-4" />
-                    Create badge
-                  </Link>
-                </Button>
-              </>
-            )}
-          </Authenticated>
+          isAdmin && (
+            <>
+              <Button asChild variant="outline">
+                <Link to="/badges/awards">
+                  <Users className="size-4" />
+                  View awards
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link to="/badges/new">
+                  <Plus className="size-4" />
+                  Create badge
+                </Link>
+              </Button>
+            </>
+          )
         }
       />
 
-      <Unauthenticated>
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign in to load badges</CardTitle>
-            <CardDescription>
-              Badge progress is tied to your training and equipment records.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </Unauthenticated>
-
-      <Authenticated>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {badges === undefined && (
             <Card className="md:col-span-2 xl:col-span-3">
               <CardHeader>
@@ -169,8 +151,7 @@ export function BadgesPage() {
               </Card>
             );
           })}
-        </div>
-      </Authenticated>
+      </div>
     </div>
   );
 }

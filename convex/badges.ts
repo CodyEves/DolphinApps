@@ -486,7 +486,7 @@ export const syncMyBadges = mutation({
     const userId = await getAuthUserId(ctx);
 
     if (!userId) {
-      throw new Error("Sign in before syncing badges.");
+      return [];
     }
 
     const { awardedBadgeIds } = await reconcileAutomaticBadgeAwards(ctx, userId);

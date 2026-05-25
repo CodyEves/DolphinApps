@@ -2,7 +2,7 @@ import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import { Loader2, LogIn, LogOut, UserPlus } from "lucide-react";
 import { FormEvent, useState } from "react";
-import { Link, Navigate } from "react-router";
+import { Link, Navigate, useLocation } from "react-router";
 import { toast } from "sonner";
 
 import { PageHeading } from "@/components/page-heading";
@@ -25,6 +25,8 @@ export function AuthPage() {
   const { signIn, signOut } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const location = useLocation();
+  const from = (location.state as { from?: Location } | null)?.from?.pathname ?? "/dashboard";
   const [mode, setMode] = useState<AuthMode>("signIn");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export function AuthPage() {
   }
 
   if (!isLoading && isAuthenticated && viewer) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={from} replace />;
   }
 
   const hasStaleSession = !isLoading && isAuthenticated && viewer === null;
@@ -66,7 +68,7 @@ export function AuthPage() {
     <div className="mx-auto max-w-3xl">
       <PageHeading
         eyebrow="Authentication"
-        title="Sign in to Dolphin Apps"
+        title="Sign in to DolphinLMS"
         description="Use your team account to access training, equipment sign-offs, badges, and admin tools."
       />
 
@@ -168,4 +170,3 @@ export function AuthPage() {
     </div>
   );
 }
-

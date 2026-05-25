@@ -1,5 +1,4 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   Award,
@@ -40,10 +39,10 @@ import type { Id } from "@convex/_generated/dataModel";
 
 const managementAreas = [
   {
-    title: "Learning tracks",
+    title: "Training tracks",
     description: "Create and edit learning tracks, units, lessons, videos, and quizzes.",
     href: "/training",
-    action: "Open learning",
+    action: "Open training",
     icon: BookOpen,
   },
   {
@@ -70,19 +69,18 @@ const managementAreas = [
 ];
 
 export function AdminLmsPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
   const users = useQuery(
     api.badges.listAwardableUsersForAdmin,
-    isAuthenticated && isAdmin ? {} : "skip",
+    isAdmin ? {} : "skip",
   );
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [savingAction, setSavingAction] = useState<string | null>(null);
   const progress = useQuery(
     api.adminLms.getUserProgressForAdmin,
-    isAuthenticated && isAdmin && selectedUserId
+    isAdmin && selectedUserId
       ? { userId: selectedUserId as Id<"users"> }
       : "skip",
   );
@@ -123,7 +121,7 @@ export function AdminLmsPage() {
           : `Removed ${removedCount} progress records`,
       );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to reset learning track");
+      toast.error(error instanceof Error ? error.message : "Unable to reset learning path");
     } finally {
       setSavingAction(null);
     }
@@ -155,23 +153,11 @@ export function AdminLmsPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Admin"
-          title="Dolphin Training management"
-          description="Loading management tools."
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
         eyebrow="Admin"
-        title="Dolphin Training management"
+        title="LMS management"
         description="Manage learning content, safety tests, equipment requirements, SOPs, and recognition records."
         actions={
           <Button asChild variant="outline">
@@ -183,26 +169,13 @@ export function AdminLmsPage() {
         }
       />
 
-      <Unauthenticated>
-        <Card>
-          <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
-            <CardTitle>Sign in required</CardTitle>
-            <CardDescription>
-              Dolphin Training management requires an authenticated admin account.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </Unauthenticated>
-
-      <Authenticated>
-        {!isAdmin ? (
+      {!isAdmin ? (
           <Card>
             <CardHeader>
               <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin access required</CardTitle>
               <CardDescription>
-                Switch back to your actual role or sign in with an admin account.
+                Turn off student preview or sign in with an admin account.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -213,7 +186,7 @@ export function AdminLmsPage() {
                 <Database className="size-5 text-primary" />
                 <CardTitle>Management areas</CardTitle>
                 <CardDescription>
-                  Jump to the current tools for editing Dolphin Training content.
+                  Jump to the current tools for editing LMS content.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 md:grid-cols-2">
@@ -244,7 +217,7 @@ export function AdminLmsPage() {
                 <ClipboardCheck className="size-5 text-primary" />
                 <CardTitle>Current coverage</CardTitle>
                 <CardDescription>
-                  The Dolphin Training manager uses the live training and equipment builders.
+                  The LMS manager uses the live training and equipment builders.
                 </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2">
@@ -262,7 +235,7 @@ export function AdminLmsPage() {
                 <RotateCcw className="size-5 text-primary" />
                 <CardTitle>Reset learning progress</CardTitle>
                 <CardDescription>
-                  Pull up an account and remove specific lessons, learning tracks, tests,
+                  Pull up an account and remove specific lessons, learning paths, tests,
                   or equipment sign-offs.
                 </CardDescription>
               </CardHeader>
@@ -286,7 +259,7 @@ export function AdminLmsPage() {
 
                 {!selectedUserId && (
                   <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                    Choose an account to see completed lessons, learning tracks, tests,
+                    Choose an account to see completed lessons, learning paths, tests,
                     and equipment sign-offs.
                   </div>
                 )}
@@ -312,11 +285,11 @@ export function AdminLmsPage() {
                       <div className="space-y-3">
                         <div className="flex items-center gap-2">
                           <BookOpen className="size-4 text-primary" />
-                          <h2 className="font-semibold">Learning tracks</h2>
+                          <h2 className="font-semibold">Learning paths</h2>
                         </div>
                         {progress.trackProgress.length === 0 && (
                           <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                            No learning track progress yet.
+                            No learning path progress yet.
                           </div>
                         )}
                         {progress.trackProgress.map((track) => (
@@ -337,7 +310,7 @@ export function AdminLmsPage() {
                               disabled={savingAction === `track:${track.trackId}`}
                             >
                               <RotateCcw className="size-4" />
-                              Reset track
+                              Reset path
                             </Button>
                           </div>
                         ))}
@@ -466,7 +439,6 @@ export function AdminLmsPage() {
             </Card>
           </div>
         )}
-      </Authenticated>
     </div>
   );
 }

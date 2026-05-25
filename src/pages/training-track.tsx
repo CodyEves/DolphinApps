@@ -1,4 +1,3 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
@@ -39,15 +38,14 @@ function lessonTypeLabel(type: string) {
 }
 
 export function TrainingTrackPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
   const params = useParams();
   const trackId = params.trackId as Id<"trainingTracks"> | undefined;
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
   const track = useQuery(
     api.training.getTrainingTrackForStudent,
-    isAuthenticated && trackId ? { trackId } : "skip",
+    trackId ? { trackId } : "skip",
   );
-  const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
+  const progress = useQuery(api.demo.myLessonProgress, {});
   const markDemoLessonComplete = useMutation(api.demo.markDemoLessonComplete);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
@@ -63,33 +61,13 @@ export function TrainingTrackPage() {
     }
   }
 
-  if (isLoading || (isAuthenticated && track === undefined)) {
+  if (track === undefined) {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Learning"
+          eyebrow="Training"
           title="Learning track"
           description="Loading track lessons."
-        />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="mx-auto max-w-5xl">
-        <PageHeading
-          eyebrow="Learning"
-          title="Sign in required"
-          description="Sign in to open learning tracks."
-          actions={
-            <Button asChild variant="outline">
-              <Link to="/training">
-                <ArrowLeft className="size-4" />
-                Back to learning tracks
-              </Link>
-            </Button>
-          }
         />
       </div>
     );
@@ -99,14 +77,14 @@ export function TrainingTrackPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Learning"
+          eyebrow="Training"
           title="Track not found"
           description="This learning track is not available."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to learning tracks
+                Back to tracks
               </Link>
             </Button>
           }
@@ -118,7 +96,7 @@ export function TrainingTrackPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeading
-        eyebrow="Learning"
+        eyebrow="Training"
         title={visibleTrack.title}
         description={visibleTrack.description}
         actions={
@@ -134,7 +112,7 @@ export function TrainingTrackPage() {
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to learning tracks
+                Back to tracks
               </Link>
             </Button>
           </>

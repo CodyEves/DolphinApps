@@ -1,5 +1,4 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   CheckCircle2,
   ClipboardCheck,
@@ -37,13 +36,9 @@ function formatDate(timestamp: number | undefined) {
 }
 
 export function EquipmentPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const equipment = useQuery(
-    api.equipment.listEquipment,
-    isAuthenticated ? {} : "skip",
-  );
+  const viewer = useQuery(api.profiles.viewer, {});
+  const equipment = useQuery(api.equipment.listEquipment, {});
   const createEquipment = useMutation(api.equipment.createEquipment);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
@@ -61,18 +56,6 @@ export function EquipmentPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Equipment"
-          title="Equipment sign-offs"
-          description="Loading equipment records."
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
@@ -80,30 +63,16 @@ export function EquipmentPage() {
         title="Equipment sign-offs"
         description="Open a tool to review its training video, safety test, and hands-on demonstration status."
         actions={
-          <Authenticated>
-            {isAdmin && (
-              <Button onClick={handleCreateEquipment}>
-                <Plus className="size-4" />
-                Add equipment
-              </Button>
-            )}
-          </Authenticated>
+          isAdmin && (
+            <Button onClick={handleCreateEquipment}>
+              <Plus className="size-4" />
+              Add equipment
+            </Button>
+          )
         }
       />
 
-      <Unauthenticated>
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign in to load equipment</CardTitle>
-            <CardDescription>
-              Sign in to view equipment training and sign-offs.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </Unauthenticated>
-
-      <Authenticated>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {visibleEquipment === undefined && (
             <Card className="md:col-span-2 xl:col-span-3">
               <CardHeader>
@@ -132,17 +101,12 @@ export function EquipmentPage() {
               (signOff) => signOff.status === "approved",
             ).length;
             const hasPassedSafetyTest = item.latestQuizAttempt?.status === "passed";
-            const hasCompletedVideo = item.videoProgress?.status === "completed";
             const hasCompletedHandsOn = mySignOff?.status === "approved";
-            const videoRequirementComplete = !item.videoUrl || hasCompletedVideo;
             const safetyRequirementComplete = !item.quiz || hasPassedSafetyTest;
             const handsOnRequirementComplete =
               !item.instructorApprovalRequired || hasCompletedHandsOn;
             const isEquipmentComplete =
-              !isAdmin &&
-              videoRequirementComplete &&
-              safetyRequirementComplete &&
-              handsOnRequirementComplete;
+              !isAdmin && safetyRequirementComplete && handsOnRequirementComplete;
 
             return (
               <Link
@@ -174,12 +138,7 @@ export function EquipmentPage() {
                       <Badge variant={item.isActive ? "default" : "secondary"}>
                         {item.isActive ? "Active" : "Inactive"}
                       </Badge>
-                      {item.videoUrl && (
-                        <Badge variant={hasCompletedVideo ? "default" : "outline"}>
-                          {hasCompletedVideo && <CheckCircle2 className="size-3" />}
-                          {hasCompletedVideo ? "Video complete" : "Video"}
-                        </Badge>
-                      )}
+                      {item.videoUrl && <Badge variant="outline">Video</Badge>}
                       {item.quiz && (
                         <Badge variant={hasPassedSafetyTest ? "default" : "outline"}>
                           {hasPassedSafetyTest && <CheckCircle2 className="size-3" />}
@@ -204,17 +163,7 @@ export function EquipmentPage() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        {item.videoUrl && hasCompletedVideo ? (
-                          <>
-                            <CheckCircle2 className="size-4 text-primary" />
-                            Video checked off
-                          </>
-                        ) : item.videoUrl ? (
-                          <>
-                            <ExternalLink className="size-4 text-primary" />
-                            Video pending
-                          </>
-                        ) : hasPassedSafetyTest ? (
+                        {hasPassedSafetyTest ? (
                           <>
                             <CheckCircle2 className="size-4 text-primary" />
                             Safety test checked off
@@ -241,7 +190,6 @@ export function EquipmentPage() {
             );
           })}
         </div>
-      </Authenticated>
     </div>
   );
 }

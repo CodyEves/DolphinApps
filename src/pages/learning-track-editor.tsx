@@ -1,4 +1,3 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
@@ -75,16 +74,15 @@ function lessonTypeLabel(type: string) {
 }
 
 export function LearningTrackEditorPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
   const params = useParams();
   const trackId = params.trackId as Id<"trainingTracks"> | undefined;
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
   const existingTrack = useQuery(
     api.training.getTrainingTrackForEdit,
-    isAuthenticated && isAdmin && trackId ? { trackId } : "skip",
+    isAdmin && trackId ? { trackId } : "skip",
   );
   const saveTrackDetails = useMutation(api.training.saveTrackDetails);
   const createUnit = useMutation(api.training.createUnit);
@@ -102,7 +100,7 @@ export function LearningTrackEditorPage() {
   const [orderedUnitIds, setOrderedUnitIds] = useState<Id<"units">[]>([]);
   const [draggingUnitId, setDraggingUnitId] = useState<Id<"units"> | null>(null);
 
-  const pageTitle = trackId ? "Edit learning track" : "Create a new learning track";
+  const pageTitle = trackId ? "Edit Learning Track" : "Create a new Learning Track";
   const currentTrackId = trackId ?? existingTrack?._id;
 
   useEffect(() => {
@@ -270,43 +268,11 @@ export function LearningTrackEditorPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Learning"
-          title={pageTitle}
-          description="Loading the learning track editor."
-        />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Learning"
-          title="Create a new learning track"
-          description="Sign in with an admin account to create learning tracks."
-        />
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign in required</CardTitle>
-            <CardDescription>
-              Learning track creation is only available to admins.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
-
   if (viewer === undefined || (trackId && existingTrack === undefined)) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Learning"
+          eyebrow="Training"
           title={pageTitle}
           description="Loading the learning track editor."
         />
@@ -318,14 +284,14 @@ export function LearningTrackEditorPage() {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Learning"
+          eyebrow="Training"
           title="Admin access required"
           description="Only admins can create or edit learning tracks."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to learning
+                Back to training
               </Link>
             </Button>
           }
@@ -338,14 +304,14 @@ export function LearningTrackEditorPage() {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Learning"
+          eyebrow="Training"
           title="Learning track not found"
           description="This track may have been removed."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to learning
+                Back to training
               </Link>
             </Button>
           }
@@ -357,7 +323,7 @@ export function LearningTrackEditorPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Learning"
+        eyebrow="Training"
         title={pageTitle}
         description="Build the track outline here, then open each lesson to edit its video and assignment content."
         actions={
@@ -376,7 +342,7 @@ export function LearningTrackEditorPage() {
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to learning
+                Back to training
               </Link>
             </Button>
           </>

@@ -1,4 +1,3 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
@@ -115,15 +114,14 @@ function lessonTypeLabel(type: string) {
 }
 
 export function LessonViewPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
   const params = useParams();
   const lessonId = params.lessonId as Id<"lessons"> | undefined;
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
   const content = useQuery(
     api.training.getLessonForStudent,
-    isAuthenticated && lessonId ? { lessonId } : "skip",
+    lessonId ? { lessonId } : "skip",
   );
-  const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
+  const progress = useQuery(api.demo.myLessonProgress, {});
   const markDemoLessonComplete = useMutation(api.demo.markDemoLessonComplete);
   const generateLessonUploadUrl = useMutation(api.training.generateLessonUploadUrl);
   const submitLessonQuiz = useMutation(api.training.submitLessonQuiz);
@@ -261,33 +259,13 @@ export function LessonViewPage() {
     }
   }
 
-  if (isLoading || (isAuthenticated && content === undefined)) {
+  if (content === undefined) {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Learning"
+          eyebrow="Training"
           title="Lesson"
           description="Loading lesson content."
-        />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="mx-auto max-w-5xl">
-        <PageHeading
-          eyebrow="Learning"
-          title="Sign in required"
-          description="Sign in to view lesson content."
-          actions={
-            <Button asChild variant="outline">
-              <Link to="/training">
-                <ArrowLeft className="size-4" />
-                Back to learning
-              </Link>
-            </Button>
-          }
         />
       </div>
     );
@@ -297,14 +275,14 @@ export function LessonViewPage() {
     return (
       <div className="mx-auto max-w-5xl">
         <PageHeading
-          eyebrow="Learning"
+          eyebrow="Training"
           title="Lesson not found"
           description="This lesson is not available."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to learning
+                Back to training
               </Link>
             </Button>
           }
@@ -323,7 +301,7 @@ export function LessonViewPage() {
           <Button asChild variant="outline">
             <Link to="/training">
               <ArrowLeft className="size-4" />
-              Back to learning
+              Back to training
             </Link>
           </Button>
         }
@@ -564,7 +542,7 @@ export function LessonViewPage() {
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to learning
+                Back to training
               </Link>
             </Button>
           </div>

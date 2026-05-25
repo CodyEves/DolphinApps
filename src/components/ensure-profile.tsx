@@ -10,12 +10,19 @@ export function EnsureProfile() {
   const hasRequestedProfile = useRef(false);
 
   useEffect(() => {
-    if (isLoading || !isAuthenticated || hasRequestedProfile.current) {
+    if (isLoading) return;
+
+    if (!isAuthenticated) {
+      hasRequestedProfile.current = false;
       return;
     }
 
+    if (hasRequestedProfile.current) return;
+
     hasRequestedProfile.current = true;
-    void ensureProfile({});
+    ensureProfile({}).catch(() => {
+      hasRequestedProfile.current = false;
+    });
   }, [ensureProfile, isAuthenticated, isLoading]);
 
   return null;

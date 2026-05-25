@@ -12,7 +12,7 @@ import {
 
 const focusAreas = [
   {
-    title: "Learning tracks",
+    title: "Training tracks",
     description: "Organize safety, mechanical, electrical, CAD, programming, and drive team lessons.",
     icon: BookOpen,
     href: "/training",
@@ -55,7 +55,7 @@ export function HomePage() {
               </Link>
             </Button>
             <Button asChild variant="outline">
-              <Link to="/training">View learning</Link>
+              <Link to="/training">View training</Link>
             </Button>
           </div>
         </div>

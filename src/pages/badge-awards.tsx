@@ -1,5 +1,4 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import {
   ArrowLeft,
   Award,
@@ -47,26 +46,13 @@ function accountLabel(role: string, studentGroup: string | undefined) {
 }
 
 export function BadgeAwardsPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
   const badgeAwards = useQuery(
     api.badges.listBadgeAwardsForAdmin,
-    isAuthenticated && isAdmin ? {} : "skip",
+    isAdmin ? {} : "skip",
   );
-
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Badges"
-          title="Badge awards"
-          description="Loading awarded badge records."
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -84,26 +70,13 @@ export function BadgeAwardsPage() {
         }
       />
 
-      <Unauthenticated>
-        <Card>
-          <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
-            <CardTitle>Sign in required</CardTitle>
-            <CardDescription>
-              Badge award records require an authenticated admin account.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </Unauthenticated>
-
-      <Authenticated>
-        {!isAdmin ? (
+      {!isAdmin ? (
           <Card>
             <CardHeader>
               <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin access required</CardTitle>
               <CardDescription>
-                Switch back to your actual role or sign in with an admin account.
+                Turn off student preview or sign in with an admin account.
               </CardDescription>
             </CardHeader>
           </Card>
@@ -180,8 +153,6 @@ export function BadgeAwardsPage() {
             ))}
           </div>
         )}
-      </Authenticated>
     </div>
   );
 }
-

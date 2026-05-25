@@ -1,4 +1,3 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -122,16 +121,15 @@ function needsVideo(type: LessonType) {
 }
 
 export function LessonEditorPage() {
-  const { isAuthenticated, isLoading } = useConvexAuth();
   const navigate = useNavigate();
   const params = useParams();
   const lessonId = params.lessonId as Id<"lessons"> | undefined;
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const viewer = useQuery(api.profiles.viewer, {});
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
   const lessonRecord = useQuery(
     api.training.getLessonForEdit,
-    isAuthenticated && isAdmin && lessonId ? { lessonId } : "skip",
+    isAdmin && lessonId ? { lessonId } : "skip",
   );
   const saveLesson = useMutation(api.training.saveLesson);
   const [form, setForm] = useState<LessonForm>(emptyLessonForm);
@@ -360,43 +358,11 @@ export function LessonEditorPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Learning"
-          title="Edit lesson"
-          description="Loading the lesson editor."
-        />
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Learning"
-          title="Sign in required"
-          description="Sign in with an admin account to edit lessons."
-          actions={
-            <Button asChild variant="outline">
-              <Link to="/training">
-                <ArrowLeft className="size-4" />
-                Back to learning
-              </Link>
-            </Button>
-          }
-        />
-      </div>
-    );
-  }
-
   if (viewer === undefined || (isAdmin && lessonId && lessonRecord === undefined)) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Learning"
+          eyebrow="Training"
           title="Edit lesson"
           description="Loading the lesson editor."
         />
@@ -408,14 +374,14 @@ export function LessonEditorPage() {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Learning"
+          eyebrow="Training"
           title="Admin access required"
           description="Only admins can edit lessons."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to learning
+                Back to training
               </Link>
             </Button>
           }
@@ -428,14 +394,14 @@ export function LessonEditorPage() {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Learning"
+          eyebrow="Training"
           title="Lesson not found"
           description="This lesson may have been removed."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
-                Back to learning
+                Back to training
               </Link>
             </Button>
           }
@@ -447,7 +413,7 @@ export function LessonEditorPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Learning"
+        eyebrow="Training"
         title="Edit lesson"
         description="Choose whether this is video-only, video plus assignment, or an exam-style lesson."
         actions={

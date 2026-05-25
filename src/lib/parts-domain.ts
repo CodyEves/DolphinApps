@@ -19,7 +19,7 @@ export const orderStatuses = [
 ] as const;
 
 export const priorities = ["low", "normal", "high", "critical"] as const;
-export const roles = ["student", "mentor", "admin"] as const;
+export const roles = ["student", "instructor", "mentor", "admin"] as const;
 
 export type PartStatus = (typeof partStatuses)[number];
 export type OrderStatus = (typeof orderStatuses)[number];

@@ -1,10 +1,8 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { useQuery } from "convex/react";
 import { Link } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -42,21 +40,17 @@ function ProgressLink({
 }
 
 export function DashboardPage() {
-  const { isAuthenticated } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
-  const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
-  const equipment = useQuery(api.equipment.listEquipment, isAuthenticated ? {} : "skip");
-  const badges = useQuery(api.badges.listBadges, isAuthenticated ? {} : "skip");
-  const badgeAwards = useQuery(
-    api.badges.listMyBadgeAwards,
-    isAuthenticated ? {} : "skip",
-  );
+  const viewer = useQuery(api.profiles.viewer, {});
+  const tracks = useQuery(api.training.listTrainingTracks, {});
+  const progress = useQuery(api.demo.myLessonProgress, {});
+  const equipment = useQuery(api.equipment.listEquipment, {});
+  const badges = useQuery(api.badges.listBadges, {});
+  const badgeAwards = useQuery(api.badges.listMyBadgeAwards, {});
   const role = useEffectiveRole(viewer?.profile.role);
   const canReview = role === "admin" || role === "mentor" || role === "instructor";
   const reviewQueue = useQuery(
     api.adminLms.listReviewQueue,
-    isAuthenticated && canReview ? {} : "skip",
+    canReview ? {} : "skip",
   );
   const completedLessonIds = new Set(progress?.map((item) => item.lessonId));
   const earnedBadgeIds = new Set(badgeAwards?.map((award) => award.badgeId));
@@ -126,24 +120,7 @@ export function DashboardPage() {
         actions={<Badge variant="outline">Current role: {role}</Badge>}
       />
 
-      <Unauthenticated>
-        <Card>
-          <CardHeader>
-            <CardTitle>Sign in to see your dashboard</CardTitle>
-            <CardDescription>
-              Your dashboard is available after you sign in.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild>
-              <Link to="/auth">Sign in or create account</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </Unauthenticated>
-
-      <Authenticated>
-        <div className="space-y-4">
+      <div className="space-y-4">
         {canReview && (
           <Card>
             <CardHeader>
@@ -196,12 +173,12 @@ export function DashboardPage() {
               <div className="space-y-3">
                 {visibleTracks === undefined || progress === undefined ? (
                   <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                    Loading learning track progress...
+                    Loading learning path progress...
                   </div>
                 ) : inProgressTracks.length === 0 ? (
                   <ProgressLink
                     to="/training"
-                    label="Learning tracks in progress"
+                    label="Learning paths in progress"
                     badge={<Badge variant="outline">0 active</Badge>}
                   >
                     <p className="mt-2 text-sm text-muted-foreground">
@@ -229,7 +206,7 @@ export function DashboardPage() {
               <div className="grid gap-3 text-sm sm:grid-cols-3 lg:grid-cols-1">
                 <ProgressLink
                   to="/training"
-                  label="Learning tracks completed"
+                  label="Learning paths completed"
                   badge={
                     <Badge variant="secondary">
                       {completedTrackCount} of {totalTrackCount}
@@ -261,7 +238,6 @@ export function DashboardPage() {
           </CardContent>
         </Card>
         </div>
-      </Authenticated>
     </div>
   );
 }

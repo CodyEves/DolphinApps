@@ -15,6 +15,7 @@ const roleValidator = v.union(
 const accountLabelValidator = v.union(
   v.literal("varsity_5199"),
   v.literal("jv_9271"),
+  v.literal("instructor"),
   v.literal("mentor"),
   v.literal("guest"),
   v.literal("admin"),
@@ -57,8 +58,12 @@ function accountLabelForProfile(profile: {
     return "admin" as const;
   }
 
-  if (profile.role === "mentor" || profile.role === "instructor") {
+  if (profile.role === "mentor") {
     return "mentor" as const;
+  }
+
+  if (profile.role === "instructor") {
+    return "instructor" as const;
   }
 
   if (profile.role === "guest") {
@@ -78,7 +83,7 @@ export const ensureCurrentUserProfile = mutation({
     const userId = await getAuthUserId(ctx);
 
     if (!userId) {
-      throw new Error("You must be signed in to create a profile.");
+      return;
     }
 
     const user = await ctx.db.get(userId);
@@ -187,13 +192,15 @@ export const setAccountLabel = mutation({
         ? { role: "admin" as const, studentGroup: undefined }
         : args.accountLabel === "mentor"
           ? { role: "mentor" as const, studentGroup: undefined }
-          : args.accountLabel === "guest"
-            ? { role: "guest" as const, studentGroup: undefined }
-            : {
-                role: "student" as const,
-                studentGroup:
-                  args.accountLabel === "jv_9271" ? "9271 Student" : "5199 Student",
-              };
+          : args.accountLabel === "instructor"
+            ? { role: "instructor" as const, studentGroup: undefined }
+            : args.accountLabel === "guest"
+              ? { role: "guest" as const, studentGroup: undefined }
+              : {
+                  role: "student" as const,
+                  studentGroup:
+                    args.accountLabel === "jv_9271" ? "9271 Student" : "5199 Student",
+                };
 
     if (existing) {
       await ctx.db.patch(existing._id, {
