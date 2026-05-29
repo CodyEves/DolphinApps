@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { canApproveOrders, requireProfile } from "./lib/authz";
+import { canApproveOrders, requireProfile, requireSeasonAccess } from "./lib/authz";
 import { orderStatusValidator } from "./lib/validators";
 
 export const list = query({
@@ -10,7 +10,8 @@ export const list = query({
     status: v.optional(orderStatusValidator),
   },
   handler: async (ctx, args) => {
-    await requireProfile(ctx);
+    const profile = await requireProfile(ctx);
+    await requireSeasonAccess(ctx, profile, args.seasonId);
 
     if (args.status) {
       const status = args.status;
@@ -46,6 +47,24 @@ export const submit = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await requireProfile(ctx);
+    await requireSeasonAccess(ctx, profile, args.seasonId);
+
+    if (args.subsystemId) {
+      const subsystem = await ctx.db.get(args.subsystemId);
+
+      if (!subsystem || subsystem.seasonId !== args.seasonId) {
+        throw new Error("Choose a subsystem in the active season.");
+      }
+    }
+
+    if (args.partId) {
+      const part = await ctx.db.get(args.partId);
+
+      if (!part || part.seasonId !== args.seasonId) {
+        throw new Error("Choose a part from the same robot program season.");
+      }
+    }
+
     const now = Date.now();
 
     return await ctx.db.insert("orderRequests", {
@@ -81,6 +100,8 @@ export const updateStatus = mutation({
     if (!order) {
       throw new Error("Order request not found.");
     }
+
+    await requireSeasonAccess(ctx, profile, order.seasonId);
 
     const now = Date.now();
 

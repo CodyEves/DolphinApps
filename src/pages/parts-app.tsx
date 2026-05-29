@@ -39,6 +39,13 @@ import {
   type Role,
 } from "@/lib/parts-domain";
 import { resolveEffectiveRole } from "@/lib/parts-roles";
+import {
+  availablePartsPrograms,
+  defaultPartsProgram,
+  programMeta,
+  teamNumberForProgram,
+  type Program,
+} from "@/lib/programs";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/use-ui-store";
 
@@ -59,10 +66,35 @@ type OverviewData = {
   transmissions: Doc<"transmissions">[];
 };
 
-function useActiveContext() {
+function usePartsProgram() {
+  const { isAuthenticated } = useConvexAuth();
+  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const { partsProgramView, setPartsProgramView } = useUiStore();
+  const profile = viewer?.profile ?? null;
+  const availablePrograms = availablePartsPrograms(profile);
+  const fallbackProgram = defaultPartsProgram(profile);
+  const selectedProgram =
+    partsProgramView && availablePrograms.includes(partsProgramView)
+      ? partsProgramView
+      : fallbackProgram;
+
+  return {
+    viewer,
+    profile,
+    selectedProgram,
+    selectedTeamNumber: teamNumberForProgram(selectedProgram),
+    availablePrograms,
+    setPartsProgramView,
+  };
+}
+
+function useActiveContext(teamNumber: "5199" | "9271", canLoad: boolean) {
   const { isAuthenticated } = useConvexAuth();
 
-  return useQuery(api.setup.activeSeason, isAuthenticated ? {} : "skip") as
+  return useQuery(
+    api.setup.activeSeason,
+    isAuthenticated && canLoad ? { teamNumber } : "skip",
+  ) as
     | ActiveContext
     | undefined;
 }
@@ -117,7 +149,11 @@ function StatusPill({ status }: { status: PartStatus | OrderStatus }) {
 }
 
 function useSeasonData() {
-  const active = useActiveContext();
+  const partsProgram = usePartsProgram();
+  const active = useActiveContext(
+    partsProgram.selectedTeamNumber,
+    partsProgram.viewer !== undefined,
+  );
   const seasonId = active?.season?._id;
   const overview = useQuery(
     api.dashboard.overview,
@@ -127,19 +163,59 @@ function useSeasonData() {
     | Doc<"catalogOptions">[]
     | undefined;
 
-  return { active, overview, catalog: catalog ?? [] };
+  return { active, overview, catalog: catalog ?? [], partsProgram };
 }
 
-function SetupSeasonCallout({ profile }: { profile: Doc<"profiles"> }) {
+function PartsProgramSelector({
+  availablePrograms,
+  selectedProgram,
+  onSelect,
+}: {
+  availablePrograms: Program[];
+  selectedProgram: Program;
+  onSelect: (program: Program) => void;
+}) {
+  if (availablePrograms.length <= 1) {
+    return null;
+  }
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border bg-card p-2">
+      <span className="px-2 text-xs font-medium text-muted-foreground">
+        Robot program
+      </span>
+      {availablePrograms.map((program) => (
+        <Button
+          key={program}
+          type="button"
+          size="sm"
+          variant={selectedProgram === program ? "default" : "outline"}
+          onClick={() => onSelect(program)}
+        >
+          {programMeta[program].teamNumber}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+function SetupSeasonCallout({
+  profile,
+  selectedProgram,
+}: {
+  profile: Doc<"profiles">;
+  selectedProgram: Program;
+}) {
   const seedDefaults = useMutation(api.setup.seedDefaults);
   const [isSeeding, setIsSeeding] = useState(false);
   const { effectiveRoleView } = useUiStore();
   const effectiveRole = resolveEffectiveRole(profile.role, effectiveRoleView);
+  const teamNumber = programMeta[selectedProgram].teamNumber;
 
   if (!canManageAdmin(effectiveRole)) {
     return (
       <EmptyState>
-        An admin needs to seed the active season before parts can be generated.
+        An admin needs to seed the Team {teamNumber} season before parts can be generated.
       </EmptyState>
     );
   }
@@ -147,8 +223,8 @@ function SetupSeasonCallout({ profile }: { profile: Doc<"profiles"> }) {
   async function handleSeed() {
     setIsSeeding(true);
     try {
-      await seedDefaults({});
-      toast.success("Default season, subsystems, and shop tags seeded");
+      await seedDefaults({ teamNumber });
+      toast.success(`Team ${teamNumber} season, subsystems, and shop tags seeded`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Setup failed");
     } finally {
@@ -160,7 +236,7 @@ function SetupSeasonCallout({ profile }: { profile: Doc<"profiles"> }) {
     <div className="rounded-md border bg-card p-4">
       <h2 className="font-semibold">Start the robot season</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Seed editable subsystems and common material/tool tags for Team 5199.
+        Seed editable subsystems and common material/tool tags for Team {teamNumber}.
       </p>
       <Button className="mt-4" onClick={handleSeed} disabled={isSeeding}>
         <SettingsIcon data-icon="inline-start" aria-hidden="true" />
@@ -180,7 +256,7 @@ function RequireSeason({
   ) => ReactNode;
 }) {
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const { active, overview, catalog } = useSeasonData();
+  const { active, overview, catalog, partsProgram } = useSeasonData();
 
   if (!isLoading && !isAuthenticated) {
     return (
@@ -205,7 +281,19 @@ function RequireSeason({
   }
 
   if (!active.season) {
-    return <SetupSeasonCallout profile={active.profile} />;
+    return (
+      <>
+        <PartsProgramSelector
+          availablePrograms={partsProgram.availablePrograms}
+          selectedProgram={partsProgram.selectedProgram}
+          onSelect={partsProgram.setPartsProgramView}
+        />
+        <SetupSeasonCallout
+          profile={active.profile}
+          selectedProgram={partsProgram.selectedProgram}
+        />
+      </>
+    );
   }
 
   if (!overview) {
@@ -214,7 +302,16 @@ function RequireSeason({
 
   const readyActive: ReadyActiveContext = { ...active, profile: active.profile };
 
-  return children(overview, readyActive, catalog);
+  return (
+    <>
+      <PartsProgramSelector
+        availablePrograms={partsProgram.availablePrograms}
+        selectedProgram={partsProgram.selectedProgram}
+        onSelect={partsProgram.setPartsProgramView}
+      />
+      {children(overview, readyActive, catalog)}
+    </>
+  );
 }
 
 function subsystemName(subsystems: Doc<"subsystems">[], subsystemId: Id<"subsystems">) {
@@ -999,7 +1096,7 @@ export function AdminRoute() {
 
         async function seed() {
           try {
-            await seedDefaults({});
+            await seedDefaults({ teamNumber: active.season!.teamNumber ?? "5199" });
             toast.success("Defaults refreshed");
           } catch (error) {
             toast.error(error instanceof Error ? error.message : "Seed failed");

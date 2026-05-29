@@ -2,6 +2,7 @@ import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const program = v.union(v.literal("frc_5199"), v.literal("frc_9271"));
 const role = v.union(
   v.literal("student"),
   v.literal("instructor"),
@@ -109,6 +110,7 @@ export default defineSchema({
     role,
     displayName: v.optional(v.string()),
     email: v.optional(v.string()),
+    primaryProgram: v.optional(program),
     graduationYear: v.optional(v.number()),
     studentGroup: v.optional(v.string()),
     status: activeStatus,
@@ -321,10 +323,12 @@ export default defineSchema({
   seasons: defineTable({
     name: v.string(),
     year: v.number(),
+    teamNumber: v.optional(v.union(v.literal("5199"), v.literal("9271"))),
     isActive: v.boolean(),
     createdByProfileId: v.id("profiles"),
   })
     .index("by_isActive", ["isActive"])
+    .index("by_teamNumber_and_isActive", ["teamNumber", "isActive"])
     .index("by_year", ["year"]),
 
   subsystems: defineTable({

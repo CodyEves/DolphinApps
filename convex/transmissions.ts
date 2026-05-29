@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { requireProfile } from "./lib/authz";
+import { requireProfile, requireSeasonAccess } from "./lib/authz";
 
 export const list = query({
   args: {
@@ -9,7 +9,8 @@ export const list = query({
     subsystemId: v.optional(v.id("subsystems")),
   },
   handler: async (ctx, args) => {
-    await requireProfile(ctx);
+    const profile = await requireProfile(ctx);
+    await requireSeasonAccess(ctx, profile, args.seasonId);
 
     if (args.subsystemId) {
       const subsystemId = args.subsystemId;
@@ -46,9 +47,22 @@ export const upsert = mutation({
   },
   handler: async (ctx, args) => {
     const profile = await requireProfile(ctx);
+    await requireSeasonAccess(ctx, profile, args.seasonId);
+    const subsystem = await ctx.db.get(args.subsystemId);
+
+    if (!subsystem || subsystem.seasonId !== args.seasonId) {
+      throw new Error("Choose a subsystem in the active season.");
+    }
+
     const now = Date.now();
 
     if (args.transmissionId) {
+      const transmission = await ctx.db.get(args.transmissionId);
+
+      if (!transmission || transmission.seasonId !== args.seasonId) {
+        throw new Error("Transmission not found in this robot program season.");
+      }
+
       const { transmissionId, ...patch } = args;
       await ctx.db.patch(transmissionId, {
         ...patch,

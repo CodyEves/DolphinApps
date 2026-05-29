@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
+import { programForProfile, programMeta } from "@/lib/programs";
 import { api } from "@convex/_generated/api";
 
 export function TrainingPage() {
@@ -22,6 +23,7 @@ export function TrainingPage() {
   const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const activeProgramMeta = programMeta[programForProfile(viewer?.profile)];
   const isAdmin = effectiveRole === "admin";
   const visibleTracks = isAdmin
     ? tracks
@@ -31,9 +33,9 @@ export function TrainingPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Dolphin Training"
+        eyebrow={activeProgramMeta.trainingTitle}
         title="Learning tracks"
-        description="Choose a learning track to view its units, lessons, videos, assignments, and progress."
+        description={activeProgramMeta.trainingDescription}
         actions={
           <Authenticated>
             {isAdmin && (

@@ -3,6 +3,14 @@ import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
 import { requireProfile, requireRole } from "./lib/authz";
+import {
+  programForProfile,
+  requirePartsTeamAccess,
+  teamNumberForSeason,
+  type TeamNumber,
+} from "./lib/programs";
+
+const teamNumberValidator = v.union(v.literal("5199"), v.literal("9271"));
 
 const defaultSubsystems = [
   ["D", "Drivetrain"],
@@ -24,8 +32,10 @@ const defaultCatalogOptions = {
 } as const;
 
 export const activeSeason = query({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    teamNumber: v.optional(teamNumberValidator),
+  },
+  handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
 
     if (!userId) {
@@ -41,10 +51,27 @@ export const activeSeason = query({
       return { profile: null, season: null };
     }
 
-    const season = await ctx.db
+    const requestedTeamNumber: TeamNumber =
+      args.teamNumber ?? (programForProfile(profile) === "frc_9271" ? "9271" : "5199");
+    requirePartsTeamAccess(profile, requestedTeamNumber);
+
+    let season = await ctx.db
       .query("seasons")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
+      .withIndex("by_teamNumber_and_isActive", (q) =>
+        q.eq("teamNumber", requestedTeamNumber).eq("isActive", true),
+      )
       .first();
+
+    if (!season && requestedTeamNumber === "5199") {
+      const legacySeason = await ctx.db
+        .query("seasons")
+        .withIndex("by_isActive", (q) => q.eq("isActive", true))
+        .first();
+
+      if (legacySeason && teamNumberForSeason(legacySeason) === "5199") {
+        season = legacySeason;
+      }
+    }
 
     return { profile, season };
   },
@@ -53,15 +80,31 @@ export const activeSeason = query({
 export const seedDefaults = mutation({
   args: {
     year: v.optional(v.number()),
+    teamNumber: v.optional(teamNumberValidator),
   },
   handler: async (ctx, args) => {
     const profile = await requireProfile(ctx);
     requireRole(profile, ["admin"]);
+    const teamNumber = args.teamNumber ?? "5199";
+    requirePartsTeamAccess(profile, teamNumber);
 
-    const activeSeason = await ctx.db
+    let activeSeason = await ctx.db
       .query("seasons")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
+      .withIndex("by_teamNumber_and_isActive", (q) =>
+        q.eq("teamNumber", teamNumber).eq("isActive", true),
+      )
       .first();
+
+    if (!activeSeason && teamNumber === "5199") {
+      const legacySeason = await ctx.db
+        .query("seasons")
+        .withIndex("by_isActive", (q) => q.eq("isActive", true))
+        .first();
+
+      if (legacySeason && teamNumberForSeason(legacySeason) === "5199") {
+        activeSeason = legacySeason;
+      }
+    }
 
     const year = args.year ?? new Date().getFullYear();
     const seasonId =
@@ -69,6 +112,7 @@ export const seedDefaults = mutation({
       (await ctx.db.insert("seasons", {
         name: `${year} Robot`,
         year,
+        teamNumber,
         isActive: true,
         createdByProfileId: profile._id,
       }));

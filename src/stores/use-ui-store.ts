@@ -3,6 +3,7 @@ import { create } from "zustand";
 type DashboardView = "overview" | "student" | "instructor" | "admin";
 
 type PartsRoleView = "actual" | "student" | "mentor" | "admin";
+type Program = "frc_5199" | "frc_9271";
 
 type UiState = {
   dashboardView: DashboardView;
@@ -10,12 +11,14 @@ type UiState = {
   isMobileNavOpen: boolean;
   selectedTrainingTrackId: string | null;
   effectiveRoleView: PartsRoleView;
+  partsProgramView: Program | null;
   manufacturingStatusFilter: string;
   partsSubsystemFilter: string;
   setDashboardView: (view: DashboardView) => void;
   setMobileNavOpen: (open: boolean) => void;
   setSelectedTrainingTrackId: (id: string | null) => void;
   setEffectiveRoleView: (view: PartsRoleView) => void;
+  setPartsProgramView: (program: Program) => void;
   setManufacturingStatusFilter: (status: string) => void;
   setPartsSubsystemFilter: (subsystemId: string) => void;
   toggleSidebar: () => void;
@@ -27,6 +30,7 @@ export const useUiStore = create<UiState>((set) => ({
   isMobileNavOpen: false,
   selectedTrainingTrackId: null,
   effectiveRoleView: "actual",
+  partsProgramView: null,
   manufacturingStatusFilter: "inManufacturing",
   partsSubsystemFilter: "all",
   setDashboardView: (dashboardView) => set({ dashboardView }),
@@ -34,6 +38,7 @@ export const useUiStore = create<UiState>((set) => ({
   setSelectedTrainingTrackId: (selectedTrainingTrackId) =>
     set({ selectedTrainingTrackId }),
   setEffectiveRoleView: (effectiveRoleView) => set({ effectiveRoleView }),
+  setPartsProgramView: (partsProgramView) => set({ partsProgramView }),
   setManufacturingStatusFilter: (manufacturingStatusFilter) =>
     set({ manufacturingStatusFilter }),
   setPartsSubsystemFilter: (partsSubsystemFilter) => set({ partsSubsystemFilter }),

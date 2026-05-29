@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { query } from "./_generated/server";
-import { requireProfile } from "./lib/authz";
+import { requireProfile, requireSeasonAccess } from "./lib/authz";
 
 export const overview = query({
   args: {
@@ -9,7 +9,7 @@ export const overview = query({
   },
   handler: async (ctx, args) => {
     const profile = await requireProfile(ctx);
-    const season = await ctx.db.get(args.seasonId);
+    const season = await requireSeasonAccess(ctx, profile, args.seasonId);
     const subsystems = await ctx.db
       .query("subsystems")
       .withIndex("by_seasonId_and_sortOrder", (q) => q.eq("seasonId", args.seasonId))

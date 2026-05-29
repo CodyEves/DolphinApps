@@ -1,14 +1,15 @@
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { requireProfile, requireRole } from "./lib/authz";
+import { requireProfile, requireRole, requireSeasonAccess } from "./lib/authz";
 
 export const list = query({
   args: {
     seasonId: v.id("seasons"),
   },
   handler: async (ctx, args) => {
-    await requireProfile(ctx);
+    const profile = await requireProfile(ctx);
+    await requireSeasonAccess(ctx, profile, args.seasonId);
 
     return await ctx.db
       .query("subsystems")
@@ -28,6 +29,7 @@ export const upsert = mutation({
   handler: async (ctx, args) => {
     const profile = await requireProfile(ctx);
     requireRole(profile, ["admin"]);
+    await requireSeasonAccess(ctx, profile, args.seasonId);
 
     const letter = args.letter.trim().toUpperCase();
 

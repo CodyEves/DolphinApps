@@ -14,6 +14,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { programForProfile, programMeta } from "@/lib/programs";
+import { api } from "@convex/_generated/api";
+import { useConvexAuth } from "@convex-dev/auth/react";
+import { useQuery } from "convex/react";
 
 type AppLauncherProps = {
   collapsed?: boolean;
@@ -22,7 +26,7 @@ type AppLauncherProps = {
 
 type LauncherApp = {
   href: string;
-  name: string;
+  titleKey: "trainingTitle" | "partsTitle";
   description: string;
   icon: LucideIcon;
   iconClassName: string;
@@ -31,14 +35,14 @@ type LauncherApp = {
 const apps: LauncherApp[] = [
   {
     href: "/",
-    name: "Dolphin Training",
+    titleKey: "trainingTitle",
     description: "Lessons, safety, badges",
     icon: GraduationCap,
     iconClassName: "bg-brand-blue text-white",
   },
   {
     href: "/parts",
-    name: "Dolphin Parts",
+    titleKey: "partsTitle",
     description: "Parts, BOMs, fab",
     icon: Package,
     iconClassName: "bg-brand-orange text-white",
@@ -55,8 +59,12 @@ function isActiveApp(pathname: string, href: string) {
 
 export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
   const location = useLocation();
+  const { isAuthenticated } = useConvexAuth();
+  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const activeProgramMeta = programMeta[programForProfile(viewer?.profile)];
   const activeApp =
     apps.find((app) => isActiveApp(location.pathname, app.href)) ?? apps[0];
+  const activeAppName = activeProgramMeta[activeApp.titleKey];
 
   return (
     <DropdownMenu>
@@ -76,7 +84,7 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
           {!collapsed && (
             <span className="min-w-0 text-left">
               <span className="block truncate text-sm font-semibold">
-                {activeApp.name}
+                {activeAppName}
               </span>
               <span className="block truncate text-xs font-normal text-muted-foreground">
                 Dolphin Apps
@@ -115,7 +123,7 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
                 </span>
                 <span className="grid gap-0.5">
                   <span className="text-sm font-medium leading-5">
-                    {app.name}
+                    {activeProgramMeta[app.titleKey]}
                   </span>
                   <span className="text-xs leading-4 text-muted-foreground">
                     {app.description}

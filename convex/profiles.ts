@@ -3,6 +3,7 @@ import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { programForProfile, programValidator } from "./lib/programs";
 
 const roleValidator = v.union(
   v.literal("student"),
@@ -51,6 +52,7 @@ async function requireAdmin(ctx: QueryCtx | MutationCtx) {
 
 function accountLabelForProfile(profile: {
   role: "student" | "instructor" | "mentor" | "guest" | "admin";
+  primaryProgram?: "frc_5199" | "frc_9271";
   studentGroup?: string;
 }) {
   if (profile.role === "admin") {
@@ -65,7 +67,7 @@ function accountLabelForProfile(profile: {
     return "guest" as const;
   }
 
-  if (profile.studentGroup === "JV 9271" || profile.studentGroup === "9271 Student") {
+  if (programForProfile(profile) === "frc_9271") {
     return "jv_9271" as const;
   }
 
@@ -191,6 +193,8 @@ export const setAccountLabel = mutation({
             ? { role: "guest" as const, studentGroup: undefined }
             : {
                 role: "student" as const,
+                primaryProgram:
+                  args.accountLabel === "jv_9271" ? "frc_9271" as const : "frc_5199" as const,
                 studentGroup:
                   args.accountLabel === "jv_9271" ? "9271 Student" : "5199 Student",
               };
@@ -211,6 +215,55 @@ export const setAccountLabel = mutation({
       ...patch,
       displayName: user.name,
       email: user.email,
+      status: "active",
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const setPrimaryProgram = mutation({
+  args: {
+    program: programValidator,
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+
+    if (!userId) {
+      throw new Error("You must be signed in to choose a program.");
+    }
+
+    const user = await ctx.db.get(userId);
+    const now = Date.now();
+    const studentGroup = args.program === "frc_9271" ? "9271 Student" : "5199 Student";
+    const existing = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (existing) {
+      if (existing.role !== "student") {
+        throw new Error("Program onboarding is only available for student accounts.");
+      }
+
+      await ctx.db.patch(existing._id, {
+        primaryProgram: args.program,
+        studentGroup,
+        displayName: user?.name,
+        email: user?.email,
+        updatedAt: now,
+      });
+
+      return existing._id;
+    }
+
+    return await ctx.db.insert("profiles", {
+      userId,
+      role: "student",
+      primaryProgram: args.program,
+      studentGroup,
+      displayName: user?.name,
+      email: user?.email,
       status: "active",
       createdAt: now,
       updatedAt: now,

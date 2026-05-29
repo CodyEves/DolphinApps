@@ -30,11 +30,12 @@ import {
   type RoleView,
   type VisibleRoleView,
 } from "@/providers/role-preview-provider";
+import { programForProfile, programMeta } from "@/lib/programs";
 import { api } from "@convex/_generated/api";
 
 const apps = [
-  { href: "/dashboard", label: "Dolphin Training", icon: GraduationCap },
-  { href: "/parts", label: "Dolphin Parts", icon: Package },
+  { href: "/dashboard", titleKey: "trainingTitle", icon: GraduationCap },
+  { href: "/parts", titleKey: "partsTitle", icon: Package },
 ] as const;
 
 const roleViewMeta: Record<VisibleRoleView, { label: string; icon: LucideIcon }> = {
@@ -56,8 +57,9 @@ function initials(nameOrEmail?: string | null) {
     .join("");
 }
 
-function appLabelForPath(pathname: string) {
-  return pathname.startsWith("/parts") ? "Dolphin Parts" : "Dolphin Training";
+function appLabelForPath(pathname: string, profile: Parameters<typeof programForProfile>[0]) {
+  const meta = programMeta[programForProfile(profile)];
+  return pathname.startsWith("/parts") ? meta.partsTitle : meta.trainingTitle;
 }
 
 function allowedRoleViews(role: string | undefined): VisibleRoleView[] {
@@ -97,7 +99,7 @@ export function UserMenu() {
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const { roleView, setRoleView } = useRolePreview();
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const currentApp = appLabelForPath(location.pathname);
+  const currentApp = appLabelForPath(location.pathname, viewer?.profile);
   const roleOptions = allowedRoleViews(viewer?.profile.role);
   const selectedView = selectedRoleView(roleView, viewer?.profile.role);
 
@@ -150,7 +152,7 @@ export function UserMenu() {
           <DropdownMenuItem key={app.href} asChild>
             <Link to={app.href}>
               <app.icon className="size-4" />
-              {app.label}
+              {programMeta[programForProfile(viewer.profile)][app.titleKey]}
             </Link>
           </DropdownMenuItem>
         ))}

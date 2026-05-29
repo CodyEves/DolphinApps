@@ -35,6 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { programForProfile, programMeta } from "@/lib/programs";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { useUiStore } from "@/stores/use-ui-store";
 import { cn } from "@/lib/utils";
@@ -182,9 +183,10 @@ export function MobileNav() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const activeProgramMeta = programMeta[programForProfile(viewer?.profile)];
   const appLabel = location.pathname.startsWith("/parts")
-    ? "Dolphin Parts"
-    : "Dolphin Training";
+    ? activeProgramMeta.partsTitle
+    : activeProgramMeta.trainingTitle;
   const visibleNavItems = visibleItems(navItemsForPath(location.pathname), effectiveRole);
 
   const current = visibleNavItems.find((item) =>

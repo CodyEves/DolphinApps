@@ -1,3 +1,5 @@
+import { useConvexAuth } from "@convex-dev/auth/react";
+import { useQuery } from "convex/react";
 import { ArrowRight, Award, BookOpen, Wrench } from "lucide-react";
 import { Link } from "react-router";
 
@@ -9,6 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { programForProfile, programMeta } from "@/lib/programs";
+import { api } from "@convex/_generated/api";
 
 const focusAreas = [
   {
@@ -32,12 +36,16 @@ const focusAreas = [
 ];
 
 export function HomePage() {
+  const { isAuthenticated } = useConvexAuth();
+  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const activeProgramMeta = programMeta[programForProfile(viewer?.profile)];
+
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
         <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
           <div className="space-y-6 p-6 lg:p-8">
-            <Badge variant="secondary">Team 5199 training system</Badge>
+            <Badge variant="secondary">Team {activeProgramMeta.teamNumber} training system</Badge>
             <div className="space-y-3">
               <h1 className="max-w-3xl text-3xl font-semibold tracking-normal text-brand-navy dark:text-foreground sm:text-4xl">
                 The Robot Dolphins From Outer Space
@@ -62,7 +70,9 @@ export function HomePage() {
           </div>
           <div className="hidden border-l bg-brand-navy p-8 text-white lg:grid">
             <div className="self-end">
-              <p className="text-sm font-medium text-brand-aqua">FRC 5199</p>
+              <p className="text-sm font-medium text-brand-aqua">
+                FRC {activeProgramMeta.teamNumber}
+              </p>
               <p className="mt-2 text-4xl font-semibold">Dolphin Apps</p>
               <div className="mt-6 h-1.5 w-24 rounded-full bg-brand-orange" />
             </div>

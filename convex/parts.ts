@@ -3,7 +3,8 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
-import { requireProfile, requireRole } from "./lib/authz";
+import { requireProfile, requireRole, requireSeasonAccess } from "./lib/authz";
+import { requirePartsTeamAccess, teamNumberForSeason } from "./lib/programs";
 import { formatPartNumber } from "./lib/parts";
 import { partKindValidator, partStatusValidator, priorityValidator } from "./lib/validators";
 
@@ -56,6 +57,38 @@ async function insertEvent(
   });
 }
 
+async function requireSubsystemInSeason(
+  ctx: MutationCtx,
+  subsystemId: Id<"subsystems">,
+  seasonId: Id<"seasons">,
+) {
+  const subsystem = await ctx.db.get(subsystemId);
+
+  if (!subsystem || subsystem.seasonId !== seasonId || !subsystem.isEnabled) {
+    throw new Error("Choose an enabled subsystem in the active season.");
+  }
+
+  return subsystem;
+}
+
+async function requireSupersededPartInSeason(
+  ctx: MutationCtx,
+  supersedesPartId: Id<"parts"> | null,
+  seasonId: Id<"seasons">,
+) {
+  if (!supersedesPartId) {
+    return null;
+  }
+
+  const supersededPart = await ctx.db.get(supersedesPartId);
+
+  if (!supersededPart || supersededPart.seasonId !== seasonId) {
+    throw new Error("Choose a superseded part from the same robot program season.");
+  }
+
+  return supersededPart;
+}
+
 export const list = query({
   args: {
     seasonId: v.id("seasons"),
@@ -63,7 +96,16 @@ export const list = query({
     status: v.optional(partStatusValidator),
   },
   handler: async (ctx, args) => {
-    await requireProfile(ctx);
+    const profile = await requireProfile(ctx);
+    await requireSeasonAccess(ctx, profile, args.seasonId);
+
+    if (args.subsystemId) {
+      const subsystem = await ctx.db.get(args.subsystemId);
+
+      if (!subsystem || subsystem.seasonId !== args.seasonId) {
+        throw new Error("Choose a subsystem in the active season.");
+      }
+    }
 
     if (args.subsystemId && args.status) {
       const subsystemId = args.subsystemId;
@@ -112,12 +154,18 @@ export const detail = query({
     partId: v.id("parts"),
   },
   handler: async (ctx, args) => {
-    await requireProfile(ctx);
+    const profile = await requireProfile(ctx);
 
     const part = await ctx.db.get(args.partId);
     if (!part) {
       return null;
     }
+
+    const season = await ctx.db.get(part.seasonId);
+    if (!season) {
+      return null;
+    }
+    requirePartsTeamAccess(profile, teamNumberForSeason(season));
 
     const children = await ctx.db
       .query("partLinks")
@@ -141,6 +189,9 @@ export const saveDraft = mutation({
   args: partInput,
   handler: async (ctx, args) => {
     const profile = await requireProfile(ctx);
+    await requireSeasonAccess(ctx, profile, args.seasonId);
+    await requireSubsystemInSeason(ctx, args.subsystemId, args.seasonId);
+    await requireSupersededPartInSeason(ctx, args.supersedesPartId, args.seasonId);
     const now = Date.now();
 
     const partId = await ctx.db.insert("parts", {
@@ -166,11 +217,9 @@ export const generate = mutation({
   args: partInput,
   handler: async (ctx, args) => {
     const profile = await requireProfile(ctx);
-    const subsystem = await ctx.db.get(args.subsystemId);
-
-    if (!subsystem || subsystem.seasonId !== args.seasonId || !subsystem.isEnabled) {
-      throw new Error("Choose an enabled subsystem in the active season.");
-    }
+    await requireSeasonAccess(ctx, profile, args.seasonId);
+    const subsystem = await requireSubsystemInSeason(ctx, args.subsystemId, args.seasonId);
+    await requireSupersededPartInSeason(ctx, args.supersedesPartId, args.seasonId);
 
     const sequenceNumber = subsystem.nextPartNumber;
     const partNumber = formatPartNumber(subsystem.letter, sequenceNumber);
@@ -234,8 +283,15 @@ export const update = mutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireProfile(ctx);
+    const profile = await requireProfile(ctx);
     const { partId, ...patch } = args;
+    const part = await ctx.db.get(partId);
+
+    if (!part) {
+      throw new Error("Part not found.");
+    }
+
+    await requireSeasonAccess(ctx, profile, part.seasonId);
 
     await ctx.db.patch(partId, {
       ...patch,
@@ -260,6 +316,8 @@ export const updateStatus = mutation({
     if (!part) {
       throw new Error("Part not found.");
     }
+
+    await requireSeasonAccess(ctx, profile, part.seasonId);
 
     if (args.status === "deprecated") {
       requireRole(profile, ["mentor", "admin"]);
@@ -301,11 +359,20 @@ export const addBomLink = mutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireProfile(ctx);
+    const profile = await requireProfile(ctx);
 
     if (args.parentPartId === args.childPartId) {
       throw new Error("A part cannot contain itself.");
     }
+
+    const parentPart = await ctx.db.get(args.parentPartId);
+    const childPart = await ctx.db.get(args.childPartId);
+
+    if (!parentPart || !childPart || parentPart.seasonId !== childPart.seasonId) {
+      throw new Error("Choose parts from the same robot program season.");
+    }
+
+    await requireSeasonAccess(ctx, profile, parentPart.seasonId);
 
     const existing = await ctx.db
       .query("partLinks")
@@ -331,7 +398,20 @@ export const removeBomLink = mutation({
     linkId: v.id("partLinks"),
   },
   handler: async (ctx, args) => {
-    await requireProfile(ctx);
+    const profile = await requireProfile(ctx);
+    const link = await ctx.db.get(args.linkId);
+
+    if (!link) {
+      return null;
+    }
+
+    const parentPart = await ctx.db.get(link.parentPartId);
+    if (!parentPart) {
+      await ctx.db.delete(args.linkId);
+      return null;
+    }
+
+    await requireSeasonAccess(ctx, profile, parentPart.seasonId);
     await ctx.db.delete(args.linkId);
     return null;
   },
