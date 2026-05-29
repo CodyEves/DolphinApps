@@ -1,6 +1,6 @@
 # Deployment
 
-DolphinLMS is a Vite single-page app backed by Convex. The recommended public hosting path is:
+Dolphin Apps is a Vite single-page app backed by Convex. The recommended public hosting path is:
 
 1. Deploy Convex for the backend.
 2. Deploy the `dist/` static app to Vercel.

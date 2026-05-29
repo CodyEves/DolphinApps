@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "dolphin-lms",
+      "name": "dolphin-apps",
       "dependencies": {
         "@convex-dev/auth": "^0.0.92",
         "@radix-ui/react-avatar": "^1.1.11",
