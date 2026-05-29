@@ -18,6 +18,7 @@ import type * as equipment from "../equipment.js";
 import type * as http from "../http.js";
 import type * as lib_authz from "../lib/authz.js";
 import type * as lib_parts from "../lib/parts.js";
+import type * as lib_programs from "../lib/programs.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as orderRequests from "../orderRequests.js";
 import type * as parts from "../parts.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/authz": typeof lib_authz;
   "lib/parts": typeof lib_parts;
+  "lib/programs": typeof lib_programs;
   "lib/validators": typeof lib_validators;
   orderRequests: typeof orderRequests;
   parts: typeof parts;
