@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { programForProfile, programValidator } from "./lib/programs";
 
@@ -50,6 +51,13 @@ async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   return profile;
 }
 
+function userProfileFields(user: Doc<"users"> | null) {
+  return {
+    ...(user?.name ? { displayName: user.name } : {}),
+    ...(user?.email ? { email: user.email } : {}),
+  };
+}
+
 function accountLabelForProfile(profile: {
   role: "student" | "instructor" | "mentor" | "guest" | "admin";
   primaryProgram?: "frc_5199" | "frc_9271";
@@ -93,8 +101,7 @@ export const ensureCurrentUserProfile = mutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, {
-        displayName: user?.name,
-        email: user?.email,
+        ...userProfileFields(user),
         updatedAt: now,
       });
 
@@ -104,8 +111,7 @@ export const ensureCurrentUserProfile = mutation({
     return await ctx.db.insert("profiles", {
       userId,
       role: "student",
-      displayName: user?.name,
-      email: user?.email,
+      ...userProfileFields(user),
       status: "active",
       createdAt: now,
       updatedAt: now,
@@ -202,8 +208,7 @@ export const setAccountLabel = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         ...patch,
-        displayName: user.name,
-        email: user.email,
+        ...userProfileFields(user),
         updatedAt: now,
       });
 
@@ -213,8 +218,7 @@ export const setAccountLabel = mutation({
     return await ctx.db.insert("profiles", {
       userId: args.userId,
       ...patch,
-      displayName: user.name,
-      email: user.email,
+      ...userProfileFields(user),
       status: "active",
       createdAt: now,
       updatedAt: now,
@@ -249,8 +253,7 @@ export const setPrimaryProgram = mutation({
       await ctx.db.patch(existing._id, {
         primaryProgram: args.program,
         studentGroup,
-        displayName: user?.name,
-        email: user?.email,
+        ...userProfileFields(user),
         updatedAt: now,
       });
 
@@ -262,8 +265,7 @@ export const setPrimaryProgram = mutation({
       role: "student",
       primaryProgram: args.program,
       studentGroup,
-      displayName: user?.name,
-      email: user?.email,
+      ...userProfileFields(user),
       status: "active",
       createdAt: now,
       updatedAt: now,
@@ -318,8 +320,7 @@ export const setRoleForEmail = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         role: args.role,
-        displayName: user.name,
-        email: user.email,
+        ...userProfileFields(user),
         updatedAt: now,
       });
       return existing._id;
@@ -328,8 +329,7 @@ export const setRoleForEmail = mutation({
     return await ctx.db.insert("profiles", {
       userId: user._id,
       role: args.role,
-      displayName: user.name,
-      email: user.email,
+      ...userProfileFields(user),
       status: "active",
       createdAt: now,
       updatedAt: now,
