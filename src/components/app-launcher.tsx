@@ -1,6 +1,6 @@
 import {
-  FishSymbol,
   GraduationCap,
+  Grid3X3,
   Package,
   type LucideIcon,
 } from "lucide-react";
@@ -66,12 +66,12 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
           variant="ghost"
           className={cn(
             "h-12 justify-start gap-2 px-0 hover:bg-transparent",
-            collapsed && "w-full justify-center",
+            collapsed && "size-10 justify-center p-0",
           )}
           aria-label="Open Dolphin apps"
         >
           <span className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_0_24px_rgba(56,189,248,0.35)]">
-            <FishSymbol className="size-5" />
+            <Grid3X3 className="size-5" />
           </span>
           {!collapsed && (
             <span className="min-w-0 text-left">

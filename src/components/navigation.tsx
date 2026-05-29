@@ -106,7 +106,7 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
                 className={({ isActive }) =>
                   cn(
                     "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground",
-                    collapsed && "justify-center px-2",
+                    collapsed && "mx-auto size-10 justify-center p-0",
                     isActive && "bg-accent text-accent-foreground shadow-sm shadow-brand-blue/10",
                   )
                 }
@@ -133,15 +133,15 @@ export function Sidebar() {
     <aside
       className={cn(
         "sticky top-0 hidden h-screen shrink-0 border-r bg-card/90 p-3 shadow-[0_0_40px_rgba(6,43,73,0.08)] backdrop-blur transition-[width] lg:block",
-        collapsed ? "w-18" : "w-64",
+        collapsed ? "w-[4.5rem]" : "w-64",
       )}
     >
       <div className="flex h-full flex-col">
         <div className="flex h-12 items-center justify-between gap-2">
           <div
             className={cn(
-              "min-w-0 flex-1",
-              collapsed && "justify-center",
+              "flex min-w-0 flex-1",
+              collapsed ? "justify-center" : "justify-start",
             )}
           >
             <AppLauncher collapsed={collapsed} />
@@ -163,7 +163,7 @@ export function Sidebar() {
           <Button
             variant="ghost"
             size="icon"
-            className="mt-3"
+            className="mx-auto mt-3"
             onClick={toggleSidebar}
             aria-label="Expand sidebar"
           >
