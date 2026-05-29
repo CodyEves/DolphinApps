@@ -1,6 +1,4 @@
 import { Suspense } from "react";
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
 import { Outlet, useLocation } from "react-router";
 
 import { EnsureProfile } from "@/components/ensure-profile";
@@ -8,8 +6,8 @@ import { MobileNav, Sidebar } from "@/components/navigation";
 import { ProgramOnboarding } from "@/components/program-onboarding";
 import { ThemeModeToggle } from "@/components/theme-mode-toggle";
 import { UserMenu } from "@/components/user-menu";
-import { programForProfile, programMeta, type Program } from "@/lib/programs";
-import { api } from "@convex/_generated/api";
+import { useProgramView } from "@/hooks/use-program-view";
+import { programMeta, type Program } from "@/lib/programs";
 
 function currentAppCopy(pathname: string, program: Program = "frc_5199") {
   const meta = programMeta[program];
@@ -29,12 +27,8 @@ function currentAppCopy(pathname: string, program: Program = "frc_5199") {
 
 export function RootLayout() {
   const location = useLocation();
-  const { isAuthenticated } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const appCopy = currentAppCopy(
-    location.pathname,
-    programForProfile(viewer?.profile),
-  );
+  const { selectedProgram } = useProgramView();
+  const appCopy = currentAppCopy(location.pathname, selectedProgram);
   return (
     <div className="min-h-screen bg-background">
       <EnsureProfile />

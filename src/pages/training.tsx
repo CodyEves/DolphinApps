@@ -13,8 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { useProgramView } from "@/hooks/use-program-view";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
-import { programForProfile, programMeta } from "@/lib/programs";
 import { api } from "@convex/_generated/api";
 
 export function TrainingPage() {
@@ -23,7 +23,7 @@ export function TrainingPage() {
   const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const activeProgramMeta = programMeta[programForProfile(viewer?.profile)];
+  const { activeProgramMeta } = useProgramView();
   const isAdmin = effectiveRole === "admin";
   const visibleTracks = isAdmin
     ? tracks

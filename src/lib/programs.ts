@@ -80,6 +80,24 @@ export function availablePartsPrograms(profile: ProfileLike): Program[] {
   return programs.filter((program) => canAccessPartsProgram(profile, program));
 }
 
+export function canSwitchProgramView(profile: ProfileLike) {
+  return profile?.role === "admin";
+}
+
+export function availableProgramViews(profile: ProfileLike): Program[] {
+  return canSwitchProgramView(profile) ? [...programs] : [programForProfile(profile)];
+}
+
+export function programForView(profile: ProfileLike, programView: Program | null): Program {
+  const availablePrograms = availableProgramViews(profile);
+
+  if (programView && availablePrograms.includes(programView)) {
+    return programView;
+  }
+
+  return programForProfile(profile);
+}
+
 export function defaultPartsProgram(profile: ProfileLike): Program {
   return programForProfile(profile) === "frc_9271" ? "frc_9271" : "frc_5199";
 }

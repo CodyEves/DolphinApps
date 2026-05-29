@@ -13,8 +13,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useProgramView } from "@/hooks/use-program-view";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
-import { programForProfile, programMeta } from "@/lib/programs";
 import { api } from "@convex/_generated/api";
 
 function ProgressLink({
@@ -54,7 +54,7 @@ export function DashboardPage() {
     isAuthenticated ? {} : "skip",
   );
   const role = useEffectiveRole(viewer?.profile.role);
-  const activeProgramMeta = programMeta[programForProfile(viewer?.profile)];
+  const { activeProgramMeta } = useProgramView();
   const canReview = role === "admin" || role === "mentor" || role === "instructor";
   const reviewQueue = useQuery(
     api.adminLms.listReviewQueue,

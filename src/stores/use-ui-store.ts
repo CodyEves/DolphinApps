@@ -11,6 +11,7 @@ type UiState = {
   isMobileNavOpen: boolean;
   selectedTrainingTrackId: string | null;
   effectiveRoleView: PartsRoleView;
+  programView: Program | null;
   partsProgramView: Program | null;
   manufacturingStatusFilter: string;
   partsSubsystemFilter: string;
@@ -18,6 +19,7 @@ type UiState = {
   setMobileNavOpen: (open: boolean) => void;
   setSelectedTrainingTrackId: (id: string | null) => void;
   setEffectiveRoleView: (view: PartsRoleView) => void;
+  setProgramView: (program: Program) => void;
   setPartsProgramView: (program: Program) => void;
   setManufacturingStatusFilter: (status: string) => void;
   setPartsSubsystemFilter: (subsystemId: string) => void;
@@ -30,6 +32,7 @@ export const useUiStore = create<UiState>((set) => ({
   isMobileNavOpen: false,
   selectedTrainingTrackId: null,
   effectiveRoleView: "actual",
+  programView: null,
   partsProgramView: null,
   manufacturingStatusFilter: "inManufacturing",
   partsSubsystemFilter: "all",
@@ -38,7 +41,9 @@ export const useUiStore = create<UiState>((set) => ({
   setSelectedTrainingTrackId: (selectedTrainingTrackId) =>
     set({ selectedTrainingTrackId }),
   setEffectiveRoleView: (effectiveRoleView) => set({ effectiveRoleView }),
-  setPartsProgramView: (partsProgramView) => set({ partsProgramView }),
+  setProgramView: (programView) => set({ programView, partsProgramView: programView }),
+  setPartsProgramView: (partsProgramView) =>
+    set({ programView: partsProgramView, partsProgramView }),
   setManufacturingStatusFilter: (manufacturingStatusFilter) =>
     set({ manufacturingStatusFilter }),
   setPartsSubsystemFilter: (partsSubsystemFilter) => set({ partsSubsystemFilter }),

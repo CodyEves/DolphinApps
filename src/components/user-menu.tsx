@@ -1,5 +1,4 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
 import {
   GraduationCap,
   LogIn,
@@ -30,8 +29,8 @@ import {
   type RoleView,
   type VisibleRoleView,
 } from "@/providers/role-preview-provider";
-import { programForProfile, programMeta } from "@/lib/programs";
-import { api } from "@convex/_generated/api";
+import { useProgramView } from "@/hooks/use-program-view";
+import { programMeta, type Program } from "@/lib/programs";
 
 const apps = [
   { href: "/dashboard", titleKey: "trainingTitle", icon: GraduationCap },
@@ -57,8 +56,8 @@ function initials(nameOrEmail?: string | null) {
     .join("");
 }
 
-function appLabelForPath(pathname: string, profile: Parameters<typeof programForProfile>[0]) {
-  const meta = programMeta[programForProfile(profile)];
+function appLabelForPath(pathname: string, program: Program) {
+  const meta = programMeta[program];
   return pathname.startsWith("/parts") ? meta.partsTitle : meta.trainingTitle;
 }
 
@@ -96,10 +95,17 @@ export function UserMenu() {
   const { signOut } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
   const location = useLocation();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const {
+    activeProgramMeta,
+    availablePrograms,
+    canSwitchPrograms,
+    selectProgram,
+    selectedProgram,
+    viewer,
+  } = useProgramView();
   const { roleView, setRoleView } = useRolePreview();
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const currentApp = appLabelForPath(location.pathname, viewer?.profile);
+  const currentApp = appLabelForPath(location.pathname, selectedProgram);
   const roleOptions = allowedRoleViews(viewer?.profile.role);
   const selectedView = selectedRoleView(roleView, viewer?.profile.role);
 
@@ -152,10 +158,28 @@ export function UserMenu() {
           <DropdownMenuItem key={app.href} asChild>
             <Link to={app.href}>
               <app.icon className="size-4" />
-              {programMeta[programForProfile(viewer.profile)][app.titleKey]}
+              {activeProgramMeta[app.titleKey]}
             </Link>
           </DropdownMenuItem>
         ))}
+        {canSwitchPrograms && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Program view
+            </DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={selectedProgram}
+              onValueChange={(value) => selectProgram(value as Program)}
+            >
+              {availablePrograms.map((program) => (
+                <DropdownMenuRadioItem key={program} value={program}>
+                  {programMeta[program].teamNumber} view
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </>
+        )}
         {roleOptions.length > 0 && (
           <>
             <DropdownMenuSeparator />

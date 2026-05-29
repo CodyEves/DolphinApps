@@ -13,11 +13,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useProgramView } from "@/hooks/use-program-view";
 import { cn } from "@/lib/utils";
-import { programForProfile, programMeta } from "@/lib/programs";
-import { api } from "@convex/_generated/api";
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
 
 type AppLauncherProps = {
   collapsed?: boolean;
@@ -59,9 +56,7 @@ function isActiveApp(pathname: string, href: string) {
 
 export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
   const location = useLocation();
-  const { isAuthenticated } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const activeProgramMeta = programMeta[programForProfile(viewer?.profile)];
+  const { activeProgramMeta } = useProgramView();
   const activeApp =
     apps.find((app) => isActiveApp(location.pathname, app.href)) ?? apps[0];
   const activeAppName = activeProgramMeta[activeApp.titleKey];

@@ -1,5 +1,3 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
 import { ArrowRight, Award, BookOpen, Wrench } from "lucide-react";
 import { Link } from "react-router";
 
@@ -11,8 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { programForProfile, programMeta } from "@/lib/programs";
-import { api } from "@convex/_generated/api";
+import { useProgramView } from "@/hooks/use-program-view";
 
 const focusAreas = [
   {
@@ -36,9 +33,7 @@ const focusAreas = [
 ];
 
 export function HomePage() {
-  const { isAuthenticated } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const activeProgramMeta = programMeta[programForProfile(viewer?.profile)];
+  const { activeProgramMeta } = useProgramView();
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">

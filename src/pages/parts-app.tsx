@@ -69,13 +69,15 @@ type OverviewData = {
 function usePartsProgram() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const { partsProgramView, setPartsProgramView } = useUiStore();
+  const { partsProgramView, programView, setPartsProgramView } = useUiStore();
   const profile = viewer?.profile ?? null;
   const availablePrograms = availablePartsPrograms(profile);
   const fallbackProgram = defaultPartsProgram(profile);
   const selectedProgram =
     partsProgramView && availablePrograms.includes(partsProgramView)
       ? partsProgramView
+      : programView && availablePrograms.includes(programView)
+        ? programView
       : fallbackProgram;
 
   return {
