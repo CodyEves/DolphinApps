@@ -105,9 +105,9 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
                 onClick={() => setMobileNavOpen(false)}
                 className={({ isActive }) =>
                   cn(
-                    "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+                    "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground",
                     collapsed && "justify-center px-2",
-                    isActive && "bg-accent text-accent-foreground",
+                    isActive && "bg-accent text-accent-foreground shadow-sm shadow-brand-blue/10",
                   )
                 }
               >
@@ -132,7 +132,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "sticky top-0 hidden h-screen shrink-0 border-r bg-card/85 p-3 shadow-[0_0_40px_rgba(14,165,233,0.08)] backdrop-blur transition-[width] lg:block",
+        "sticky top-0 hidden h-screen shrink-0 border-r bg-card/90 p-3 shadow-[0_0_40px_rgba(6,43,73,0.08)] backdrop-blur transition-[width] lg:block",
         collapsed ? "w-18" : "w-64",
       )}
     >

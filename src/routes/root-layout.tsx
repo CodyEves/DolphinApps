@@ -29,7 +29,7 @@ export function RootLayout() {
       <div className="flex min-h-screen">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur">
+          <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
             <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
               <MobileNav />
               <div className="hidden min-w-0 lg:block">

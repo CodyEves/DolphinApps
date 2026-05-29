@@ -34,29 +34,38 @@ const focusAreas = [
 export function HomePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-8">
-      <section className="overflow-hidden rounded-lg border bg-card p-6 shadow-sm lg:p-8">
-        <div className="space-y-6">
-          <Badge variant="secondary">Team 5199 training system</Badge>
-          <div className="space-y-3">
-            <h1 className="max-w-3xl text-3xl font-semibold tracking-normal sm:text-4xl">
-              The Robot Dolphins From Outer Space
-            </h1>
-            <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-              A team-owned training hub for safety, skills, progress, badges,
-              and mentor approvals for a FIRST Robotics Competition team based
-              in Orange County, California.
-            </p>
+      <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
+        <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
+          <div className="space-y-6 p-6 lg:p-8">
+            <Badge variant="secondary">Team 5199 training system</Badge>
+            <div className="space-y-3">
+              <h1 className="max-w-3xl text-3xl font-semibold tracking-normal text-brand-navy dark:text-foreground sm:text-4xl">
+                The Robot Dolphins From Outer Space
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+                A team-owned training hub for safety, skills, progress, badges,
+                and mentor approvals for a FIRST Robotics Competition team based
+                in Orange County, California.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild>
+                <Link to="/dashboard">
+                  Open dashboard
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/training">View learning</Link>
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <Button asChild>
-              <Link to="/dashboard">
-                Open dashboard
-                <ArrowRight className="size-4" />
-              </Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link to="/training">View learning</Link>
-            </Button>
+          <div className="hidden border-l bg-brand-navy p-8 text-white lg:grid">
+            <div className="self-end">
+              <p className="text-sm font-medium text-brand-aqua">FRC 5199</p>
+              <p className="mt-2 text-4xl font-semibold">Dolphin Apps</p>
+              <div className="mt-6 h-1.5 w-24 rounded-full bg-brand-orange" />
+            </div>
           </div>
         </div>
       </section>
@@ -68,9 +77,11 @@ export function HomePage() {
             to={area.href}
             className="rounded-lg focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
           >
-            <Card className="h-full transition-colors hover:bg-accent">
+            <Card className="h-full transition-all hover:-translate-y-0.5 hover:border-brand-aqua/50 hover:bg-accent hover:shadow-md">
               <CardHeader>
-                <area.icon className="size-5 text-primary" />
+                <div className="mb-2 flex size-10 items-center justify-center rounded-md bg-secondary text-primary">
+                  <area.icon className="size-5" />
+                </div>
                 <CardTitle>{area.title}</CardTitle>
                 <CardDescription>{area.description}</CardDescription>
               </CardHeader>

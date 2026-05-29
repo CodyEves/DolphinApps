@@ -34,14 +34,14 @@ const apps: LauncherApp[] = [
     name: "Dolphin Training",
     description: "Lessons, safety, badges",
     icon: GraduationCap,
-    iconClassName: "bg-emerald-600 text-white",
+    iconClassName: "bg-brand-blue text-white",
   },
   {
     href: "/parts",
     name: "Dolphin Parts",
     description: "Parts, BOMs, fab",
     icon: Package,
-    iconClassName: "bg-cyan-600 text-white",
+    iconClassName: "bg-brand-orange text-white",
   },
 ];
 
@@ -101,8 +101,8 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
                 onClick={onSelect}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "group grid min-h-28 place-items-center gap-2 rounded-md p-3 text-center outline-none transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
-                  isActive && "bg-accent text-accent-foreground",
+                  "group grid min-h-28 place-items-center gap-2 rounded-md border border-transparent p-3 text-center outline-none transition-all hover:border-brand-aqua/30 hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
+                  isActive && "border-brand-aqua/40 bg-accent text-accent-foreground shadow-sm",
                 )}
               >
                 <span
