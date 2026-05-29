@@ -6,7 +6,6 @@ import {
   BookOpen,
   ClipboardCheck,
   Factory,
-  FishSymbol,
   Gauge,
   Home,
   ListTree,
@@ -20,6 +19,7 @@ import {
 import { NavLink, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
+import { AppLauncher } from "@/components/app-launcher";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -77,10 +77,6 @@ function navItemsForPath(pathname: string) {
   return pathname.startsWith("/parts") ? partsNavItems : trainingNavItems;
 }
 
-function appLabelForPath(pathname: string) {
-  return pathname.startsWith("/parts") ? "Dolphin Parts" : "Dolphin Training";
-}
-
 function visibleItems(items: NavItem[], role: string) {
   return items.filter(
     (item) =>
@@ -132,8 +128,6 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.isSidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
-  const location = useLocation();
-  const appLabel = appLabelForPath(location.pathname);
 
   return (
     <aside
@@ -146,21 +140,11 @@ export function Sidebar() {
         <div className="flex h-12 items-center justify-between gap-2">
           <div
             className={cn(
-              "flex min-w-0 items-center gap-2",
+              "min-w-0 flex-1",
               collapsed && "justify-center",
             )}
           >
-            <div className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_0_24px_rgba(56,189,248,0.35)]">
-              <FishSymbol className="size-5" />
-            </div>
-            {!collapsed && (
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{appLabel}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  Dolphin Apps
-                </p>
-              </div>
-            )}
+            <AppLauncher collapsed={collapsed} />
           </div>
           {!collapsed && (
             <Button
@@ -198,7 +182,9 @@ export function MobileNav() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const appLabel = appLabelForPath(location.pathname);
+  const appLabel = location.pathname.startsWith("/parts")
+    ? "Dolphin Parts"
+    : "Dolphin Training";
   const visibleNavItems = visibleItems(navItemsForPath(location.pathname), effectiveRole);
 
   const current = visibleNavItems.find((item) =>
@@ -209,6 +195,7 @@ export function MobileNav() {
 
   return (
     <div className="flex items-center gap-3 lg:hidden">
+      <AppLauncher collapsed onSelect={() => setOpen(false)} />
       <Sheet open={isOpen} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <Button variant="outline" size="icon" aria-label="Open navigation">
