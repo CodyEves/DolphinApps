@@ -174,6 +174,18 @@ export const setAccountLabel = mutation({
         updatedAt: now,
       });
 
+      const provisionedAccount = await ctx.db
+        .query("provisionedAccounts")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId))
+        .first();
+
+      if (provisionedAccount) {
+        await ctx.db.patch(provisionedAccount._id, {
+          accountLabel: args.accountLabel,
+          updatedAt: now,
+        });
+      }
+
       return existing._id;
     }
 

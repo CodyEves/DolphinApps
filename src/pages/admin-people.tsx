@@ -40,6 +40,8 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
 type AccountLabel = "varsity_5199" | "jv_9271" | "mentor" | "guest" | "admin";
+type AccountRole = "student" | "mentor" | "guest" | "admin";
+type Program = "frc_5199" | "frc_9271";
 
 const accountLabelText: Record<AccountLabel, string> = {
   varsity_5199: "5199 Student",
@@ -48,6 +50,46 @@ const accountLabelText: Record<AccountLabel, string> = {
   guest: "Guest",
   admin: "Admin",
 };
+
+function roleForAccountLabel(accountLabel: AccountLabel): AccountRole {
+  if (accountLabel === "mentor" || accountLabel === "guest" || accountLabel === "admin") {
+    return accountLabel;
+  }
+
+  return "student";
+}
+
+function programForAccountLabel(accountLabel: AccountLabel): Program {
+  return accountLabel === "jv_9271" ? "frc_9271" : "frc_5199";
+}
+
+function accountLabelFor(role: AccountRole, program: Program): AccountLabel {
+  if (role === "student") {
+    return program === "frc_9271" ? "jv_9271" : "varsity_5199";
+  }
+
+  return role;
+}
+
+function normalizeProgram(value: string | undefined): Program {
+  const normalized = (value ?? "").trim().toLowerCase();
+
+  if (normalized === "9271" || normalized === "frc_9271" || normalized === "jv") {
+    return "frc_9271";
+  }
+
+  return "frc_5199";
+}
+
+function normalizeRole(value: string | undefined, accountLabel: AccountLabel): AccountRole {
+  const normalized = (value ?? "").trim().toLowerCase();
+
+  if (normalized === "mentor" || normalized === "guest" || normalized === "admin") {
+    return normalized;
+  }
+
+  return roleForAccountLabel(accountLabel);
+}
 
 const setupDurationMs = 14 * 24 * 60 * 60 * 1000;
 const resetDurationMs = 24 * 60 * 60 * 1000;
@@ -99,9 +141,15 @@ function parseCsvRows(csv: string) {
     const values = line.split(",").map((value) => value.trim());
     const record = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]));
 
+    const fallbackAccountLabel = (record.accountLabel || "varsity_5199") as AccountLabel;
+    const role = normalizeRole(record.role, fallbackAccountLabel);
+    const program = normalizeProgram(record.program || record.team || record.teamNumber);
+
     return {
       displayName: record.displayName || record.name || "",
-      accountLabel: (record.accountLabel || "varsity_5199") as AccountLabel,
+      accountLabel: record.accountLabel
+        ? fallbackAccountLabel
+        : accountLabelFor(role, program),
       graduationYear: record.graduationYear ? Number(record.graduationYear) : undefined,
     };
   });
@@ -129,16 +177,22 @@ export function AdminPeoplePage() {
   const createProvisionedAccount = useMutation(api.access.createProvisionedAccount);
   const bulkCreateProvisionedAccounts = useMutation(api.access.bulkCreateProvisionedAccounts);
   const createCredentialLink = useMutation(api.access.createCredentialLink);
+  const updateProvisionedAccount = useMutation(api.access.updateProvisionedAccount);
+  const deactivateGraduationYear = useMutation(api.access.deactivateGraduationYear);
   const revokeCredentialLink = useMutation(api.access.revokeCredentialLink);
   const deactivateAccount = useMutation(api.access.deactivateAccount);
   const reactivateAccount = useMutation(api.access.reactivateAccount);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
-  const [accountLabel, setAccountLabelState] = useState<AccountLabel>("varsity_5199");
+  const [accountRole, setAccountRole] = useState<AccountRole>("student");
+  const [program, setProgram] = useState<Program>("frc_5199");
   const [graduationYear, setGraduationYear] = useState("");
-  const [csv, setCsv] = useState("displayName,accountLabel,graduationYear\n");
+  const [graduatingYear, setGraduatingYear] = useState("");
+  const [graduatingProgram, setGraduatingProgram] = useState<Program | "all">("all");
+  const [csv, setCsv] = useState("displayName,role,program,graduationYear\n");
   const [generatedLinks, setGeneratedLinks] = useState<Record<string, string>>({});
   const [busyAccountId, setBusyAccountId] = useState<string | null>(null);
+  const [isGraduating, setIsGraduating] = useState(false);
   const createdLinks = useMemo(() => Object.entries(generatedLinks), [generatedLinks]);
 
   async function handleSetAccountLabel(
@@ -165,7 +219,7 @@ export function AdminPeoplePage() {
     try {
       const result = await createProvisionedAccount({
         displayName,
-        accountLabel,
+        accountLabel: accountLabelFor(accountRole, program),
         graduationYear: graduationYear ? Number(graduationYear) : undefined,
         setupTokenHash: tokenHash,
         setupExpiresAt: expiresAtFromNow(setupDurationMs),
@@ -178,6 +232,51 @@ export function AdminPeoplePage() {
       toast.success(`Created ${result.username}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create account");
+    }
+  }
+
+  async function handleUpdateProvisionedAccount(
+    provisionedAccountId: Id<"provisionedAccounts">,
+    patch: {
+      accountLabel?: AccountLabel;
+      graduationYear?: number | null;
+    },
+  ) {
+    setBusyAccountId(provisionedAccountId);
+
+    try {
+      await updateProvisionedAccount({
+        provisionedAccountId,
+        ...patch,
+      });
+      toast.success("Account updated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update account");
+    } finally {
+      setBusyAccountId(null);
+    }
+  }
+
+  async function handleGraduateClass() {
+    const year = Number(graduatingYear);
+
+    if (!Number.isFinite(year)) {
+      toast.error("Enter a graduation year.");
+      return;
+    }
+
+    setIsGraduating(true);
+
+    try {
+      const result = await deactivateGraduationYear({
+        graduationYear: year,
+        program: graduatingProgram === "all" ? undefined : graduatingProgram,
+      });
+      toast.success(`Deactivated ${result.deactivatedCount} graduating students`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not graduate class");
+    } finally {
+      setIsGraduating(false);
     }
   }
 
@@ -325,7 +424,7 @@ export function AdminPeoplePage() {
           </Card>
         ) : (
           <div className="space-y-6">
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 xl:grid-cols-3">
               <Card>
                 <CardHeader>
                   <Plus className="size-5 text-primary" />
@@ -346,19 +445,34 @@ export function AdminPeoplePage() {
                         required
                       />
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-3">
                       <div className="space-y-2">
-                        <Label>Account label</Label>
-                        <Select value={accountLabel} onValueChange={(value: AccountLabel) => setAccountLabelState(value)}>
+                        <Label>Role</Label>
+                        <Select value={accountRole} onValueChange={(value: AccountRole) => setAccountRole(value)}>
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="varsity_5199">5199 Student</SelectItem>
-                            <SelectItem value="jv_9271">9271 Student</SelectItem>
+                            <SelectItem value="student">Student</SelectItem>
                             <SelectItem value="mentor">Mentor</SelectItem>
                             <SelectItem value="guest">Guest</SelectItem>
                             <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Program</Label>
+                        <Select
+                          value={program}
+                          onValueChange={(value: Program) => setProgram(value)}
+                          disabled={accountRole !== "student"}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="frc_5199">5199</SelectItem>
+                            <SelectItem value="frc_9271">9271</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -386,7 +500,7 @@ export function AdminPeoplePage() {
                   <Upload className="size-5 text-primary" />
                   <CardTitle>Bulk import</CardTitle>
                   <CardDescription>
-                    CSV columns: displayName, accountLabel, graduationYear.
+                    CSV columns: displayName, role, program, graduationYear.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -398,6 +512,54 @@ export function AdminPeoplePage() {
                   <Button type="button" variant="outline" onClick={() => void handleBulkCreate()}>
                     <Upload className="size-4" />
                     Import roster
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <Users className="size-5 text-primary" />
+                  <CardTitle>Graduate class</CardTitle>
+                  <CardDescription>
+                    Deactivate students by graduation year when they leave the program.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="graduatingYear">Graduation year</Label>
+                      <Input
+                        id="graduatingYear"
+                        value={graduatingYear}
+                        onChange={(event) => setGraduatingYear(event.target.value)}
+                        inputMode="numeric"
+                        placeholder="2026"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Program</Label>
+                      <Select
+                        value={graduatingProgram}
+                        onValueChange={(value: Program | "all") => setGraduatingProgram(value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All students</SelectItem>
+                          <SelectItem value="frc_5199">5199 only</SelectItem>
+                          <SelectItem value="frc_9271">9271 only</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => void handleGraduateClass()}
+                    disabled={isGraduating}
+                  >
+                    Graduate class
                   </Button>
                 </CardContent>
               </Card>
@@ -459,9 +621,65 @@ export function AdminPeoplePage() {
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">
                         {account.userId ? "Password set" : "Waiting for setup"}
+                        {account.graduationYear ? ` / Class of ${account.graduationYear}` : ""}
                       </p>
                     </div>
-                    <div className="flex flex-wrap gap-2 lg:justify-end">
+                    <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                      <Select
+                        value={roleForAccountLabel(account.accountLabel as AccountLabel)}
+                        onValueChange={(value: AccountRole) =>
+                          void handleUpdateProvisionedAccount(account._id, {
+                            accountLabel: accountLabelFor(
+                              value,
+                              programForAccountLabel(account.accountLabel as AccountLabel),
+                            ),
+                          })
+                        }
+                        disabled={busyAccountId === account._id}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="student">Student</SelectItem>
+                          <SelectItem value="mentor">Mentor</SelectItem>
+                          <SelectItem value="guest">Guest</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {roleForAccountLabel(account.accountLabel as AccountLabel) === "student" && (
+                        <Select
+                          value={programForAccountLabel(account.accountLabel as AccountLabel)}
+                          onValueChange={(value: Program) =>
+                            void handleUpdateProvisionedAccount(account._id, {
+                              accountLabel: accountLabelFor("student", value),
+                            })
+                          }
+                          disabled={busyAccountId === account._id}
+                        >
+                          <SelectTrigger className="w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="frc_5199">5199</SelectItem>
+                            <SelectItem value="frc_9271">9271</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                      <Input
+                        className="w-28"
+                        defaultValue={account.graduationYear ?? ""}
+                        inputMode="numeric"
+                        placeholder="Grad"
+                        aria-label={`${account.displayName} graduation year`}
+                        onBlur={(event) => {
+                          const value = event.currentTarget.value.trim();
+                          void handleUpdateProvisionedAccount(account._id, {
+                            graduationYear: value ? Number(value) : null,
+                          });
+                        }}
+                        disabled={busyAccountId === account._id}
+                      />
                       {!account.userId && (
                         <Button
                           type="button"

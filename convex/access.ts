@@ -20,6 +20,8 @@ const credentialLinkPurposeValidator = v.union(
 
 type AccountLabel = Doc<"provisionedAccounts">["accountLabel"];
 
+const programValidator = v.union(v.literal("frc_5199"), v.literal("frc_9271"));
+
 function normalizeUsernamePart(value: string) {
   return value
     .normalize("NFKD")
@@ -90,6 +92,14 @@ function profilePatchForAccount(account: {
     studentGroup: is9271 ? "9271 Student" : "5199 Student",
     graduationYear: account.graduationYear,
   };
+}
+
+function isStudentLabel(accountLabel: AccountLabel) {
+  return accountLabel === "varsity_5199" || accountLabel === "jv_9271";
+}
+
+function programForAccountLabel(accountLabel: AccountLabel) {
+  return accountLabel === "jv_9271" ? "frc_9271" as const : "frc_5199" as const;
 }
 
 async function currentAdmin(ctx: QueryCtx | MutationCtx) {
@@ -357,6 +367,99 @@ export const createCredentialLink = mutation({
     });
 
     return { credentialLinkId, username: account.username };
+  },
+});
+
+export const updateProvisionedAccount = mutation({
+  args: {
+    provisionedAccountId: v.id("provisionedAccounts"),
+    displayName: v.optional(v.string()),
+    accountLabel: v.optional(accountLabelValidator),
+    graduationYear: v.optional(v.union(v.number(), v.null())),
+  },
+  handler: async (ctx, args) => {
+    await currentAdmin(ctx);
+    const account = await ctx.db.get(args.provisionedAccountId);
+
+    if (!account) {
+      throw new Error("Provisioned account not found.");
+    }
+
+    const displayName = args.displayName?.trim();
+    const patch = {
+      ...(displayName ? { displayName } : {}),
+      ...(args.accountLabel ? { accountLabel: args.accountLabel } : {}),
+      ...(args.graduationYear !== undefined
+        ? { graduationYear: args.graduationYear ?? undefined }
+        : {}),
+      updatedAt: Date.now(),
+    };
+
+    await ctx.db.patch(args.provisionedAccountId, patch);
+
+    const nextAccount = {
+      ...account,
+      ...patch,
+      displayName: patch.displayName ?? account.displayName,
+      accountLabel: patch.accountLabel ?? account.accountLabel,
+      graduationYear: patch.graduationYear ?? account.graduationYear,
+    };
+    const profileId = account.profileId ??
+      (account.userId
+        ? (await ctx.db
+            .query("profiles")
+            .withIndex("by_user", (q) => q.eq("userId", account.userId!))
+            .first())?._id
+        : undefined);
+
+    if (profileId) {
+      await ctx.db.patch(profileId, {
+        displayName: nextAccount.displayName,
+        ...profilePatchForAccount(nextAccount),
+        updatedAt: Date.now(),
+      });
+    }
+
+    return args.provisionedAccountId;
+  },
+});
+
+export const deactivateGraduationYear = mutation({
+  args: {
+    graduationYear: v.number(),
+    program: v.optional(programValidator),
+  },
+  handler: async (ctx, args) => {
+    await currentAdmin(ctx);
+    const accounts = await ctx.db.query("provisionedAccounts").collect();
+    let deactivatedCount = 0;
+
+    for (const account of accounts) {
+      if (
+        account.status === "inactive" ||
+        account.graduationYear !== args.graduationYear ||
+        !isStudentLabel(account.accountLabel) ||
+        (args.program && programForAccountLabel(account.accountLabel) !== args.program)
+      ) {
+        continue;
+      }
+
+      await ctx.db.patch(account._id, {
+        status: "inactive",
+        updatedAt: Date.now(),
+      });
+
+      if (account.profileId) {
+        await ctx.db.patch(account.profileId, {
+          status: "inactive",
+          updatedAt: Date.now(),
+        });
+      }
+
+      deactivatedCount += 1;
+    }
+
+    return { deactivatedCount };
   },
 });
 
