@@ -197,28 +197,33 @@ export function ReviewsPage() {
                   <Badge variant="secondary">{submission.trackTitle ?? "Lesson"}</Badge>
                 </div>
                 <p className="mt-3 text-sm">{submission.prompt}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
                   {submission.fileUrl && (
-                    <Button asChild variant="outline" size="sm">
+                    <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
                       <a href={submission.fileUrl} target="_blank" rel="noreferrer">
                         <ExternalLink className="size-4" />
                         Open {submission.fileName}
                       </a>
                     </Button>
                   )}
-                  <Button size="sm" onClick={() => void handleLessonReview(submission._id, true)}>
+                  <Button
+                    size="sm"
+                    className="w-full sm:w-auto"
+                    onClick={() => void handleLessonReview(submission._id, true)}
+                  >
                     <CheckCircle2 className="size-4" />
                     Approve
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
+                    className="w-full sm:w-auto"
                     onClick={() => void handleLessonReview(submission._id, false)}
                   >
                     <XCircle className="size-4" />
                     Needs revision
                   </Button>
-                  <Button asChild size="sm" variant="ghost">
+                  <Button asChild size="sm" variant="ghost" className="w-full sm:w-auto">
                     <Link to={`/training/lessons/${submission.lessonId}`}>Open lesson</Link>
                   </Button>
                 </div>
@@ -269,9 +274,10 @@ export function ReviewsPage() {
                   </div>
                   <Badge variant="outline">{review.status.replace("_", " ")}</Badge>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
                   <Button
                     size="sm"
+                    className="w-full sm:w-auto"
                     onClick={() =>
                       void handleHandsOnReview(review.equipmentId, review.studentUserId, true)
                     }
@@ -282,6 +288,7 @@ export function ReviewsPage() {
                   <Button
                     size="sm"
                     variant="outline"
+                    className="w-full sm:w-auto"
                     onClick={() =>
                       void handleHandsOnReview(review.equipmentId, review.studentUserId, false)
                     }
@@ -289,7 +296,7 @@ export function ReviewsPage() {
                     <XCircle className="size-4" />
                     Reject
                   </Button>
-                  <Button asChild size="sm" variant="ghost">
+                  <Button asChild size="sm" variant="ghost" className="w-full sm:w-auto">
                     <Link to={`/equipment/${review.equipmentId}`}>Open equipment</Link>
                   </Button>
                 </div>

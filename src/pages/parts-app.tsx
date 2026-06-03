@@ -116,7 +116,7 @@ function PageHeader({
         <h1 className="text-2xl font-semibold tracking-normal">{title}</h1>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-      {action}
+      {action && <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">{action}</div>}
     </div>
   );
 }
@@ -490,8 +490,14 @@ function OptionButtons({
   onChange: (value: Id<"catalogOptions"> | null) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
-      <Button type="button" size="sm" variant={value === null ? "default" : "outline"} onClick={() => onChange(null)}>
+    <div className="grid gap-2 sm:flex sm:flex-wrap">
+      <Button
+        type="button"
+        size="sm"
+        className="w-full sm:w-auto"
+        variant={value === null ? "default" : "outline"}
+        onClick={() => onChange(null)}
+      >
         None
       </Button>
       {options.filter((option) => option.isEnabled).map((option) => (
@@ -499,6 +505,7 @@ function OptionButtons({
           key={option._id}
           type="button"
           size="sm"
+          className="w-full sm:w-auto"
           variant={value === option._id ? "default" : "outline"}
           onClick={() => onChange(option._id)}
         >
@@ -579,11 +586,12 @@ export function GeneratePartRoute() {
                 </div>
                 <div className="grid gap-2">
                   <Label>Subsystem</Label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid gap-2 sm:flex sm:flex-wrap">
                     {enabledSubsystems.map((subsystem) => (
                       <Button
                         key={subsystem._id}
                         type="button"
+                        className="w-full sm:w-auto"
                         variant={activeSubsystemId === subsystem._id ? "default" : "outline"}
                         onClick={() => setSubsystemId(subsystem._id)}
                       >
@@ -615,9 +623,16 @@ export function GeneratePartRoute() {
                 </div>
                 <div className="grid gap-2">
                   <Label>Priority</Label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                     {priorities.map((item) => (
-                      <Button key={item} type="button" size="sm" variant={priority === item ? "default" : "outline"} onClick={() => setPriority(item)}>
+                      <Button
+                        key={item}
+                        type="button"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        variant={priority === item ? "default" : "outline"}
+                        onClick={() => setPriority(item)}
+                      >
                         {item}
                       </Button>
                     ))}
@@ -770,10 +785,10 @@ export function ManufacturingRoute() {
                     </div>
                     <StatusPill status={part.status} />
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>Manufactured</Button>
-                    <Button size="sm" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
-                    <Button size="sm" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
+                  <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
+                    <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "manufactured")}>Manufactured</Button>
+                    <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
+                    <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
                   </div>
                 </div>
               ))}
@@ -1016,17 +1031,23 @@ export function PartDetailRoute() {
             </div>
             <Separator className="my-4" />
             <p className="text-sm text-muted-foreground">{part.notes || "No notes yet."}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {part.onshapeDocumentUrl && <Button size="sm" variant="outline" asChild><a href={part.onshapeDocumentUrl} target="_blank" rel="noreferrer">Onshape doc</a></Button>}
-              {part.onshapePartStudioUrl && <Button size="sm" variant="outline" asChild><a href={part.onshapePartStudioUrl} target="_blank" rel="noreferrer">Part studio</a></Button>}
-              {part.onshapeDrawingUrl && <Button size="sm" variant="outline" asChild><a href={part.onshapeDrawingUrl} target="_blank" rel="noreferrer">Drawing</a></Button>}
+            <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
+              {part.onshapeDocumentUrl && <Button size="sm" className="w-full sm:w-auto" variant="outline" asChild><a href={part.onshapeDocumentUrl} target="_blank" rel="noreferrer">Onshape doc</a></Button>}
+              {part.onshapePartStudioUrl && <Button size="sm" className="w-full sm:w-auto" variant="outline" asChild><a href={part.onshapePartStudioUrl} target="_blank" rel="noreferrer">Part studio</a></Button>}
+              {part.onshapeDrawingUrl && <Button size="sm" className="w-full sm:w-auto" variant="outline" asChild><a href={part.onshapeDrawingUrl} target="_blank" rel="noreferrer">Drawing</a></Button>}
             </div>
           </div>
           <div className="rounded-md border bg-card p-4">
             <h2 className="mb-3 font-semibold">Lifecycle</h2>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {partStatuses.map((status) => (
-                <Button key={status} size="sm" variant={part.status === status ? "default" : "outline"} onClick={() => move(status)}>
+                <Button
+                  key={status}
+                  size="sm"
+                  className="w-full sm:w-auto"
+                  variant={part.status === status ? "default" : "outline"}
+                  onClick={() => move(status)}
+                >
                   {partStatusLabel(status)}
                 </Button>
               ))}
@@ -1064,7 +1085,13 @@ export function PartDetailRoute() {
             <h2 className="mb-3 font-semibold">Add child</h2>
             <div className="grid max-h-80 gap-2 overflow-auto">
               {candidateChildren.slice(0, 30).map((candidate) => (
-                <Button key={candidate._id} size="sm" variant="outline" onClick={() => addChild(candidate._id)}>
+                <Button
+                  key={candidate._id}
+                  size="sm"
+                  variant="outline"
+                  className="h-auto min-h-9 w-full justify-start whitespace-normal text-left"
+                  onClick={() => addChild(candidate._id)}
+                >
                   {candidate.partNumber ?? "Draft"} - {candidate.name}
                 </Button>
               ))}

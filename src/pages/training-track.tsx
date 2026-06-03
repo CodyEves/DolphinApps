@@ -286,7 +286,7 @@ export function TrainingTrackPage() {
                         </div>
                       </Link>
                       <div className="flex shrink-0 flex-col gap-2 sm:items-end">
-                        <Button asChild>
+                        <Button asChild className="w-full sm:w-auto">
                           <Link to={`/training/lessons/${lesson._id}`}>
                             Open lesson
                           </Link>
@@ -296,6 +296,7 @@ export function TrainingTrackPage() {
                             onClick={() => handleCompleteLesson(lesson._id)}
                             disabled={isComplete}
                             variant={isComplete ? "secondary" : "default"}
+                            className="w-full sm:w-auto"
                           >
                             {isComplete ? "Completed" : "Mark complete"}
                           </Button>

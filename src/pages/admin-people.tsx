@@ -823,7 +823,7 @@ export function AdminPeoplePage() {
                               {account.graduationYear ? ` / Class of ${account.graduationYear}` : ""}
                             </p>
                           </div>
-                          <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                          <div className="grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:justify-end">
                             <Select
                               value={role}
                               onValueChange={(value: AccountRole) =>
@@ -833,7 +833,7 @@ export function AdminPeoplePage() {
                               }
                               disabled={busyAccountId === account._id}
                             >
-                              <SelectTrigger className="w-32">
+                              <SelectTrigger className="w-full lg:w-32">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -853,7 +853,7 @@ export function AdminPeoplePage() {
                                 }
                                 disabled={busyAccountId === account._id}
                               >
-                                <SelectTrigger className="w-28">
+                                <SelectTrigger className="w-full lg:w-28">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -863,7 +863,7 @@ export function AdminPeoplePage() {
                               </Select>
                             )}
                             <Input
-                              className="w-28"
+                              className="w-full lg:w-28"
                               defaultValue={account.graduationYear ?? ""}
                               inputMode="numeric"
                               placeholder="Grad"
@@ -887,6 +887,7 @@ export function AdminPeoplePage() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
+                                className="w-full lg:w-auto"
                                 disabled={busyAccountId === account._id}
                                 onClick={() => void handleCreateLink(account._id, "initial_setup")}
                               >
@@ -899,6 +900,7 @@ export function AdminPeoplePage() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
+                                className="w-full lg:w-auto"
                                 disabled={busyAccountId === account._id}
                                 onClick={() => void handleCreateLink(account._id, "password_reset")}
                               >
@@ -910,6 +912,7 @@ export function AdminPeoplePage() {
                               type="button"
                               variant={account.status === "inactive" ? "default" : "destructive"}
                               size="sm"
+                              className="w-full lg:w-auto"
                               disabled={busyAccountId === account._id}
                               onClick={() =>
                                 void handleToggleAccount(account._id, account.status === "inactive")
@@ -925,6 +928,7 @@ export function AdminPeoplePage() {
                                   type="button"
                                   variant="ghost"
                                   size="sm"
+                                  className="w-full lg:w-auto"
                                   onClick={() => void revokeCredentialLink({ credentialLinkId: link._id })}
                                 >
                                   Revoke {link.purpose === "initial_setup" ? "setup" : "reset"}
@@ -1180,7 +1184,7 @@ export function AdminPeoplePage() {
                               <SelectItem value="admin">Admin</SelectItem>
                             </SelectContent>
                           </Select>
-                          <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground md:justify-end">
                             {savingUserId === profile.userId ? (
                               <span className="inline-flex items-center gap-2">
                                 <Save className="size-4" />
@@ -1194,6 +1198,7 @@ export function AdminPeoplePage() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
+                                className="w-full md:w-auto"
                                 disabled={clearingProfileId === profile._id || isOwnProfile}
                                 onClick={() => void handleClearLegacyProfile(profile._id, profileName)}
                               >

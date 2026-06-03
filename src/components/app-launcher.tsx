@@ -110,7 +110,11 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" sideOffset={8} className="w-80 p-3">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={8}
+        className="w-[calc(100vw-2rem)] max-w-80 p-3"
+      >
         <DropdownMenuLabel className="px-1 pb-2 pt-0 text-xs text-muted-foreground">
           Dolphin apps
         </DropdownMenuLabel>

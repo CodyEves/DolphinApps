@@ -590,6 +590,7 @@ export function LessonViewPage() {
                     type="button"
                     onClick={handleSubmitQuestions}
                     disabled={isSubmittingQuestions || hasPassedQuestions}
+                    className="w-full sm:w-auto"
                   >
                     <Send className="size-4" />
                     {hasPassedQuestions

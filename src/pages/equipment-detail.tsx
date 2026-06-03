@@ -888,7 +888,7 @@ export function EquipmentDetailPage() {
                         {videoUrl && !hasCompletedVideo && (
                           <Button
                             type="button"
-                            className="mt-4"
+                            className="mt-4 w-full sm:w-auto"
                             onClick={() => void handleMarkVideoComplete(item._id)}
                             disabled={completingVideoId === item._id}
                           >
@@ -1085,6 +1085,7 @@ export function EquipmentDetailPage() {
                               type="button"
                               onClick={() => void handleSubmitSafetyTest(item)}
                               disabled={submittingTestId === item._id}
+                              className="w-full sm:w-auto"
                             >
                               <ClipboardCheck className="size-4" />
                               {submittingTestId === item._id
