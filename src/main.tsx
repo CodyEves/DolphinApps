@@ -128,6 +128,8 @@ const router = createBrowserRouter([
       { path: "admin/lms", element: <AdminLmsPage /> },
       { path: "admin/people", element: <AdminPeoplePage /> },
       { path: "auth", element: <AuthPage /> },
+      { path: "auth/setup", element: <AuthPage /> },
+      { path: "auth/reset", element: <AuthPage /> },
     ],
   },
 ]);

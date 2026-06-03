@@ -11,6 +11,15 @@ const role = v.union(
   v.literal("admin"),
 );
 const activeStatus = v.union(v.literal("active"), v.literal("inactive"));
+const provisionedAccountStatus = v.union(
+  v.literal("pending_setup"),
+  v.literal("active"),
+  v.literal("inactive"),
+);
+const credentialLinkPurpose = v.union(
+  v.literal("initial_setup"),
+  v.literal("password_reset"),
+);
 const lessonType = v.union(
   v.literal("video"),
   v.literal("video_assignment"),
@@ -120,6 +129,42 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_role", ["role"])
     .index("by_email", ["email"]),
+
+  provisionedAccounts: defineTable({
+    username: v.string(),
+    displayName: v.string(),
+    accountLabel: v.union(
+      v.literal("varsity_5199"),
+      v.literal("jv_9271"),
+      v.literal("mentor"),
+      v.literal("guest"),
+      v.literal("admin"),
+    ),
+    userId: v.optional(v.id("users")),
+    profileId: v.optional(v.id("profiles")),
+    graduationYear: v.optional(v.number()),
+    status: provisionedAccountStatus,
+    createdBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_username", ["username"])
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"]),
+
+  credentialLinks: defineTable({
+    provisionedAccountId: v.id("provisionedAccounts"),
+    tokenHash: v.string(),
+    purpose: credentialLinkPurpose,
+    expiresAt: v.number(),
+    consumedAt: v.optional(v.number()),
+    revokedAt: v.optional(v.number()),
+    createdBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_account", ["provisionedAccountId"])
+    .index("by_account_purpose", ["provisionedAccountId", "purpose"]),
 
   trainingTracks: defineTable({
     title: v.string(),

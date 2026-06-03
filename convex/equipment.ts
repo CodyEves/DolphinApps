@@ -44,8 +44,18 @@ async function currentProfile(ctx: QueryCtx | MutationCtx) {
 async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   const profile = await currentProfile(ctx);
 
-  if (profile?.role !== "admin") {
+  if (profile?.role !== "admin" || profile.status !== "active") {
     throw new Error("Only admins can manage equipment.");
+  }
+
+  return profile;
+}
+
+async function requireActiveProfile(ctx: QueryCtx | MutationCtx) {
+  const profile = await currentProfile(ctx);
+
+  if (!profile || profile.status !== "active") {
+    throw new Error("Your team profile is not active.");
   }
 
   return profile;
@@ -681,11 +691,8 @@ export const submitEquipmentSafetyTest = mutation({
     answers: v.array(answerInputValidator),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-
-    if (!userId) {
-      throw new Error("You must be signed in to submit a safety test.");
-    }
+    const profile = await requireActiveProfile(ctx);
+    const userId = profile.userId;
 
     const equipment = await ctx.db.get(args.equipmentId);
 
@@ -769,11 +776,8 @@ export const markEquipmentVideoComplete = mutation({
     equipmentId: v.id("equipment"),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-
-    if (!userId) {
-      throw new Error("You must be signed in to complete equipment video training.");
-    }
+    const profile = await requireActiveProfile(ctx);
+    const userId = profile.userId;
 
     const equipment = await ctx.db.get(args.equipmentId);
 

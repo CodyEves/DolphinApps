@@ -44,7 +44,7 @@ async function requireAdmin(ctx: QueryCtx | MutationCtx) {
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
 
-  if (profile?.role !== "admin") {
+  if (profile?.role !== "admin" || profile.status !== "active") {
     throw new Error("Only an admin can manage users.");
   }
 
@@ -82,43 +82,6 @@ function accountLabelForProfile(profile: {
   return "varsity_5199" as const;
 }
 
-export const ensureCurrentUserProfile = mutation({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-
-    if (!userId) {
-      throw new Error("You must be signed in to create a profile.");
-    }
-
-    const user = await ctx.db.get(userId);
-    const existing = await ctx.db
-      .query("profiles")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .first();
-
-    const now = Date.now();
-
-    if (existing) {
-      await ctx.db.patch(existing._id, {
-        ...userProfileFields(user),
-        updatedAt: now,
-      });
-
-      return existing._id;
-    }
-
-    return await ctx.db.insert("profiles", {
-      userId,
-      role: "student",
-      ...userProfileFields(user),
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
-    });
-  },
-});
-
 export const viewer = query({
   args: {},
   handler: async (ctx) => {
@@ -136,10 +99,9 @@ export const viewer = query({
     return {
       user,
       profile: profile ?? {
-        role: "student" as const,
-        status: "active" as const,
+        role: "guest" as const,
+        status: "inactive" as const,
         displayName: user.name,
-        email: user.email,
       },
     };
   },
@@ -260,16 +222,7 @@ export const setPrimaryProgram = mutation({
       return existing._id;
     }
 
-    return await ctx.db.insert("profiles", {
-      userId,
-      role: "student",
-      primaryProgram: args.program,
-      studentGroup,
-      ...userProfileFields(user),
-      status: "active",
-      createdAt: now,
-      updatedAt: now,
-    });
+    throw new Error("Ask an admin to provision your team account.");
   },
 });
 

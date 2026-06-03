@@ -138,7 +138,7 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent>
             <Button asChild>
-              <Link to="/auth">Sign in or create account</Link>
+              <Link to="/auth">Sign in</Link>
             </Button>
           </CardContent>
         </Card>

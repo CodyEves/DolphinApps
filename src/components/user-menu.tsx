@@ -126,24 +126,26 @@ export function UserMenu() {
     );
   }
 
+  const displayName = viewer.profile.displayName ?? viewer.user.name ?? "Team member";
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-10 gap-2 px-2">
           <Avatar className="size-7">
             <AvatarFallback>
-              {initials(viewer.user.name ?? viewer.user.email)}
+              {initials(displayName)}
             </AvatarFallback>
           </Avatar>
           <span className="hidden max-w-36 truncate text-sm md:inline">
-            {viewer.user.name ?? viewer.user.email ?? "Team member"}
+            {displayName}
           </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>
           <span className="block truncate">
-            {viewer.user.email ?? "Signed in"}
+            {displayName}
           </span>
           <span className="text-xs font-normal text-muted-foreground">
             {currentApp} / {effectiveRole}

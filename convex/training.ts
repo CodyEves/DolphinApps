@@ -45,10 +45,10 @@ const answerInputValidator = v.object({
 export const generateLessonUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
+    const profile = await currentProfile(ctx);
 
-    if (!userId) {
-      throw new Error("Sign in before uploading files.");
+    if (!profile || profile.status !== "active") {
+      throw new Error("Your team profile is not active.");
     }
 
     return await ctx.storage.generateUploadUrl();
@@ -89,8 +89,18 @@ async function currentProfile(ctx: QueryCtx | MutationCtx) {
 async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   const profile = await currentProfile(ctx);
 
-  if (profile?.role !== "admin") {
+  if (profile?.role !== "admin" || profile.status !== "active") {
     throw new Error("Only admins can manage learning tracks.");
+  }
+
+  return profile;
+}
+
+async function requireActiveProfile(ctx: QueryCtx | MutationCtx) {
+  const profile = await currentProfile(ctx);
+
+  if (!profile || profile.status !== "active") {
+    throw new Error("Your team profile is not active.");
   }
 
   return profile;
@@ -288,7 +298,7 @@ export const getTrainingTrackForStudent = query({
 
     const profile = await currentProfile(ctx);
 
-    if (!trackTree.isPublished && profile?.role !== "admin") {
+    if (!trackTree.isPublished && (profile?.role !== "admin" || profile.status !== "active")) {
       return null;
     }
 
@@ -320,7 +330,7 @@ export const getLessonForStudent = query({
 
     const profile = await currentProfile(ctx);
 
-    if (!content.track.isPublished && profile?.role !== "admin") {
+    if (!content.track.isPublished && (profile?.role !== "admin" || profile.status !== "active")) {
       return null;
     }
 
@@ -349,11 +359,8 @@ export const submitLessonQuiz = mutation({
     answers: v.array(answerInputValidator),
   },
   handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-
-    if (!userId) {
-      throw new Error("You must be signed in to submit lesson questions.");
-    }
+    const profile = await requireActiveProfile(ctx);
+    const userId = profile.userId;
 
     const content = await collectLessonContent(ctx, args.lessonId);
 
@@ -362,8 +369,6 @@ export const submitLessonQuiz = mutation({
     }
 
     if (!content.track.isPublished) {
-      const profile = await currentProfile(ctx);
-
       if (profile?.role !== "admin") {
         throw new Error("This lesson is not available yet.");
       }

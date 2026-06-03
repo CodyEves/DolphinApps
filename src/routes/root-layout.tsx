@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { Outlet, useLocation } from "react-router";
 
-import { EnsureProfile } from "@/components/ensure-profile";
 import { MobileNav, Sidebar } from "@/components/navigation";
 import { ProgramOnboarding } from "@/components/program-onboarding";
 import { ThemeModeToggle } from "@/components/theme-mode-toggle";
@@ -31,7 +30,6 @@ export function RootLayout() {
   const appCopy = currentAppCopy(location.pathname, selectedProgram);
   return (
     <div className="min-h-screen bg-background">
-      <EnsureProfile />
       <div className="flex min-h-screen">
         <ProgramOnboarding />
         <Sidebar />

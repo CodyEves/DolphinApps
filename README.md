@@ -9,7 +9,7 @@ Dolphin Apps is the shared web app suite for Team 5199, currently including Dolp
 - Equipment catalog with safety tests, SOP uploads, and hands-on sign-off requests
 - Badge catalog and admin-managed badge awards
 - Admin tools for users, Dolphin Training content, badge definitions, reviews, and progress resets
-- Convex Auth email/password sign-up and sign-in
+- Admin-provisioned username/password accounts with one-time setup and reset links
 
 ## Tech Stack
 
@@ -19,7 +19,7 @@ Dolphin Apps is the shared web app suite for Team 5199, currently including Dolp
 - Tailwind CSS v4 with shadcn/ui-style components
 - Lucide icons
 - Convex for backend data, live queries, mutations, auth, storage, and persistence
-- Convex Auth with email/password
+- Convex Auth with admin-provisioned username/password credentials
 - Zustand for temporary UI-only state
 - next-themes for light/dark/system mode
 - Sonner for toast notifications
@@ -96,13 +96,19 @@ bun run preview
 | `/admin/lms` | Training and progress management |
 | `/admin/badges` | Badge management |
 | `/admin/people` | User and role management |
-| `/auth` | Sign in and create account |
+| `/auth` | Username/password sign in |
+| `/auth/setup` | One-time password setup link |
+| `/auth/reset` | One-time password reset link |
 
 Editor routes also exist for training tracks, lessons, and badges. They require the appropriate authenticated role.
 
 ## Authentication and Roles
 
-New accounts default to the `student` role when their profile is created.
+Accounts are provisioned by admins instead of open public sign-up. Admins create
+a student, mentor, guest, or admin account in `/admin/people`, then copy a
+one-time setup link for that person to create their password. Password recovery
+also uses admin-generated one-time reset links, so student email addresses are
+not required for access.
 
 Supported profile roles:
 
@@ -112,28 +118,34 @@ Supported profile roles:
 - `guest`
 - `admin`
 
-For early development, use the Convex dashboard or CLI to run this mutation:
+For first-admin bootstrap, use the Convex dashboard or CLI to run this mutation
+before any admin profile exists:
 
 ```ts
-profiles:setRoleForEmail
+access:createProvisionedAccount
 ```
 
 Example arguments:
 
 ```json
 {
-  "email": "mentor@example.com",
-  "role": "admin"
+  "displayName": "Lead Mentor",
+  "accountLabel": "admin",
+  "setupTokenHash": "sha256-hex-of-a-random-token",
+  "setupExpiresAt": 1798761600000
 }
 ```
 
-The first admin can be bootstrapped before any admin exists. After an admin exists, role changes require an authenticated admin.
+Then open `/auth/setup?token=<the-random-token>` to set the first admin
+password. After an admin exists, account creation and reset links require an
+authenticated active admin.
 
 ## Project Structure
 
 ```text
 convex/
-  auth.ts        Convex Auth password provider setup
+  auth.ts        Convex Auth username credential setup
+  access.ts      Provisioned usernames, setup links, and reset links
   http.ts        Convex Auth HTTP routes
   schema.ts      App data model and indexes
   profiles.ts    Profile, role, and account label functions

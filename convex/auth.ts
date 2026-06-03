@@ -1,18 +1,131 @@
-import { convexAuth } from "@convex-dev/auth/server";
-import { Password } from "@convex-dev/auth/providers/Password";
+import {
+  convexAuth,
+  createAccount,
+  invalidateSessions,
+  modifyAccountCredentials,
+  retrieveAccount,
+} from "@convex-dev/auth/server";
+import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
+import { Scrypt } from "lucia";
+
+import { internal } from "./_generated/api";
+
+const provider = "password";
+
+function normalizeUsername(value: unknown) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function readPassword(value: unknown) {
+  const password = String(value ?? "");
+
+  if (password.length < 8) {
+    throw new Error("Password must be at least 8 characters.");
+  }
+
+  return password;
+}
+
+async function sha256Hex(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
-    Password({
-      profile(params) {
-        const email = String(params.email ?? "").trim().toLowerCase();
-        const rawName = params.name;
-        const name =
-          typeof rawName === "string" && rawName.trim().length > 0
-            ? rawName.trim()
-            : email.split("@")[0] || "Team member";
+    ConvexCredentials({
+      id: provider,
+      authorize: async (params, ctx) => {
+        const flow = String(params.flow ?? "signIn");
 
-        return { email, name };
+        if (flow === "signIn") {
+          const username = normalizeUsername(params.username);
+          const password = String(params.password ?? "");
+
+          if (!username || !password) {
+            throw new Error("Enter your username and password.");
+          }
+
+          const retrieved = await retrieveAccount(ctx, {
+            provider,
+            account: { id: username, secret: password },
+          });
+
+          await ctx.runQuery(internal.access.validateUsernameSignIn, {
+            username,
+            userId: retrieved.user._id,
+          });
+
+          return { userId: retrieved.user._id };
+        }
+
+        if (flow === "setup") {
+          const password = readPassword(params.password);
+          const token = String(params.token ?? "");
+
+          if (!token) {
+            throw new Error("Setup link is missing.");
+          }
+
+          const account = await ctx.runMutation(internal.access.consumeCredentialLink, {
+            tokenHash: await sha256Hex(token),
+            purpose: "initial_setup",
+          });
+          const created = await createAccount(ctx, {
+            provider,
+            account: { id: account.username, secret: password },
+            profile: { name: account.displayName },
+            shouldLinkViaEmail: false,
+            shouldLinkViaPhone: false,
+          });
+
+          await ctx.runMutation(internal.access.completeInitialSetup, {
+            provisionedAccountId: account.accountId,
+            userId: created.user._id,
+          });
+
+          return { userId: created.user._id };
+        }
+
+        if (flow === "reset") {
+          const password = readPassword(params.password);
+          const token = String(params.token ?? "");
+
+          if (!token) {
+            throw new Error("Reset link is missing.");
+          }
+
+          const account = await ctx.runMutation(internal.access.consumeCredentialLink, {
+            tokenHash: await sha256Hex(token),
+            purpose: "password_reset",
+          });
+
+          if (!account.userId) {
+            throw new Error("This account has not completed setup yet.");
+          }
+
+          await modifyAccountCredentials(ctx, {
+            provider,
+            account: { id: account.username, secret: password },
+          });
+          await invalidateSessions(ctx, { userId: account.userId });
+
+          return { userId: account.userId };
+        }
+
+        throw new Error("Unsupported authentication flow.");
+      },
+      crypto: {
+        async hashSecret(password) {
+          return await new Scrypt().hash(password);
+        },
+        async verifySecret(password, hash) {
+          return await new Scrypt().verify(hash, password);
+        },
       },
     }),
   ],
