@@ -122,7 +122,9 @@ export const listUsersForAdmin = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
 
-    const profiles = await ctx.db.query("profiles").collect();
+    const profiles = (await ctx.db.query("profiles").collect()).filter(
+      (profile) => !profile.archivedAt,
+    );
     const users = await Promise.all(
       profiles.map(async (profile) => {
         const user = await ctx.db.get(profile.userId);
@@ -167,7 +169,12 @@ export const clearLegacyProfile = mutation({
       throw new Error("This profile is linked to a provisioned account.");
     }
 
-    await ctx.db.delete(args.profileId);
+    await ctx.db.patch(args.profileId, {
+      status: "inactive",
+      archivedAt: Date.now(),
+      archivedBy: admin.userId,
+      updatedAt: Date.now(),
+    });
 
     return args.profileId;
   },
@@ -177,7 +184,9 @@ export const clearLegacyProfiles = mutation({
   args: {},
   handler: async (ctx) => {
     const admin = await requireAdmin(ctx);
-    const profiles = await ctx.db.query("profiles").collect();
+    const profiles = (await ctx.db.query("profiles").collect()).filter(
+      (profile) => !profile.archivedAt,
+    );
     let clearedCount = 0;
     let skippedCount = 0;
 
@@ -194,7 +203,12 @@ export const clearLegacyProfiles = mutation({
         continue;
       }
 
-      await ctx.db.delete(profile._id);
+      await ctx.db.patch(profile._id, {
+        status: "inactive",
+        archivedAt: Date.now(),
+        archivedBy: admin.userId,
+        updatedAt: Date.now(),
+      });
       clearedCount += 1;
     }
 
@@ -374,7 +388,9 @@ export const list = query({
   args: {},
   handler: async (ctx) => {
     await requireAdmin(ctx);
-    const profiles = await ctx.db.query("profiles").take(500);
+    const profiles = (await ctx.db.query("profiles").take(500)).filter(
+      (profile) => !profile.archivedAt,
+    );
 
     return profiles
       .map((profile) => ({

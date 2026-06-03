@@ -123,6 +123,8 @@ export default defineSchema({
     graduationYear: v.optional(v.number()),
     studentGroup: v.optional(v.string()),
     status: activeStatus,
+    archivedAt: v.optional(v.number()),
+    archivedBy: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
