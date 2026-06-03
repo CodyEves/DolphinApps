@@ -11,6 +11,7 @@ import {
   Save,
   Search,
   SlidersHorizontal,
+  Trash2,
   Upload,
   Users,
 } from "lucide-react";
@@ -201,6 +202,8 @@ export function AdminPeoplePage() {
   const revokeCredentialLink = useMutation(api.access.revokeCredentialLink);
   const deactivateAccount = useMutation(api.access.deactivateAccount);
   const reactivateAccount = useMutation(api.access.reactivateAccount);
+  const removeProvisionedAccount = useMutation(api.access.removeProvisionedAccount);
+  const removeInactiveGraduationYear = useMutation(api.access.removeInactiveGraduationYear);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [accountRole, setAccountRole] = useState<AccountRole>("student");
@@ -208,10 +211,13 @@ export function AdminPeoplePage() {
   const [graduationYear, setGraduationYear] = useState("");
   const [graduatingYear, setGraduatingYear] = useState("");
   const [graduatingProgram, setGraduatingProgram] = useState<Program | "all">("all");
+  const [cleanupYear, setCleanupYear] = useState("");
+  const [cleanupProgram, setCleanupProgram] = useState<Program | "all">("all");
   const [csv, setCsv] = useState("displayName,role,program,graduationYear\n");
   const [generatedLinks, setGeneratedLinks] = useState<Record<string, string>>({});
   const [busyAccountId, setBusyAccountId] = useState<string | null>(null);
   const [isGraduating, setIsGraduating] = useState(false);
+  const [isRemovingClass, setIsRemovingClass] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<AccountRole | "all">("all");
   const [programFilter, setProgramFilter] = useState<Program | "all">("all");
@@ -385,6 +391,38 @@ export function AdminPeoplePage() {
     }
   }
 
+  async function handleRemoveInactiveClass() {
+    const year = Number(cleanupYear);
+
+    if (!Number.isFinite(year)) {
+      toast.error("Enter a graduation year.");
+      return;
+    }
+
+    const programLabel = cleanupProgram === "all" ? "all programs" : `team ${programText[cleanupProgram]}`;
+    const confirmed = window.confirm(
+      `Remove inactive class of ${year} accounts for ${programLabel}? This removes provisioned usernames and credential links. Linked profiles will stay in history but remain inactive.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsRemovingClass(true);
+
+    try {
+      const result = await removeInactiveGraduationYear({
+        graduationYear: year,
+        program: cleanupProgram === "all" ? undefined : cleanupProgram,
+      });
+      toast.success(`Removed ${result.removedCount} inactive accounts`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove old accounts");
+    } finally {
+      setIsRemovingClass(false);
+    }
+  }
+
   async function handleBulkCreate() {
     const rows = parseCsvRows(csv);
 
@@ -471,6 +509,30 @@ export function AdminPeoplePage() {
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update account");
+    } finally {
+      setBusyAccountId(null);
+    }
+  }
+
+  async function handleRemoveAccount(
+    provisionedAccountId: Id<"provisionedAccounts">,
+    displayName: string,
+  ) {
+    const confirmed = window.confirm(
+      `Remove ${displayName}? This removes the provisioned username and setup/reset links. If the account has a linked profile, the profile will be deactivated for historical records.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setBusyAccountId(provisionedAccountId);
+
+    try {
+      await removeProvisionedAccount({ provisionedAccountId });
+      toast.success("Account removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove account");
     } finally {
       setBusyAccountId(null);
     }
@@ -870,6 +932,16 @@ export function AdminPeoplePage() {
                             >
                               {account.status === "inactive" ? "Reactivate" : "Deactivate"}
                             </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={busyAccountId === account._id}
+                              onClick={() => void handleRemoveAccount(account._id, account.displayName)}
+                            >
+                              <Trash2 className="size-4" />
+                              Remove
+                            </Button>
                             {account.credentialLinks
                               .filter((link) => !link.consumedAt && !link.revokedAt && link.expiresAt > Date.now())
                               .map((link) => (
@@ -999,42 +1071,96 @@ export function AdminPeoplePage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="graduatingYear">Graduation year</Label>
-                        <Input
-                          id="graduatingYear"
-                          value={graduatingYear}
-                          onChange={(event) => setGraduatingYear(event.target.value)}
-                          inputMode="numeric"
-                          placeholder="2026"
-                        />
+                    <div className="space-y-3 rounded-md border p-4">
+                      <div>
+                        <p className="font-medium">Graduate a class</p>
+                        <p className="text-sm text-muted-foreground">
+                          Deactivate students when they leave the program.
+                        </p>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Program</Label>
-                        <Select
-                          value={graduatingProgram}
-                          onValueChange={(value: Program | "all") => setGraduatingProgram(value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All students</SelectItem>
-                            <SelectItem value="frc_5199">5199 only</SelectItem>
-                            <SelectItem value="frc_9271">9271 only</SelectItem>
-                          </SelectContent>
-                        </Select>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="graduatingYear">Graduation year</Label>
+                          <Input
+                            id="graduatingYear"
+                            value={graduatingYear}
+                            onChange={(event) => setGraduatingYear(event.target.value)}
+                            inputMode="numeric"
+                            placeholder="2026"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Program</Label>
+                          <Select
+                            value={graduatingProgram}
+                            onValueChange={(value: Program | "all") => setGraduatingProgram(value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All students</SelectItem>
+                              <SelectItem value="frc_5199">5199 only</SelectItem>
+                              <SelectItem value="frc_9271">9271 only</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        onClick={() => void handleGraduateClass()}
+                        disabled={isGraduating}
+                      >
+                        Graduate class
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={() => void handleGraduateClass()}
-                      disabled={isGraduating}
-                    >
-                      Graduate class
-                    </Button>
+
+                    <div className="space-y-3 rounded-md border p-4">
+                      <div>
+                        <p className="font-medium">Remove old inactive accounts</p>
+                        <p className="text-sm text-muted-foreground">
+                          Permanently remove inactive provisioned usernames and their setup/reset links.
+                        </p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="cleanupYear">Graduation year</Label>
+                          <Input
+                            id="cleanupYear"
+                            value={cleanupYear}
+                            onChange={(event) => setCleanupYear(event.target.value)}
+                            inputMode="numeric"
+                            placeholder="2026"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Program</Label>
+                          <Select
+                            value={cleanupProgram}
+                            onValueChange={(value: Program | "all") => setCleanupProgram(value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="all">All students</SelectItem>
+                              <SelectItem value="frc_5199">5199 only</SelectItem>
+                              <SelectItem value="frc_9271">9271 only</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handleRemoveInactiveClass()}
+                        disabled={isRemovingClass}
+                      >
+                        <Trash2 className="size-4" />
+                        Remove inactive class accounts
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
