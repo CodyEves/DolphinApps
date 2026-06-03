@@ -115,12 +115,14 @@ async function requireAdminOrFirstAdminBootstrap(
   ctx: MutationCtx,
   accountLabel: AccountLabel,
 ) {
-  const admins = await ctx.db
-    .query("profiles")
-    .withIndex("by_role", (q) => q.eq("role", "admin"))
-    .take(1);
+  const provisionedAdmins = await ctx.db.query("provisionedAccounts").collect();
 
-  if (admins.length === 0 && accountLabel === "admin") {
+  if (
+    accountLabel === "admin" &&
+    !provisionedAdmins.some(
+      (account) => account.accountLabel === "admin" && account.status !== "inactive",
+    )
+  ) {
     return undefined;
   }
 
