@@ -50,6 +50,8 @@ export function AuthPage() {
     api.access.getCredentialLinkPreview,
     mode === "signIn" || !token || !tokenHash ? "skip" : { tokenHash, purpose },
   );
+  const invalidCredentialLink =
+    mode !== "signIn" && (!token || preview === null);
   const pageCopy = useMemo(() => {
     if (mode === "setup") {
       return {
@@ -76,6 +78,14 @@ export function AuthPage() {
       button: "Sign in",
     };
   }, [mode]);
+  const displayedPageCopy = invalidCredentialLink
+    ? {
+        eyebrow: "Account link",
+        title: "Invalid or missing link",
+        description: "Ask an admin for a current setup or password reset link.",
+        button: pageCopy.button,
+      }
+    : pageCopy;
 
   useEffect(() => {
     let isMounted = true;
@@ -132,9 +142,9 @@ export function AuthPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeading
-        eyebrow={pageCopy.eyebrow}
-        title={pageCopy.title}
-        description={pageCopy.description}
+        eyebrow={displayedPageCopy.eyebrow}
+        title={displayedPageCopy.title}
+        description={displayedPageCopy.description}
       />
 
       {viewer && (
@@ -175,7 +185,8 @@ export function AuthPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {mode !== "signIn" && (
                   <div className="rounded-md border bg-muted/40 p-3 text-sm">
-                    {preview === undefined && "Checking link..."}
+                    {!token && "This page requires a one-time setup or reset link."}
+                    {token && preview === undefined && "Checking link..."}
                     {preview === null && "This link is invalid, expired, or already used."}
                     {preview && (
                       <div>
@@ -185,7 +196,11 @@ export function AuthPage() {
                     )}
                   </div>
                 )}
-                {mode === "signIn" && (
+                {invalidCredentialLink ? (
+                  <Button asChild className="w-full" variant="outline">
+                    <Link to="/auth">Return to sign in</Link>
+                  </Button>
+                ) : mode === "signIn" ? (
                   <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
                     <Input
@@ -196,40 +211,44 @@ export function AuthPage() {
                       required
                     />
                   </div>
+                ) : null}
+                {!invalidCredentialLink && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password</Label>
+                      <Input
+                        id="password"
+                        name="password"
+                        type="password"
+                        autoComplete={mode === "signIn" ? "current-password" : "new-password"}
+                        minLength={8}
+                        required
+                      />
+                    </div>
+                    {error && (
+                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                        {error}
+                      </p>
+                    )}
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isSubmitting || (mode !== "signIn" && !preview)}
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : mode === "signIn" ? (
+                        <LogIn className="size-4" />
+                      ) : (
+                        <KeyRound className="size-4" />
+                      )}
+                      {pageCopy.button}
+                    </Button>
+                  </>
                 )}
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete={mode === "signIn" ? "current-password" : "new-password"}
-                    minLength={8}
-                    required
-                  />
-                </div>
-                {error && (
-                  <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                    {error}
-                  </p>
-                )}
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={isSubmitting || (mode !== "signIn" && !preview)}
-                >
-                  {isSubmitting ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : mode === "signIn" ? (
-                    <LogIn className="size-4" />
-                  ) : (
-                    <KeyRound className="size-4" />
-                  )}
-                  {pageCopy.button}
-                </Button>
                 {mode === "signIn" && (
                   <p className="text-sm text-muted-foreground">
-                    Need access? Ask an admin or mentor to create an account for you.
+                    Need access? Ask an admin or mentor to provision your account.
                   </p>
                 )}
               </form>

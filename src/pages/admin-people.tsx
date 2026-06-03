@@ -329,7 +329,7 @@ export function AdminPeoplePage() {
               <Card>
                 <CardHeader>
                   <Plus className="size-5 text-primary" />
-                  <CardTitle>Create account</CardTitle>
+                  <CardTitle>Provision account</CardTitle>
                   <CardDescription>
                     Generate a username and one-time setup link.
                   </CardDescription>
@@ -375,7 +375,7 @@ export function AdminPeoplePage() {
                     </div>
                     <Button type="submit">
                       <Save className="size-4" />
-                      Create and copy link
+                      Provision and copy link
                     </Button>
                   </form>
                 </CardContent>
