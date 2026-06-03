@@ -21,6 +21,7 @@ const accountLabelValidator = v.union(
   v.literal("guest"),
   v.literal("admin"),
 );
+const archivedLegacyProfileGroup = "__archived_legacy_profile__";
 
 async function currentUser(ctx: QueryCtx) {
   const userId = await getAuthUserId(ctx);
@@ -123,7 +124,7 @@ export const listUsersForAdmin = query({
     await requireAdmin(ctx);
 
     const profiles = (await ctx.db.query("profiles").collect()).filter(
-      (profile) => !profile.archivedAt,
+      (profile) => profile.studentGroup !== archivedLegacyProfileGroup,
     );
     const users = await Promise.all(
       profiles.map(async (profile) => {
@@ -171,8 +172,7 @@ export const clearLegacyProfile = mutation({
 
     await ctx.db.patch(args.profileId, {
       status: "inactive",
-      archivedAt: Date.now(),
-      archivedBy: admin.userId,
+      studentGroup: archivedLegacyProfileGroup,
       updatedAt: Date.now(),
     });
 
@@ -185,7 +185,7 @@ export const clearLegacyProfiles = mutation({
   handler: async (ctx) => {
     const admin = await requireAdmin(ctx);
     const profiles = (await ctx.db.query("profiles").collect()).filter(
-      (profile) => !profile.archivedAt,
+      (profile) => profile.studentGroup !== archivedLegacyProfileGroup,
     );
     let clearedCount = 0;
     let skippedCount = 0;
@@ -205,8 +205,7 @@ export const clearLegacyProfiles = mutation({
 
       await ctx.db.patch(profile._id, {
         status: "inactive",
-        archivedAt: Date.now(),
-        archivedBy: admin.userId,
+        studentGroup: archivedLegacyProfileGroup,
         updatedAt: Date.now(),
       });
       clearedCount += 1;
@@ -389,7 +388,7 @@ export const list = query({
   handler: async (ctx) => {
     await requireAdmin(ctx);
     const profiles = (await ctx.db.query("profiles").take(500)).filter(
-      (profile) => !profile.archivedAt,
+      (profile) => profile.studentGroup !== archivedLegacyProfileGroup,
     );
 
     return profiles
