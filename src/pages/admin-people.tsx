@@ -202,8 +202,8 @@ export function AdminPeoplePage() {
   const revokeCredentialLink = useMutation(api.access.revokeCredentialLink);
   const deactivateAccount = useMutation(api.access.deactivateAccount);
   const reactivateAccount = useMutation(api.access.reactivateAccount);
-  const removeProvisionedAccount = useMutation(api.access.removeProvisionedAccount);
-  const removeInactiveGraduationYear = useMutation(api.access.removeInactiveGraduationYear);
+  const clearLegacyProfile = useMutation(api.profiles.clearLegacyProfile);
+  const clearLegacyProfiles = useMutation(api.profiles.clearLegacyProfiles);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState("");
   const [accountRole, setAccountRole] = useState<AccountRole>("student");
@@ -211,13 +211,12 @@ export function AdminPeoplePage() {
   const [graduationYear, setGraduationYear] = useState("");
   const [graduatingYear, setGraduatingYear] = useState("");
   const [graduatingProgram, setGraduatingProgram] = useState<Program | "all">("all");
-  const [cleanupYear, setCleanupYear] = useState("");
-  const [cleanupProgram, setCleanupProgram] = useState<Program | "all">("all");
   const [csv, setCsv] = useState("displayName,role,program,graduationYear\n");
   const [generatedLinks, setGeneratedLinks] = useState<Record<string, string>>({});
   const [busyAccountId, setBusyAccountId] = useState<string | null>(null);
   const [isGraduating, setIsGraduating] = useState(false);
-  const [isRemovingClass, setIsRemovingClass] = useState(false);
+  const [clearingProfileId, setClearingProfileId] = useState<string | null>(null);
+  const [isClearingLegacyProfiles, setIsClearingLegacyProfiles] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<AccountRole | "all">("all");
   const [programFilter, setProgramFilter] = useState<Program | "all">("all");
@@ -391,38 +390,6 @@ export function AdminPeoplePage() {
     }
   }
 
-  async function handleRemoveInactiveClass() {
-    const year = Number(cleanupYear);
-
-    if (!Number.isFinite(year)) {
-      toast.error("Enter a graduation year.");
-      return;
-    }
-
-    const programLabel = cleanupProgram === "all" ? "all programs" : `team ${programText[cleanupProgram]}`;
-    const confirmed = window.confirm(
-      `Remove inactive class of ${year} accounts for ${programLabel}? This removes provisioned usernames and credential links. Linked profiles will stay in history but remain inactive.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    setIsRemovingClass(true);
-
-    try {
-      const result = await removeInactiveGraduationYear({
-        graduationYear: year,
-        program: cleanupProgram === "all" ? undefined : cleanupProgram,
-      });
-      toast.success(`Removed ${result.removedCount} inactive accounts`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not remove old accounts");
-    } finally {
-      setIsRemovingClass(false);
-    }
-  }
-
   async function handleBulkCreate() {
     const rows = parseCsvRows(csv);
 
@@ -514,27 +481,45 @@ export function AdminPeoplePage() {
     }
   }
 
-  async function handleRemoveAccount(
-    provisionedAccountId: Id<"provisionedAccounts">,
-    displayName: string,
-  ) {
+  async function handleClearLegacyProfile(profileId: Id<"profiles">, displayName: string) {
     const confirmed = window.confirm(
-      `Remove ${displayName}? This removes the provisioned username and setup/reset links. If the account has a linked profile, the profile will be deactivated for historical records.`,
+      `Clear the legacy profile for ${displayName}? This removes only the old profile row. Provisioned username accounts cannot be cleared here.`,
     );
 
     if (!confirmed) {
       return;
     }
 
-    setBusyAccountId(provisionedAccountId);
+    setClearingProfileId(profileId);
 
     try {
-      await removeProvisionedAccount({ provisionedAccountId });
-      toast.success("Account removed");
+      await clearLegacyProfile({ profileId });
+      toast.success("Legacy profile cleared");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not remove account");
+      toast.error(error instanceof Error ? error.message : "Could not clear profile");
     } finally {
-      setBusyAccountId(null);
+      setClearingProfileId(null);
+    }
+  }
+
+  async function handleClearLegacyProfiles() {
+    const confirmed = window.confirm(
+      "Clear all profiles that are not linked to provisioned username accounts? This keeps all provisioned accounts and skips your own profile.",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsClearingLegacyProfiles(true);
+
+    try {
+      const result = await clearLegacyProfiles({});
+      toast.success(`Cleared ${result.clearedCount} legacy profiles`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not clear legacy profiles");
+    } finally {
+      setIsClearingLegacyProfiles(false);
     }
   }
 
@@ -932,16 +917,6 @@ export function AdminPeoplePage() {
                             >
                               {account.status === "inactive" ? "Reactivate" : "Deactivate"}
                             </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              disabled={busyAccountId === account._id}
-                              onClick={() => void handleRemoveAccount(account._id, account.displayName)}
-                            >
-                              <Trash2 className="size-4" />
-                              Remove
-                            </Button>
                             {account.credentialLinks
                               .filter((link) => !link.consumedAt && !link.revokedAt && link.expiresAt > Date.now())
                               .map((link) => (
@@ -1116,51 +1091,6 @@ export function AdminPeoplePage() {
                       </Button>
                     </div>
 
-                    <div className="space-y-3 rounded-md border p-4">
-                      <div>
-                        <p className="font-medium">Remove old inactive accounts</p>
-                        <p className="text-sm text-muted-foreground">
-                          Permanently remove inactive provisioned usernames and their setup/reset links.
-                        </p>
-                      </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-2">
-                          <Label htmlFor="cleanupYear">Graduation year</Label>
-                          <Input
-                            id="cleanupYear"
-                            value={cleanupYear}
-                            onChange={(event) => setCleanupYear(event.target.value)}
-                            inputMode="numeric"
-                            placeholder="2026"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Program</Label>
-                          <Select
-                            value={cleanupProgram}
-                            onValueChange={(value: Program | "all") => setCleanupProgram(value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All students</SelectItem>
-                              <SelectItem value="frc_5199">5199 only</SelectItem>
-                              <SelectItem value="frc_9271">9271 only</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => void handleRemoveInactiveClass()}
-                        disabled={isRemovingClass}
-                      >
-                        <Trash2 className="size-4" />
-                        Remove inactive class accounts
-                      </Button>
-                    </div>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -1175,6 +1105,23 @@ export function AdminPeoplePage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                      <div>
+                        <p className="font-medium">Legacy profile cleanup</p>
+                        <p className="text-sm text-muted-foreground">
+                          Clear profiles that are not linked to provisioned username accounts.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handleClearLegacyProfiles()}
+                        disabled={isClearingLegacyProfiles}
+                      >
+                        <Trash2 className="size-4" />
+                        Clear legacy profiles
+                      </Button>
+                    </div>
                     {users === undefined && (
                       <p className="text-sm text-muted-foreground">Loading users...</p>
                     )}
@@ -1183,61 +1130,81 @@ export function AdminPeoplePage() {
                         No user profiles exist yet.
                       </div>
                     )}
-                    {users?.map((profile) => (
-                      <div
-                        key={profile._id}
-                        className="grid gap-3 rounded-md border p-4 md:grid-cols-[1fr_260px_auto] md:items-center"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium">
-                              {profile.displayName ??
-                                profile.user?.name ??
-                                profile.email ??
-                                profile.user?.email ??
-                                "Team member"}
+                    {users?.map((profile) => {
+                      const profileName =
+                        profile.displayName ??
+                        profile.user?.name ??
+                        profile.email ??
+                        profile.user?.email ??
+                        "Team member";
+                      const isLegacyProfile = !profile.provisionedAccount;
+                      const isOwnProfile = profile.userId === viewer?.user._id;
+
+                      return (
+                        <div
+                          key={profile._id}
+                          className="grid gap-3 rounded-md border p-4 md:grid-cols-[1fr_260px_auto] md:items-center"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-medium">{profileName}</p>
+                              <Badge variant="outline">
+                                {accountLabelText[profile.accountLabel as AccountLabel]}
+                              </Badge>
+                              <Badge variant={isLegacyProfile ? "secondary" : "outline"}>
+                                {isLegacyProfile ? "Legacy profile" : profile.provisionedAccount?.username}
+                              </Badge>
+                              {profile.status === "inactive" && (
+                                <Badge variant="secondary">Inactive</Badge>
+                              )}
+                            </div>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {profile.email ?? profile.user?.email ?? profile.user?.name ?? "No email on file"}
                             </p>
-                            <Badge variant="outline">
-                              {accountLabelText[profile.accountLabel as AccountLabel]}
-                            </Badge>
-                            {profile.status === "inactive" && (
-                              <Badge variant="secondary">Inactive</Badge>
+                          </div>
+                          <Select
+                            value={profile.accountLabel}
+                            onValueChange={(value: AccountLabel) =>
+                              void handleSetAccountLabel(profile.userId, value)
+                            }
+                            disabled={savingUserId === profile.userId || isLegacyProfile}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="varsity_5199">5199 Student</SelectItem>
+                              <SelectItem value="jv_9271">9271 Student</SelectItem>
+                              <SelectItem value="mentor">Mentor</SelectItem>
+                              <SelectItem value="guest">Guest</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <div className="flex flex-wrap items-center justify-end gap-2 text-sm text-muted-foreground">
+                            {savingUserId === profile.userId ? (
+                              <span className="inline-flex items-center gap-2">
+                                <Save className="size-4" />
+                                Saving
+                              </span>
+                            ) : (
+                              <span>{profile.studentGroup ?? profile.role}</span>
+                            )}
+                            {isLegacyProfile && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={clearingProfileId === profile._id || isOwnProfile}
+                                onClick={() => void handleClearLegacyProfile(profile._id, profileName)}
+                              >
+                                <Trash2 className="size-4" />
+                                Clear
+                              </Button>
                             )}
                           </div>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {profile.email ?? profile.user?.email ?? profile.user?.name ?? "No email on file"}
-                          </p>
                         </div>
-                        <Select
-                          value={profile.accountLabel}
-                          onValueChange={(value: AccountLabel) =>
-                            void handleSetAccountLabel(profile.userId, value)
-                          }
-                          disabled={savingUserId === profile.userId}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="varsity_5199">5199 Student</SelectItem>
-                            <SelectItem value="jv_9271">9271 Student</SelectItem>
-                            <SelectItem value="mentor">Mentor</SelectItem>
-                            <SelectItem value="guest">Guest</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <div className="flex items-center justify-end text-sm text-muted-foreground">
-                          {savingUserId === profile.userId ? (
-                            <span className="inline-flex items-center gap-2">
-                              <Save className="size-4" />
-                              Saving
-                            </span>
-                          ) : (
-                            <span>{profile.studentGroup ?? profile.role}</span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </CardContent>
                 </Card>
               </TabsContent>

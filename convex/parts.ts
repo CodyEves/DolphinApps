@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
-import { requireProfile, requireRole, requireSeasonAccess } from "./lib/authz";
+import { requireActiveProfile, requireProfile, requireRole, requireSeasonAccess } from "./lib/authz";
 import { requirePartsTeamAccess, teamNumberForSeason } from "./lib/programs";
 import { formatPartNumber } from "./lib/parts";
 import { partKindValidator, partStatusValidator, priorityValidator } from "./lib/validators";
@@ -188,7 +188,7 @@ export const detail = query({
 export const saveDraft = mutation({
   args: partInput,
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
     await requireSeasonAccess(ctx, profile, args.seasonId);
     await requireSubsystemInSeason(ctx, args.subsystemId, args.seasonId);
     await requireSupersededPartInSeason(ctx, args.supersedesPartId, args.seasonId);
@@ -216,7 +216,7 @@ export const saveDraft = mutation({
 export const generate = mutation({
   args: partInput,
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
     await requireSeasonAccess(ctx, profile, args.seasonId);
     const subsystem = await requireSubsystemInSeason(ctx, args.subsystemId, args.seasonId);
     await requireSupersededPartInSeason(ctx, args.supersedesPartId, args.seasonId);
@@ -283,7 +283,7 @@ export const update = mutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
     const { partId, ...patch } = args;
     const part = await ctx.db.get(partId);
 
@@ -310,7 +310,7 @@ export const updateStatus = mutation({
     storageLocationOptionId: v.union(v.id("catalogOptions"), v.null()),
   },
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
     const part = await ctx.db.get(args.partId);
 
     if (!part) {
@@ -359,7 +359,7 @@ export const addBomLink = mutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
 
     if (args.parentPartId === args.childPartId) {
       throw new Error("A part cannot contain itself.");
@@ -398,7 +398,7 @@ export const removeBomLink = mutation({
     linkId: v.id("partLinks"),
   },
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
     const link = await ctx.db.get(args.linkId);
 
     if (!link) {

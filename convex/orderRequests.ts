@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { canApproveOrders, requireProfile, requireSeasonAccess } from "./lib/authz";
+import { canApproveOrders, requireActiveProfile, requireProfile, requireSeasonAccess } from "./lib/authz";
 import { orderStatusValidator } from "./lib/validators";
 
 export const list = query({
@@ -46,7 +46,7 @@ export const submit = mutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
     await requireSeasonAccess(ctx, profile, args.seasonId);
 
     if (args.subsystemId) {
@@ -89,7 +89,7 @@ export const updateStatus = mutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
 
     if (!canApproveOrders(profile)) {
       throw new Error("Only mentors and admins can advance order status.");

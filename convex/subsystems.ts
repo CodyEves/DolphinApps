@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { requireProfile, requireRole, requireSeasonAccess } from "./lib/authz";
+import { requireActiveProfile, requireProfile, requireRole, requireSeasonAccess } from "./lib/authz";
 
 export const list = query({
   args: {
@@ -27,7 +27,7 @@ export const upsert = mutation({
     isEnabled: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
     requireRole(profile, ["admin"]);
     await requireSeasonAccess(ctx, profile, args.seasonId);
 

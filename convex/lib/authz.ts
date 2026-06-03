@@ -19,8 +19,18 @@ export async function requireProfile(ctx: Ctx) {
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .first();
 
-  if (!profile || profile.status !== "active") {
-    throw new Error("Your team profile is not active.");
+  if (!profile) {
+    throw new Error("Your team profile was not found.");
+  }
+
+  return profile;
+}
+
+export async function requireActiveProfile(ctx: Ctx) {
+  const profile = await requireProfile(ctx);
+
+  if (profile.status !== "active") {
+    throw new Error("Your team profile is view-only.");
   }
 
   return profile;

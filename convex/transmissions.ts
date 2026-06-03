@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { requireProfile, requireSeasonAccess } from "./lib/authz";
+import { requireActiveProfile, requireProfile, requireSeasonAccess } from "./lib/authz";
 
 export const list = query({
   args: {
@@ -46,7 +46,7 @@ export const upsert = mutation({
     notes: v.string(),
   },
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
     await requireSeasonAccess(ctx, profile, args.seasonId);
     const subsystem = await ctx.db.get(args.subsystemId);
 

@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { requireProfile, requireRole } from "./lib/authz";
+import { requireActiveProfile, requireRole } from "./lib/authz";
 import {
   programForProfile,
   requirePartsTeamAccess,
@@ -47,7 +47,7 @@ export const activeSeason = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
 
-    if (!profile || profile.status !== "active") {
+    if (!profile) {
       return { profile: null, season: null };
     }
 
@@ -83,7 +83,7 @@ export const seedDefaults = mutation({
     teamNumber: v.optional(teamNumberValidator),
   },
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
     requireRole(profile, ["admin"]);
     const teamNumber = args.teamNumber ?? "5199";
     requirePartsTeamAccess(profile, teamNumber);

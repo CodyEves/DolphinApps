@@ -228,7 +228,7 @@ export const listEquipment = query({
   handler: async (ctx) => {
     const profile = await currentProfile(ctx);
     const currentUserId = await getAuthUserId(ctx);
-    const isAdmin = profile?.role === "admin";
+    const isAdmin = profile?.role === "admin" && profile.status === "active";
     const equipment = await ctx.db.query("equipment").withIndex("by_category").collect();
     const visibleEquipment = isAdmin
       ? equipment
@@ -260,7 +260,7 @@ export const getEquipment = query({
   handler: async (ctx, args) => {
     const profile = await currentProfile(ctx);
     const currentUserId = await getAuthUserId(ctx);
-    const isAdmin = profile?.role === "admin";
+    const isAdmin = profile?.role === "admin" && profile.status === "active";
     const record = await collectEquipmentRecord(
       ctx,
       args.equipmentId,

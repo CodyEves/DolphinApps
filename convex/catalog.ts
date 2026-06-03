@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
-import { requireProfile, requireRole } from "./lib/authz";
+import { requireActiveProfile, requireProfile, requireRole } from "./lib/authz";
 import { catalogKindValidator } from "./lib/validators";
 
 export const list = query({
@@ -20,7 +20,7 @@ export const upsert = mutation({
     isEnabled: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const profile = await requireProfile(ctx);
+    const profile = await requireActiveProfile(ctx);
     requireRole(profile, ["admin"]);
 
     const existing = await ctx.db

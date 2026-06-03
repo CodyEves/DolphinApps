@@ -121,58 +121,6 @@ async function currentAdmin(ctx: QueryCtx | MutationCtx) {
   return profile;
 }
 
-async function removeProvisionedAccountRecord(
-  ctx: MutationCtx,
-  account: Doc<"provisionedAccounts">,
-  adminUserId: Id<"users">,
-) {
-  if (account.userId === adminUserId) {
-    throw new Error("You cannot remove your own admin account.");
-  }
-
-  if (account.accountLabel === "admin" && account.status !== "inactive") {
-    const accounts = await ctx.db.query("provisionedAccounts").collect();
-    const otherActiveAdmins = accounts.filter(
-      (candidate) =>
-        candidate._id !== account._id &&
-        candidate.accountLabel === "admin" &&
-        candidate.status !== "inactive",
-    );
-
-    if (otherActiveAdmins.length === 0) {
-      throw new Error("Create or reactivate another admin before removing this admin account.");
-    }
-  }
-
-  const links = await ctx.db
-    .query("credentialLinks")
-    .withIndex("by_account", (q) => q.eq("provisionedAccountId", account._id))
-    .collect();
-
-  for (const link of links) {
-    await ctx.db.delete(link._id);
-  }
-
-  await ctx.db.delete(account._id);
-
-  const profile = account.profileId
-    ? await ctx.db.get(account.profileId)
-    : account.userId
-      ? await ctx.db
-          .query("profiles")
-          .withIndex("by_user", (q) => q.eq("userId", account.userId!))
-          .first()
-      : null;
-
-  if (profile) {
-    await ctx.db.patch(profile._id, {
-      status: "inactive",
-      updatedAt: Date.now(),
-    });
-  }
-
-}
-
 async function requireAdminOrFirstAdminBootstrap(
   ctx: MutationCtx,
   accountLabel: AccountLabel,
@@ -593,52 +541,6 @@ export const reactivateAccount = mutation({
   },
 });
 
-export const removeProvisionedAccount = mutation({
-  args: {
-    provisionedAccountId: v.id("provisionedAccounts"),
-  },
-  handler: async (ctx, args) => {
-    const admin = await currentAdmin(ctx);
-    const account = await ctx.db.get(args.provisionedAccountId);
-
-    if (!account) {
-      return args.provisionedAccountId;
-    }
-
-    await removeProvisionedAccountRecord(ctx, account, admin.userId);
-
-    return args.provisionedAccountId;
-  },
-});
-
-export const removeInactiveGraduationYear = mutation({
-  args: {
-    graduationYear: v.number(),
-    program: v.optional(programValidator),
-  },
-  handler: async (ctx, args) => {
-    const admin = await currentAdmin(ctx);
-    const accounts = await ctx.db.query("provisionedAccounts").collect();
-    let removedCount = 0;
-
-    for (const account of accounts) {
-      if (
-        account.status !== "inactive" ||
-        account.graduationYear !== args.graduationYear ||
-        !isStudentLabel(account.accountLabel) ||
-        (args.program && programForAccountLabel(account.accountLabel) !== args.program)
-      ) {
-        continue;
-      }
-
-      await removeProvisionedAccountRecord(ctx, account, admin.userId);
-      removedCount += 1;
-    }
-
-    return { removedCount };
-  },
-});
-
 export const consumeCredentialLink = internalMutation({
   args: {
     tokenHash: v.string(),
@@ -751,8 +653,8 @@ export const validateUsernameSignIn = internalQuery({
       .withIndex("by_username", (q) => q.eq("username", args.username))
       .first();
 
-    if (!account || account.userId !== args.userId || account.status !== "active") {
-      throw new Error("This account is not active.");
+    if (!account || account.userId !== args.userId || account.status === "pending_setup") {
+      throw new Error("This account has not completed setup.");
     }
 
     const profile = await ctx.db
@@ -760,8 +662,8 @@ export const validateUsernameSignIn = internalQuery({
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .first();
 
-    if (!profile || profile.status !== "active") {
-      throw new Error("This team profile is not active.");
+    if (!profile) {
+      throw new Error("This team profile was not found.");
     }
 
     return true;

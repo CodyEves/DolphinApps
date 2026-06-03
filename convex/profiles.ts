@@ -51,6 +51,16 @@ async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   return profile;
 }
 
+async function provisionedAccountForProfile(
+  ctx: QueryCtx | MutationCtx,
+  profile: Doc<"profiles">,
+) {
+  return await ctx.db
+    .query("provisionedAccounts")
+    .withIndex("by_user", (q) => q.eq("userId", profile.userId))
+    .first();
+}
+
 function userProfileFields(user: Doc<"users"> | null) {
   return {
     ...(user?.name ? { displayName: user.name } : {}),
@@ -116,10 +126,12 @@ export const listUsersForAdmin = query({
     const users = await Promise.all(
       profiles.map(async (profile) => {
         const user = await ctx.db.get(profile.userId);
+        const provisionedAccount = await provisionedAccountForProfile(ctx, profile);
 
         return {
           ...profile,
           user,
+          provisionedAccount,
           accountLabel: accountLabelForProfile(profile),
         };
       }),
@@ -130,6 +142,63 @@ export const listUsersForAdmin = query({
         b.displayName ?? b.email ?? b.user?.email ?? "",
       ),
     );
+  },
+});
+
+export const clearLegacyProfile = mutation({
+  args: {
+    profileId: v.id("profiles"),
+  },
+  handler: async (ctx, args) => {
+    const admin = await requireAdmin(ctx);
+    const profile = await ctx.db.get(args.profileId);
+
+    if (!profile) {
+      return args.profileId;
+    }
+
+    if (profile.userId === admin.userId) {
+      throw new Error("You cannot clear your own profile.");
+    }
+
+    const provisionedAccount = await provisionedAccountForProfile(ctx, profile);
+
+    if (provisionedAccount) {
+      throw new Error("This profile is linked to a provisioned account.");
+    }
+
+    await ctx.db.delete(args.profileId);
+
+    return args.profileId;
+  },
+});
+
+export const clearLegacyProfiles = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const admin = await requireAdmin(ctx);
+    const profiles = await ctx.db.query("profiles").collect();
+    let clearedCount = 0;
+    let skippedCount = 0;
+
+    for (const profile of profiles) {
+      if (profile.userId === admin.userId) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const provisionedAccount = await provisionedAccountForProfile(ctx, profile);
+
+      if (provisionedAccount) {
+        skippedCount += 1;
+        continue;
+      }
+
+      await ctx.db.delete(profile._id);
+      clearedCount += 1;
+    }
+
+    return { clearedCount, skippedCount };
   },
 });
 

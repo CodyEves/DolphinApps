@@ -256,7 +256,7 @@ export const listTrainingTracks = query({
   args: {},
   handler: async (ctx) => {
     const profile = await currentProfile(ctx);
-    const isAdmin = profile?.role === "admin";
+    const isAdmin = profile?.role === "admin" && profile.status === "active";
     const tracks = await ctx.db.query("trainingTracks").withIndex("by_order").collect();
     const visibleTracks = isAdmin ? tracks : tracks.filter((track) => track.isPublished);
 
