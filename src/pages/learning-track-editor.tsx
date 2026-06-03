@@ -2,10 +2,13 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
-  BookOpen,
   CheckCircle2,
+  ClipboardList,
+  Clock,
   FileQuestion,
+  Film,
   GripVertical,
+  Layers3,
   Plus,
   Save,
   Trash2,
@@ -34,7 +37,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
@@ -64,14 +66,26 @@ const emptyTrackForm: TrackForm = {
 
 function lessonTypeLabel(type: string) {
   if (type === "video_assignment") {
-    return "Video + assignment";
+    return "Assignment";
   }
 
   if (type === "exam") {
-    return "Exam";
+    return "Quiz or exam";
   }
 
-  return "Video";
+  return "Video lesson";
+}
+
+function lessonTypeIcon(type: string) {
+  if (type === "video_assignment") {
+    return ClipboardList;
+  }
+
+  if (type === "exam") {
+    return FileQuestion;
+  }
+
+  return Film;
 }
 
 export function LearningTrackEditorPage() {
@@ -137,6 +151,14 @@ export function LearningTrackEditorPage() {
         .map((unitId) => existingTrack.units.find((unit) => unit._id === unitId))
         .filter((unit) => unit !== undefined)
     : [];
+  const allLessons = existingTrack?.units.flatMap((unit) => unit.lessons) ?? [];
+  const assignmentLessonCount = allLessons.filter(
+    (lesson) => lesson.lessonType === "video_assignment" || lesson.lessonType === "exam",
+  ).length;
+  const estimatedMinutes = allLessons.reduce(
+    (sum, lesson) => sum + lesson.estimatedMinutes,
+    0,
+  );
 
   async function ensureTrackSaved() {
     const savedTrackId = await saveTrackDetails({
@@ -359,7 +381,7 @@ export function LearningTrackEditorPage() {
       <PageHeading
         eyebrow="Learning"
         title={pageTitle}
-        description="Build the track outline here, then open each lesson to edit its video and assignment content."
+        description="Build the course outline, create assignments, and open the lesson builder from one workspace."
         actions={
           <>
             <Badge variant={existingTrack?.isPublished ? "default" : "secondary"}>
@@ -384,14 +406,32 @@ export function LearningTrackEditorPage() {
       />
 
       <form onSubmit={handleSaveTrack} className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Track details</CardTitle>
-            <CardDescription>
-              Save these details before adding units to a new track.
-            </CardDescription>
+        <Card className="overflow-hidden border-primary/15 py-0">
+          <CardHeader className="border-b bg-muted/35 px-5 py-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <CardTitle>Course setup</CardTitle>
+                <CardDescription>
+                  Name the track and organize the student-facing overview.
+                </CardDescription>
+              </div>
+              <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                <div className="rounded-md border bg-background px-3 py-2">
+                  <div className="font-semibold">{orderedUnits.length}</div>
+                  <div className="text-xs text-muted-foreground">Units</div>
+                </div>
+                <div className="rounded-md border bg-background px-3 py-2">
+                  <div className="font-semibold">{allLessons.length}</div>
+                  <div className="text-xs text-muted-foreground">Lessons</div>
+                </div>
+                <div className="rounded-md border bg-background px-3 py-2">
+                  <div className="font-semibold">{assignmentLessonCount}</div>
+                  <div className="text-xs text-muted-foreground">Assignments</div>
+                </div>
+              </div>
+            </div>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
+          <CardContent className="grid gap-4 px-5 py-5 md:grid-cols-2">
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="track-title">Title</Label>
               <Input
@@ -404,6 +444,7 @@ export function LearningTrackEditorPage() {
                   }))
                 }
                 placeholder="Shop Safety"
+                className="h-12 text-lg font-semibold"
                 required
               />
             </div>
@@ -419,6 +460,7 @@ export function LearningTrackEditorPage() {
                   }))
                 }
                 placeholder="Core safety habits for working in the robotics shop."
+                className="min-h-28 resize-y"
                 required
               />
             </div>
@@ -455,37 +497,55 @@ export function LearningTrackEditorPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex gap-2 md:col-span-2">
+            <div className="flex flex-col gap-2 md:col-span-2 sm:flex-row sm:items-center">
               <Button type="submit" variant="secondary" disabled={isSavingTrack}>
                 <Save className="size-4" />
                 {isSavingTrack ? "Saving..." : "Save track"}
               </Button>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="size-4" />
+                {estimatedMinutes || 0} estimated minutes across this track
+              </div>
             </div>
           </CardContent>
         </Card>
       </form>
 
-      <div className="mt-4 space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Track outline</h2>
-            <p className="text-sm text-muted-foreground">
-              Units and lesson names are managed one item at a time.
-            </p>
+      <div className="mt-5 space-y-4">
+        <div className="rounded-md border bg-card px-5 py-4 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+                <Layers3 className="size-5" />
+              </span>
+              <div>
+                <h2 className="font-semibold">Builder board</h2>
+                <p className="text-sm text-muted-foreground">
+                  Add a unit, create a lesson, then open the assignment builder.
+                </p>
+              </div>
+            </div>
+            <Button onClick={handleAddUnit} disabled={isSavingTrack}>
+              <Plus className="size-4" />
+              Add unit
+            </Button>
           </div>
-          <Button onClick={handleAddUnit} disabled={isSavingTrack}>
-            <Plus className="size-4" />
-            Add unit
-          </Button>
         </div>
 
         {existingTrack?.units.length === 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>No units yet</CardTitle>
+          <Card className="border-dashed">
+            <CardHeader className="items-center text-center">
+              <span className="flex size-12 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+                <Plus className="size-5" />
+              </span>
+              <CardTitle>Start with a unit</CardTitle>
               <CardDescription>
-                Add a unit to start building this learning track.
+                Units keep lessons grouped the way students will move through them.
               </CardDescription>
+              <Button type="button" onClick={handleAddUnit} disabled={isSavingTrack}>
+                <Plus className="size-4" />
+                Add first unit
+              </Button>
             </CardHeader>
           </Card>
         )}
@@ -515,9 +575,11 @@ export function LearningTrackEditorPage() {
                 event.preventDefault();
                 void handleUnitDrop(unit._id);
               }}
-              className={draggingUnitId === unit._id ? "opacity-60" : undefined}
+              className={`overflow-hidden py-0 ${
+                draggingUnitId === unit._id ? "opacity-60" : ""
+              }`}
             >
-              <CardHeader>
+              <CardHeader className="border-b bg-muted/25 px-5 py-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0 flex-1 space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
@@ -598,43 +660,59 @@ export function LearningTrackEditorPage() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <Separator />
+              <CardContent className="space-y-3 px-5 py-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h3 className="font-medium">Lessons</h3>
+                    <h3 className="font-medium">
+                      Lessons in {form.title || `Unit ${unitIndex + 1}`}
+                    </h3>
                     <p className="text-sm text-muted-foreground">
-                      Open a lesson to edit its video, assignment, or exam questions.
+                      Each lesson opens into the assignment composer.
                     </p>
                   </div>
                   <Button
                     type="button"
-                    variant="outline"
                     onClick={() => handleAddLesson(unit._id)}
                   >
                     <Plus className="size-4" />
-                    Add lesson
+                    Create lesson
                   </Button>
                 </div>
 
                 {unit.lessons.length === 0 && (
-                  <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                    No lessons in this unit yet.
+                  <div className="flex flex-col gap-3 rounded-md border border-dashed bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-medium">No lessons yet</p>
+                      <p className="text-sm text-muted-foreground">
+                        Create a lesson to add a video, instructions, questions, or uploads.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleAddLesson(unit._id)}
+                    >
+                      <Plus className="size-4" />
+                      Create lesson
+                    </Button>
                   </div>
                 )}
 
-                {unit.lessons.map((lesson) => (
+                {unit.lessons.map((lesson, lessonIndex) => {
+                  const LessonIcon = lessonTypeIcon(lesson.lessonType);
+
+                  return (
                   <div
                     key={lesson._id}
-                    className="flex flex-col gap-3 rounded-md border p-4 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 rounded-md border bg-background p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
                   >
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex items-start gap-3">
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+                        <LessonIcon className="size-5" />
+                      </span>
+                      <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        {lesson.lessonType === "exam" ? (
-                          <FileQuestion className="size-4 text-primary" />
-                        ) : (
-                          <BookOpen className="size-4 text-primary" />
-                        )}
+                        <Badge variant="outline">Lesson {lessonIndex + 1}</Badge>
                         <p className="font-medium">{lesson.title}</p>
                         <Badge variant="outline">
                           {lessonTypeLabel(lesson.lessonType)}
@@ -645,11 +723,19 @@ export function LearningTrackEditorPage() {
                           {lesson.description}
                         </p>
                       )}
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="size-3" />
+                            {lesson.estimatedMinutes} min
+                          </span>
+                          {lesson.required && <Badge variant="secondary">Required</Badge>}
+                        </div>
+                      </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <Button asChild variant="secondary" size="sm">
+                      <Button asChild size="sm">
                         <Link to={`/training/lessons/${lesson._id}/edit`}>
-                          Edit lesson
+                          Open builder
                         </Link>
                       </Button>
                       <Button
@@ -663,7 +749,8 @@ export function LearningTrackEditorPage() {
                       </Button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           );
