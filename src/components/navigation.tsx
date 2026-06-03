@@ -121,8 +121,10 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
                 onClick={() => setMobileNavOpen(false)}
                 className={({ isActive }) =>
                   cn(
-                    "grid min-h-10 grid-cols-[1rem_minmax(0,1fr)] items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground",
-                    collapsed && "mx-auto size-10 grid-cols-1 place-items-center gap-0 p-0",
+                    "rounded-md text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground",
+                    collapsed
+                      ? "mx-auto flex size-10 items-center justify-center p-0"
+                      : "flex h-10 w-full items-center gap-3 px-3",
                     isActive && "bg-accent text-accent-foreground shadow-sm shadow-brand-blue/10",
                   )
                 }
