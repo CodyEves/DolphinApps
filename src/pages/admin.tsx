@@ -4,7 +4,6 @@ import {
   Award,
   ClipboardCheck,
   Database,
-  Eye,
   FileCheck,
   LockKeyhole,
   ShieldCheck,
@@ -22,15 +21,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useEffectiveRole, useRolePreview } from "@/providers/role-preview-provider";
+import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
 export function AdminPage() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const { roleView, setRoleView } = useRolePreview();
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isRealAdmin = viewer?.profile.role === "admin";
   const isAdmin = effectiveRole === "admin";
 
   return (
@@ -41,7 +38,7 @@ export function AdminPage() {
         description="Manage accounts, rosters, training content, badges, reviews, and team operations."
         actions={
           <Badge variant={isAdmin ? "default" : "outline"}>
-            {roleView !== "actual" ? `${roleView} preview` : isAdmin ? "Admin access" : "Limited view"}
+            {isAdmin ? "Admin access" : "Limited view"}
           </Badge>
         }
       />
@@ -59,32 +56,6 @@ export function AdminPage() {
       </Unauthenticated>
 
       <Authenticated>
-        {isRealAdmin && (
-          <Card className="mb-4">
-            <CardHeader>
-              <Eye className="size-5 text-primary" />
-              <CardTitle>Preview another role</CardTitle>
-              <CardDescription>
-                Use the account menu to switch between student, mentor, and admin
-                views. Your real account role is not changed.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap gap-2">
-                {(["actual", "student", "mentor", "admin"] as const).map((view) => (
-                  <Button
-                    key={view}
-                    variant={roleView === view ? "default" : "outline"}
-                    onClick={() => setRoleView(view)}
-                  >
-                    {view === "actual" ? "Actual role" : `${view} view`}
-                  </Button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         {!isAdmin ? (
           <Card>
             <CardHeader>
@@ -108,7 +79,7 @@ export function AdminPage() {
                 </CardHeader>
                 <CardContent>
                   <Button asChild variant="outline">
-                    <Link to="/reviews">Open reviews</Link>
+                    <Link to="/management/reviews">Open reviews</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -163,8 +134,8 @@ export function AdminPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button disabled variant="outline">
-                    Coming soon
+                  <Button asChild variant="outline">
+                    <Link to="/management/team">Open team info</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -177,8 +148,22 @@ export function AdminPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <Button disabled variant="outline">
-                    Coming soon
+                  <Button asChild variant="outline">
+                    <Link to="/management/paperwork">Open paperwork</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <ShieldCheck className="size-5 text-primary" />
+                  <CardTitle>Parts Admin</CardTitle>
+                  <CardDescription>
+                    Manage robot build seasons, subsystems, catalog options, and parts configuration.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button asChild variant="outline">
+                    <Link to="/management/parts">Open parts admin</Link>
                   </Button>
                 </CardContent>
               </Card>

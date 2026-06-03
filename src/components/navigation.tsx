@@ -6,12 +6,14 @@ import {
   BookOpen,
   ClipboardCheck,
   Factory,
+  FileCheck,
   Gauge,
   ListTree,
   Menu,
   Package,
   Settings,
   ShoppingCart,
+  ShieldCheck,
   SlidersHorizontal,
   Users,
   Wrench,
@@ -70,11 +72,13 @@ const partsNavItems: NavItem[] = [
 
 const managementNavItems: NavItem[] = [
   { href: "/management", label: "Overview", icon: SlidersHorizontal, adminOnly: true },
+  { href: "/management/reviews", label: "Reviews", icon: ClipboardCheck, adminOnly: true },
   { href: "/management/people", label: "People", icon: Users, adminOnly: true },
   { href: "/management/lms", label: "Training Admin", icon: BookOpen, adminOnly: true },
   { href: "/management/badges", label: "Badge Admin", icon: Award, adminOnly: true },
-  { href: "/reviews", label: "Reviews", icon: ClipboardCheck, adminOnly: true },
-  { href: "/parts/admin", label: "Parts Admin", icon: Settings, adminOnly: true },
+  { href: "/management/team", label: "Team Info", icon: ShieldCheck, adminOnly: true },
+  { href: "/management/paperwork", label: "Paperwork", icon: FileCheck, adminOnly: true },
+  { href: "/management/parts", label: "Parts Admin", icon: Settings, adminOnly: true },
 ];
 
 function canReview(role: string) {

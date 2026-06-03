@@ -2,10 +2,8 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import {
   ArrowRight,
-  ClipboardCheck,
   GraduationCap,
   Grid3X3,
-  LockKeyhole,
   Package,
   Settings,
 } from "lucide-react";
@@ -52,9 +50,9 @@ export function HomePage() {
       href: "/management",
       icon: Settings,
       label: "Admin app",
-      enabled: isAdmin,
+      adminOnly: true,
     },
-  ];
+  ].filter((app) => !app.adminOnly || isAdmin);
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-6xl flex-col justify-center space-y-8">
@@ -77,46 +75,29 @@ export function HomePage() {
         {apps.map((app) => {
           const Icon = app.icon;
 
-          return app.enabled ? (
+          return (
             <Link
               key={app.title}
               to={app.href}
               className="rounded-lg focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
               <Card className="h-full transition-all hover:-translate-y-0.5 hover:border-brand-aqua/50 hover:bg-accent hover:shadow-md">
-                <CardHeader>
-                  <div className="mb-2 flex size-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                    <Icon className="size-5" />
-                  </div>
-                  <Badge variant="outline" className="w-fit">{app.label}</Badge>
-                  <CardTitle>{app.title}</CardTitle>
-                  <CardDescription>{app.description}</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <span className="inline-flex items-center gap-2 text-sm font-medium text-primary">
-                    Open app
-                    <ArrowRight className="size-4" />
-                  </span>
-                </CardContent>
-              </Card>
-            </Link>
-          ) : (
-            <Card key={app.title} className="h-full opacity-75">
               <CardHeader>
-                <div className="mb-2 flex size-11 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                  <LockKeyhole className="size-5" />
+                <div className="mb-2 flex size-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                  <Icon className="size-5" />
                 </div>
                 <Badge variant="outline" className="w-fit">{app.label}</Badge>
                 <CardTitle>{app.title}</CardTitle>
                 <CardDescription>{app.description}</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                  <ClipboardCheck className="size-4" />
-                  Admin access required
-                </p>
+                <span className="inline-flex items-center gap-2 text-sm font-medium text-primary">
+                  Open app
+                  <ArrowRight className="size-4" />
+                </span>
               </CardContent>
             </Card>
+            </Link>
           );
         })}
       </section>

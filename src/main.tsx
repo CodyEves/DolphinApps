@@ -55,6 +55,11 @@ const LessonEditorPage = lazy(() =>
 const LessonViewPage = lazy(() =>
   import("@/pages/lesson-view").then((module) => ({ default: module.LessonViewPage })),
 );
+const ManagementPlaceholderPage = lazy(() =>
+  import("@/pages/management-placeholder").then((module) => ({
+    default: module.ManagementPlaceholderPage,
+  })),
+);
 const ReviewsPage = lazy(() =>
   import("@/pages/reviews").then((module) => ({ default: module.ReviewsPage })),
 );
@@ -126,7 +131,11 @@ const router = createBrowserRouter([
       { path: "management", element: <AdminPage /> },
       { path: "management/badges", element: <AdminBadgesPage /> },
       { path: "management/lms", element: <AdminLmsPage /> },
+      { path: "management/paperwork", element: <ManagementPlaceholderPage /> },
       { path: "management/people", element: <AdminPeoplePage /> },
+      { path: "management/parts", element: <PartsAdminPage /> },
+      { path: "management/reviews", element: <ReviewsPage /> },
+      { path: "management/team", element: <ManagementPlaceholderPage /> },
       { path: "admin", element: <AdminPage /> },
       { path: "admin/badges", element: <AdminBadgesPage /> },
       { path: "admin/lms", element: <AdminLmsPage /> },

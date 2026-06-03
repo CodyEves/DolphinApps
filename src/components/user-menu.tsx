@@ -3,12 +3,11 @@ import {
   GraduationCap,
   LogIn,
   LogOut,
-  Package,
   ShieldCheck,
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { Link, useLocation } from "react-router";
+import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -30,12 +29,6 @@ import {
   type VisibleRoleView,
 } from "@/providers/role-preview-provider";
 import { useProgramView } from "@/hooks/use-program-view";
-import { programMeta, type Program } from "@/lib/programs";
-
-const apps = [
-  { href: "/dashboard", titleKey: "trainingTitle", icon: GraduationCap },
-  { href: "/parts", titleKey: "partsTitle", icon: Package },
-] as const;
 
 const roleViewMeta: Record<VisibleRoleView, { label: string; icon: LucideIcon }> = {
   student: { label: "Student view", icon: GraduationCap },
@@ -54,11 +47,6 @@ function initials(nameOrEmail?: string | null) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
-}
-
-function appLabelForPath(pathname: string, program: Program) {
-  const meta = programMeta[program];
-  return pathname.startsWith("/parts") ? meta.partsTitle : meta.trainingTitle;
 }
 
 function allowedRoleViews(role: string | undefined): VisibleRoleView[] {
@@ -94,18 +82,9 @@ function selectedRoleView(roleView: RoleView, role: string | undefined): Visible
 export function UserMenu() {
   const { signOut } = useAuthActions();
   const { isAuthenticated, isLoading } = useConvexAuth();
-  const location = useLocation();
-  const {
-    activeProgramMeta,
-    availablePrograms,
-    canSwitchPrograms,
-    selectProgram,
-    selectedProgram,
-    viewer,
-  } = useProgramView();
+  const { viewer } = useProgramView();
   const { roleView, setRoleView } = useRolePreview();
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const currentApp = appLabelForPath(location.pathname, selectedProgram);
   const roleOptions = allowedRoleViews(viewer?.profile.role);
   const selectedView = selectedRoleView(roleView, viewer?.profile.role);
 
@@ -148,40 +127,10 @@ export function UserMenu() {
             {displayName}
           </span>
           <span className="text-xs font-normal text-muted-foreground">
-            {currentApp} / {effectiveRole}
+            {effectiveRole}
             {roleView !== "actual" ? " preview" : ""}
           </span>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
-          Switch app
-        </DropdownMenuLabel>
-        {apps.map((app) => (
-          <DropdownMenuItem key={app.href} asChild>
-            <Link to={app.href}>
-              <app.icon className="size-4" />
-              {activeProgramMeta[app.titleKey]}
-            </Link>
-          </DropdownMenuItem>
-        ))}
-        {canSwitchPrograms && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Program view
-            </DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={selectedProgram}
-              onValueChange={(value) => selectProgram(value as Program)}
-            >
-              {availablePrograms.map((program) => (
-                <DropdownMenuRadioItem key={program} value={program}>
-                  {programMeta[program].teamNumber} view
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </>
-        )}
         {roleOptions.length > 0 && (
           <>
             <DropdownMenuSeparator />
