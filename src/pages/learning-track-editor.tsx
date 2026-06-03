@@ -76,16 +76,22 @@ function lessonTypeLabel(type: string) {
   return "Video lesson";
 }
 
-function lessonTypeIcon(type: string) {
+function LessonTypeIcon({
+  type,
+  className = "size-5",
+}: {
+  type: string;
+  className?: string;
+}) {
   if (type === "video_assignment") {
-    return ClipboardList;
+    return <ClipboardList className={className} />;
   }
 
   if (type === "exam") {
-    return FileQuestion;
+    return <FileQuestion className={className} />;
   }
 
-  return Film;
+  return <Film className={className} />;
 }
 
 export function LearningTrackEditorPage() {
@@ -699,8 +705,6 @@ export function LearningTrackEditorPage() {
                 )}
 
                 {unit.lessons.map((lesson, lessonIndex) => {
-                  const LessonIcon = lessonTypeIcon(lesson.lessonType);
-
                   return (
                   <div
                     key={lesson._id}
@@ -708,7 +712,7 @@ export function LearningTrackEditorPage() {
                   >
                     <div className="min-w-0 flex items-start gap-3">
                       <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-                        <LessonIcon className="size-5" />
+                        <LessonTypeIcon type={lesson.lessonType} />
                       </span>
                       <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">

@@ -3,7 +3,11 @@ import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   CheckCircle2,
+  ClipboardList,
   Clock,
+  ExternalLink,
+  FileQuestion,
+  Film,
   PlayCircle,
   Send,
   Upload,
@@ -104,14 +108,32 @@ function questionTypeLabel(type: string) {
 
 function lessonTypeLabel(type: string) {
   if (type === "video_assignment") {
-    return "Video + assignment";
+    return "Assignment";
   }
 
   if (type === "exam") {
-    return "Questions / exam";
+    return "Quiz or exam";
   }
 
-  return "Video";
+  return "Video lesson";
+}
+
+function LessonTypeIcon({
+  type,
+  className = "size-5",
+}: {
+  type: string;
+  className?: string;
+}) {
+  if (type === "video_assignment") {
+    return <ClipboardList className={className} />;
+  }
+
+  if (type === "exam") {
+    return <FileQuestion className={className} />;
+  }
+
+  return <Film className={className} />;
 }
 
 export function LessonViewPage() {
@@ -143,6 +165,8 @@ export function LessonViewPage() {
   const hasPassedQuestions = visibleContent?.latestQuizAttempt?.status === "passed";
   const isPlainVideoLesson =
     visibleContent?.lesson.lessonType === "video" && !hasQuestions;
+  const totalPoints =
+    visibleContent?.questions.reduce((sum, question) => sum + question.points, 0) ?? 0;
 
   async function handleCompleteLesson() {
     if (!lessonId) {
@@ -314,7 +338,7 @@ export function LessonViewPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-6xl">
       <PageHeading
         eyebrow={visibleContent.track.title}
         title={visibleContent.lesson.title}
@@ -329,69 +353,89 @@ export function LessonViewPage() {
         }
       />
 
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{lessonTypeLabel(visibleContent.lesson.lessonType)}</Badge>
-              {visibleContent.lesson.required && <Badge variant="secondary">Required</Badge>}
-              {isComplete && (
-                <Badge>
-                  <CheckCircle2 className="size-3" />
-                  Complete
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        <div className="space-y-5">
+          <Card className="overflow-hidden py-0">
+            <CardHeader className="border-b bg-muted/25 px-5 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">
+                      {lessonTypeLabel(visibleContent.lesson.lessonType)}
+                    </Badge>
+                    {visibleContent.lesson.required && (
+                      <Badge variant="secondary">Required</Badge>
+                    )}
+                    {isComplete && (
+                      <Badge>
+                        <CheckCircle2 className="size-3" />
+                        Complete
+                      </Badge>
+                    )}
+                  </div>
+                  <CardTitle>Lesson content</CardTitle>
+                  <CardDescription>{visibleContent.unit.title}</CardDescription>
+                </div>
+                <Badge variant="outline">
+                  <Clock className="size-3" />
+                  {visibleContent.lesson.estimatedMinutes} min
                 </Badge>
-              )}
-              <Badge variant="outline">
-                <Clock className="size-3" />
-                {visibleContent.lesson.estimatedMinutes} min
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {embedUrl ? (
-              <div className="overflow-hidden rounded-md border bg-black">
-                <iframe
-                  className="aspect-video w-full"
-                  src={embedUrl}
-                  title={visibleContent.lesson.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                  referrerPolicy="strict-origin-when-cross-origin"
-                />
               </div>
-            ) : visibleContent.lesson.lessonType !== "exam" ? (
-              <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                No video URL has been added for this lesson yet.
-              </div>
-            ) : null}
-
-            {visibleContent.lesson.description && (
-              <p className="text-sm leading-6 text-muted-foreground">
-                {visibleContent.lesson.description}
-              </p>
-            )}
-
-            {videoUrl && (
-              <Button asChild variant="outline">
-                <a href={videoUrl} target="_blank" rel="noreferrer">
-                  Open video on YouTube
-                </a>
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-
-        {hasQuestions && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Questions</CardTitle>
-              <CardDescription>
-                Complete and pass these questions before the lesson can be marked complete.
-              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 px-5 py-5">
+              {embedUrl ? (
+                <div className="overflow-hidden rounded-md border bg-black">
+                  <iframe
+                    className="aspect-video w-full"
+                    src={embedUrl}
+                    title={visibleContent.lesson.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    referrerPolicy="strict-origin-when-cross-origin"
+                  />
+                </div>
+              ) : visibleContent.lesson.lessonType !== "exam" ? (
+                <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+                  No video URL has been added for this lesson yet.
+                </div>
+              ) : null}
+
+              {visibleContent.lesson.description && (
+                <div className="rounded-md border bg-background p-4">
+                  <h2 className="mb-2 font-medium">Instructions</h2>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {visibleContent.lesson.description}
+                  </p>
+                </div>
+              )}
+
+              {videoUrl && (
+                <Button asChild variant="outline">
+                  <a href={videoUrl} target="_blank" rel="noreferrer">
+                    <ExternalLink className="size-4" />
+                    Open video on YouTube
+                  </a>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {hasQuestions && (
+            <Card className="overflow-hidden py-0">
+              <CardHeader className="border-b bg-muted/25 px-5 py-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle>Student work</CardTitle>
+                    <CardDescription>
+                      Complete the questions and submit your answers.
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline">{totalPoints} pts</Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4 px-5 py-5">
               {visibleContent.latestQuizAttempt && (
-                <div className="rounded-md border p-4 text-sm">
+                <div className="rounded-md border bg-background p-4 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge
                       variant={
@@ -418,7 +462,7 @@ export function LessonViewPage() {
                 const selectedAnswers = Array.isArray(answer) ? answer : [];
 
                 return (
-                  <div key={question._id} className="rounded-md border p-4">
+                  <div key={question._id} className="rounded-md border bg-background p-4 shadow-sm">
                     <div className="mb-3 flex flex-wrap items-center gap-2">
                       <Badge variant="outline">Question {questionIndex + 1}</Badge>
                       <Badge variant="secondary">{questionTypeLabel(question.type)}</Badge>
@@ -432,7 +476,7 @@ export function LessonViewPage() {
                           return (
                             <label
                               key={choice}
-                              className="flex items-center gap-2 rounded-md border p-3 text-sm"
+                              className="flex items-center gap-2 rounded-md border bg-card p-3 text-sm transition-colors hover:bg-accent/50"
                             >
                               {question.allowMultipleCorrect ? (
                                 <Checkbox
@@ -488,7 +532,7 @@ export function LessonViewPage() {
                     )}
 
                     {question.type === "file_upload" && (
-                      <div className="mt-4 space-y-3 rounded-md border p-4 text-sm">
+                      <div className="mt-4 space-y-3 rounded-md border bg-card p-4 text-sm">
                         <div className="space-y-1">
                           <Label htmlFor={`${question._id}-file`}>Upload file</Label>
                           <Input
@@ -516,7 +560,7 @@ export function LessonViewPage() {
 
                     {question.type === "true_false" && (
                       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                        <label className="flex items-center gap-2 rounded-md border p-3 text-sm">
+                        <label className="flex items-center gap-2 rounded-md border bg-card p-3 text-sm">
                           <input
                             type="radio"
                             name={`${question._id}-answer`}
@@ -526,7 +570,7 @@ export function LessonViewPage() {
                           />
                           True
                         </label>
-                        <label className="flex items-center gap-2 rounded-md border p-3 text-sm">
+                        <label className="flex items-center gap-2 rounded-md border bg-card p-3 text-sm">
                           <input
                             type="radio"
                             name={`${question._id}-answer`}
@@ -541,46 +585,91 @@ export function LessonViewPage() {
                   </div>
                 );
               })}
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  onClick={handleSubmitQuestions}
-                  disabled={isSubmittingQuestions || hasPassedQuestions}
-                >
-                  <Send className="size-4" />
-                  {hasPassedQuestions
-                    ? "Questions passed"
-                    : isSubmittingQuestions
-                      ? "Submitting..."
-                      : "Submit answers"}
-                </Button>
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={handleSubmitQuestions}
+                    disabled={isSubmittingQuestions || hasPassedQuestions}
+                  >
+                    <Send className="size-4" />
+                    {hasPassedQuestions
+                      ? "Questions passed"
+                      : isSubmittingQuestions
+                        ? "Submitting..."
+                        : "Submit answers"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        <aside className="space-y-4 lg:sticky lg:top-20">
+          <Card className="py-0">
+            <CardHeader className="border-b px-5 py-4">
+              <CardTitle>Lesson status</CardTitle>
+              <CardDescription>Progress and completion actions.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 px-5 py-5">
+              <div className="flex items-center gap-3 rounded-md border bg-muted/25 p-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+                  <LessonTypeIcon type={visibleContent.lesson.lessonType} />
+                </span>
+                <div>
+                  <p className="text-sm font-medium">
+                    {lessonTypeLabel(visibleContent.lesson.lessonType)}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {visibleContent.lesson.required ? "Required lesson" : "Optional lesson"}
+                  </p>
+                </div>
               </div>
+
+              <div className="space-y-3 rounded-md border p-3 text-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Status</span>
+                  <span className="font-medium">{isComplete ? "Complete" : "In progress"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Questions</span>
+                  <span className="font-medium">{visibleContent.questions.length}</span>
+                </div>
+                {hasQuestions && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Points</span>
+                    <span className="font-medium">{totalPoints}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Time</span>
+                  <span className="font-medium">
+                    {visibleContent.lesson.estimatedMinutes} min
+                  </span>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleCompleteLesson}
+                disabled={isComplete || !isPlainVideoLesson}
+                variant={isComplete ? "secondary" : "default"}
+                className="w-full"
+              >
+                <PlayCircle className="size-4" />
+                {isComplete
+                  ? "Completed"
+                  : isPlainVideoLesson
+                    ? "Mark lesson complete"
+                    : "Complete activity to finish"}
+              </Button>
+              <Button asChild variant="outline" className="w-full">
+                <Link to={`/training/tracks/${visibleContent.track._id}`}>
+                  <ArrowLeft className="size-4" />
+                  Back to track
+                </Link>
+              </Button>
             </CardContent>
           </Card>
-        )}
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button asChild variant="outline">
-              <Link to="/training">
-                <ArrowLeft className="size-4" />
-                Back to learning
-              </Link>
-            </Button>
-          </div>
-          <Button
-            onClick={handleCompleteLesson}
-            disabled={isComplete || !isPlainVideoLesson}
-            variant={isComplete ? "secondary" : "default"}
-          >
-            <PlayCircle className="size-4" />
-            {isComplete
-              ? "Completed"
-              : isPlainVideoLesson
-                ? "Mark lesson complete"
-                : "Complete activity to finish"}
-          </Button>
-        </div>
+        </aside>
       </div>
     </div>
   );

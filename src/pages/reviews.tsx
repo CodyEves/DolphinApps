@@ -1,6 +1,14 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
-import { CheckCircle2, ExternalLink, FileCheck2, LockKeyhole, Wrench, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  ClipboardCheck,
+  ExternalLink,
+  FileCheck2,
+  LockKeyhole,
+  Wrench,
+  XCircle,
+} from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
@@ -118,9 +126,40 @@ export function ReviewsPage() {
         actions={<Badge variant={totalCount > 0 ? "default" : "outline"}>{totalCount} open</Badge>}
       />
 
+      <div className="space-y-5">
+        <div className="rounded-md border bg-card px-5 py-4 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+                <ClipboardCheck className="size-5" />
+              </span>
+              <div>
+                <h2 className="font-semibold">Review desk</h2>
+                <p className="text-sm text-muted-foreground">
+                  Work through submissions, approve what is ready, and send revisions back quickly.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div className="rounded-md border bg-background px-3 py-2">
+                <div className="font-semibold">{totalCount}</div>
+                <div className="text-xs text-muted-foreground">Open</div>
+              </div>
+              <div className="rounded-md border bg-background px-3 py-2">
+                <div className="font-semibold">{lessonCount}</div>
+                <div className="text-xs text-muted-foreground">Lessons</div>
+              </div>
+              <div className="rounded-md border bg-background px-3 py-2">
+                <div className="font-semibold">{handsOnCount}</div>
+                <div className="text-xs text-muted-foreground">Hands-on</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden py-0">
+          <CardHeader className="border-b bg-muted/25 px-5 py-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -132,17 +171,18 @@ export function ReviewsPage() {
               <Badge variant="outline">{lessonCount}</Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 px-5 py-5">
             {queue === undefined && (
               <p className="text-sm text-muted-foreground">Loading submissions...</p>
             )}
             {queue?.lessonSubmissions.length === 0 && (
-              <p className="rounded-md border p-4 text-sm text-muted-foreground">
+              <div className="rounded-md border border-dashed bg-muted/20 p-5 text-center text-sm text-muted-foreground">
+                <FileCheck2 className="mx-auto mb-2 size-7 text-primary" />
                 No lesson files need review.
-              </p>
+              </div>
             )}
             {queue?.lessonSubmissions.map((submission) => (
-              <div key={submission._id} className="rounded-md border p-4">
+              <article key={submission._id} className="rounded-md border bg-background p-4 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
                     <p className="font-medium">{submission.lessonTitle}</p>
@@ -182,13 +222,13 @@ export function ReviewsPage() {
                     <Link to={`/training/lessons/${submission.lessonId}`}>Open lesson</Link>
                   </Button>
                 </div>
-              </div>
+              </article>
             ))}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
+        <Card className="overflow-hidden py-0">
+          <CardHeader className="border-b bg-muted/25 px-5 py-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle className="flex items-center gap-2">
@@ -200,19 +240,20 @@ export function ReviewsPage() {
               <Badge variant="outline">{handsOnCount}</Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-3 px-5 py-5">
             {queue === undefined && (
               <p className="text-sm text-muted-foreground">Loading verifications...</p>
             )}
             {queue?.handsOnReviews.length === 0 && (
-              <p className="rounded-md border p-4 text-sm text-muted-foreground">
+              <div className="rounded-md border border-dashed bg-muted/20 p-5 text-center text-sm text-muted-foreground">
+                <Wrench className="mx-auto mb-2 size-7 text-primary" />
                 No hands-on verifications need review.
-              </p>
+              </div>
             )}
             {queue?.handsOnReviews.map((review) => (
-              <div
+              <article
                 key={`${review.equipmentId}:${review.studentUserId}`}
-                className="rounded-md border p-4"
+                className="rounded-md border bg-background p-4 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -252,10 +293,11 @@ export function ReviewsPage() {
                     <Link to={`/equipment/${review.equipmentId}`}>Open equipment</Link>
                   </Button>
                 </div>
-              </div>
+              </article>
             ))}
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );
