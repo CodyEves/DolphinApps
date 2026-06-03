@@ -1,98 +1,124 @@
-import { ArrowRight, Award, BookOpen, Wrench } from "lucide-react";
+import { useConvexAuth } from "@convex-dev/auth/react";
+import { useQuery } from "convex/react";
+import {
+  ArrowRight,
+  ClipboardCheck,
+  GraduationCap,
+  Grid3X3,
+  LockKeyhole,
+  Package,
+  Settings,
+} from "lucide-react";
 import { Link } from "react-router";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { useProgramView } from "@/hooks/use-program-view";
-
-const focusAreas = [
-  {
-    title: "Learning tracks",
-    description: "Organize safety, mechanical, electrical, CAD, programming, and drive team lessons.",
-    icon: BookOpen,
-    href: "/training",
-  },
-  {
-    title: "Equipment sign-offs",
-    description: "Give mentors a clear place to review readiness and approve shop equipment use.",
-    icon: Wrench,
-    href: "/equipment",
-  },
-  {
-    title: "Badges",
-    description: "Recognize completed units, safety tests, and subteam readiness milestones.",
-    icon: Award,
-    href: "/badges",
-  },
-];
+import { useEffectiveRole } from "@/providers/role-preview-provider";
+import { api } from "@convex/_generated/api";
 
 export function HomePage() {
+  const { isAuthenticated } = useConvexAuth();
+  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
+  const effectiveRole = useEffectiveRole(viewer?.profile.role);
+  const isAdmin = effectiveRole === "admin";
   const { activeProgramMeta } = useProgramView();
+  const apps = [
+    {
+      title: activeProgramMeta.trainingTitle,
+      description: "Lessons, safety training, equipment sign-offs, badges, and mentor reviews.",
+      href: "/dashboard",
+      icon: GraduationCap,
+      label: `Team ${activeProgramMeta.teamNumber}`,
+      enabled: true,
+    },
+    {
+      title: activeProgramMeta.partsTitle,
+      description: "Robot parts, BOMs, manufacturing status, transmissions, and order requests.",
+      href: "/parts",
+      icon: Package,
+      label: "Build system",
+      enabled: true,
+    },
+    {
+      title: "Dolphin Management",
+      description: "Accounts, rosters, access, LMS content, badges, team information, and future paperwork tools.",
+      href: "/management",
+      icon: Settings,
+      label: "Admin app",
+      enabled: isAdmin,
+    },
+  ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8">
-      <section className="overflow-hidden rounded-lg border bg-card shadow-sm">
-        <div className="grid gap-0 lg:grid-cols-[1fr_320px]">
-          <div className="space-y-6 p-6 lg:p-8">
-            <Badge variant="secondary">Team {activeProgramMeta.teamNumber} training system</Badge>
-            <div className="space-y-3">
-              <h1 className="max-w-3xl text-3xl font-semibold tracking-normal text-brand-navy dark:text-foreground sm:text-4xl">
-                The Robot Dolphins From Outer Space
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-                A team-owned training hub for safety, skills, progress, badges,
-                and mentor approvals for a FIRST Robotics Competition team based
-                in Orange County, California.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button asChild>
-                <Link to="/dashboard">
-                  Open dashboard
-                  <ArrowRight className="size-4" />
-                </Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link to="/training">View learning</Link>
-              </Button>
-            </div>
-          </div>
-          <div className="hidden border-l bg-brand-navy p-8 text-white lg:grid">
-            <div className="self-end">
-              <p className="text-sm font-medium text-brand-aqua">
-                FRC {activeProgramMeta.teamNumber}
-              </p>
-              <p className="mt-2 text-4xl font-semibold">Dolphin Apps</p>
-              <div className="mt-6 h-1.5 w-24 rounded-full bg-brand-orange" />
-            </div>
-          </div>
+    <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-6xl flex-col justify-center space-y-8">
+      <section className="space-y-4">
+        <Badge variant="secondary" className="w-fit">
+          <Grid3X3 className="size-3.5" />
+          Dolphin Apps
+        </Badge>
+        <div className="space-y-3">
+          <h1 className="max-w-3xl text-3xl font-semibold tracking-normal text-brand-navy dark:text-foreground sm:text-4xl">
+            Choose your Robot Dolphins workspace
+          </h1>
+          <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+            One place for team training, robot build tracking, and program management.
+          </p>
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
-        {focusAreas.map((area) => (
-          <Link
-            key={area.title}
-            to={area.href}
-            className="rounded-lg focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
-          >
-            <Card className="h-full transition-all hover:-translate-y-0.5 hover:border-brand-aqua/50 hover:bg-accent hover:shadow-md">
+        {apps.map((app) => {
+          const Icon = app.icon;
+
+          return app.enabled ? (
+            <Link
+              key={app.title}
+              to={app.href}
+              className="rounded-lg focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            >
+              <Card className="h-full transition-all hover:-translate-y-0.5 hover:border-brand-aqua/50 hover:bg-accent hover:shadow-md">
+                <CardHeader>
+                  <div className="mb-2 flex size-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                    <Icon className="size-5" />
+                  </div>
+                  <Badge variant="outline" className="w-fit">{app.label}</Badge>
+                  <CardTitle>{app.title}</CardTitle>
+                  <CardDescription>{app.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <span className="inline-flex items-center gap-2 text-sm font-medium text-primary">
+                    Open app
+                    <ArrowRight className="size-4" />
+                  </span>
+                </CardContent>
+              </Card>
+            </Link>
+          ) : (
+            <Card key={app.title} className="h-full opacity-75">
               <CardHeader>
-                <div className="mb-2 flex size-10 items-center justify-center rounded-md bg-secondary text-primary">
-                  <area.icon className="size-5" />
+                <div className="mb-2 flex size-11 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                  <LockKeyhole className="size-5" />
                 </div>
-                <CardTitle>{area.title}</CardTitle>
-                <CardDescription>{area.description}</CardDescription>
+                <Badge variant="outline" className="w-fit">{app.label}</Badge>
+                <CardTitle>{app.title}</CardTitle>
+                <CardDescription>{app.description}</CardDescription>
               </CardHeader>
+              <CardContent>
+                <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                  <ClipboardCheck className="size-4" />
+                  Admin access required
+                </p>
+              </CardContent>
             </Card>
-          </Link>
-        ))}
+          );
+        })}
       </section>
     </div>
   );

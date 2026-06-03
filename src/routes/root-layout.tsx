@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Outlet, useLocation } from "react-router";
 
+import { AppLauncher } from "@/components/app-launcher";
 import { MobileNav, Sidebar } from "@/components/navigation";
 import { ProgramOnboarding } from "@/components/program-onboarding";
 import { ThemeModeToggle } from "@/components/theme-mode-toggle";
@@ -10,6 +11,20 @@ import { programMeta, type Program } from "@/lib/programs";
 
 function currentAppCopy(pathname: string, program: Program = "frc_5199") {
   const meta = programMeta[program];
+
+  if (pathname === "/") {
+    return {
+      title: "Dolphin Apps",
+      description: "Choose a team workspace.",
+    };
+  }
+
+  if (pathname.startsWith("/management") || pathname.startsWith("/admin")) {
+    return {
+      title: "Dolphin Management",
+      description: "Accounts, rosters, content, badges, and team operations.",
+    };
+  }
 
   if (pathname.startsWith("/parts")) {
     return {
@@ -28,16 +43,22 @@ export function RootLayout() {
   const location = useLocation();
   const { selectedProgram } = useProgramView();
   const appCopy = currentAppCopy(location.pathname, selectedProgram);
+  const isSuiteLanding = location.pathname === "/";
+
   return (
     <div className="min-h-screen bg-background">
       <div className="flex min-h-screen">
         <ProgramOnboarding />
-        <Sidebar />
+        {!isSuiteLanding && <Sidebar />}
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
             <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
-              <MobileNav />
-              <div className="hidden min-w-0 lg:block">
+              {isSuiteLanding ? (
+                <AppLauncher collapsed />
+              ) : (
+                <MobileNav />
+              )}
+              <div className={isSuiteLanding ? "min-w-0" : "hidden min-w-0 lg:block"}>
                 <p className="text-sm font-semibold">{appCopy.title}</p>
                 <p className="text-xs text-muted-foreground">
                   {appCopy.description}
@@ -49,7 +70,7 @@ export function RootLayout() {
               </div>
             </div>
           </header>
-          <main className="flex-1 p-4 sm:p-6">
+          <main className={isSuiteLanding ? "flex-1 p-4 sm:p-8" : "flex-1 p-4 sm:p-6"}>
             <Suspense
               fallback={
                 <div className="rounded-md border bg-card p-6 text-sm text-muted-foreground">

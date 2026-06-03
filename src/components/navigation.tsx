@@ -7,13 +7,13 @@ import {
   ClipboardCheck,
   Factory,
   Gauge,
-  Home,
   ListTree,
   Menu,
   Package,
   Settings,
   ShoppingCart,
   SlidersHorizontal,
+  Users,
   Wrench,
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router";
@@ -50,13 +50,11 @@ type NavItem = {
 };
 
 const trainingNavItems: NavItem[] = [
-  { href: "/", label: "Home", icon: Home },
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/training", label: "Learning", icon: BookOpen },
   { href: "/equipment", label: "Equipment", icon: Wrench },
   { href: "/reviews", label: "Reviews", icon: ClipboardCheck, reviewOnly: true },
   { href: "/badges", label: "Badges", icon: Award },
-  { href: "/admin", label: "Admin", icon: SlidersHorizontal, adminOnly: true },
 ];
 
 const partsNavItems: NavItem[] = [
@@ -70,11 +68,24 @@ const partsNavItems: NavItem[] = [
   { href: "/parts/admin", label: "Parts Admin", icon: Settings, adminOnly: true },
 ];
 
+const managementNavItems: NavItem[] = [
+  { href: "/management", label: "Overview", icon: SlidersHorizontal, adminOnly: true },
+  { href: "/management/people", label: "People", icon: Users, adminOnly: true },
+  { href: "/management/lms", label: "Training Admin", icon: BookOpen, adminOnly: true },
+  { href: "/management/badges", label: "Badge Admin", icon: Award, adminOnly: true },
+  { href: "/reviews", label: "Reviews", icon: ClipboardCheck, adminOnly: true },
+  { href: "/parts/admin", label: "Parts Admin", icon: Settings, adminOnly: true },
+];
+
 function canReview(role: string) {
   return role === "admin" || role === "mentor" || role === "instructor";
 }
 
 function navItemsForPath(pathname: string) {
+  if (pathname.startsWith("/management") || pathname.startsWith("/admin")) {
+    return managementNavItems;
+  }
+
   return pathname.startsWith("/parts") ? partsNavItems : trainingNavItems;
 }
 
@@ -184,7 +195,9 @@ export function MobileNav() {
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const { activeProgramMeta } = useProgramView();
-  const appLabel = location.pathname.startsWith("/parts")
+  const appLabel = location.pathname.startsWith("/management") || location.pathname.startsWith("/admin")
+    ? "Dolphin Management"
+    : location.pathname.startsWith("/parts")
     ? activeProgramMeta.partsTitle
     : activeProgramMeta.trainingTitle;
   const visibleNavItems = visibleItems(navItemsForPath(location.pathname), effectiveRole);

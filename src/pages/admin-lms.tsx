@@ -175,7 +175,7 @@ export function AdminLmsPage() {
         description="Manage learning content, safety tests, equipment requirements, SOPs, and recognition records."
         actions={
           <Button asChild variant="outline">
-            <Link to="/admin">
+            <Link to="/management">
               <ArrowLeft className="size-4" />
               Back to admin
             </Link>

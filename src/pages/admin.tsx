@@ -1,6 +1,15 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useQuery } from "convex/react";
-import { Award, ClipboardCheck, Database, Eye, LockKeyhole, Users } from "lucide-react";
+import {
+  Award,
+  ClipboardCheck,
+  Database,
+  Eye,
+  FileCheck,
+  LockKeyhole,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import { Link } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
@@ -28,8 +37,8 @@ export function AdminPage() {
     <div className="mx-auto max-w-6xl">
       <PageHeading
         eyebrow="Admin"
-        title="Administration foundation"
-        description="Manage people, training content, equipment, badges, and approvals."
+        title="Dolphin Management"
+        description="Manage accounts, rosters, training content, badges, reviews, and team operations."
         actions={
           <Badge variant={isAdmin ? "default" : "outline"}>
             {roleView !== "actual" ? `${roleView} preview` : isAdmin ? "Admin access" : "Limited view"}
@@ -88,7 +97,7 @@ export function AdminPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <Card>
                 <CardHeader>
                   <ClipboardCheck className="size-5 text-primary" />
@@ -113,7 +122,7 @@ export function AdminPage() {
                 </CardHeader>
                 <CardContent>
                   <Button asChild variant="outline">
-                    <Link to="/admin/people">Open people</Link>
+                    <Link to="/management/people">Open people</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -127,7 +136,7 @@ export function AdminPage() {
                 </CardHeader>
                 <CardContent>
                   <Button asChild variant="outline">
-                    <Link to="/admin/lms">Open Dolphin Training</Link>
+                    <Link to="/management/lms">Open Dolphin Training</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -141,7 +150,35 @@ export function AdminPage() {
                 </CardHeader>
                 <CardContent>
                   <Button asChild variant="outline">
-                    <Link to="/admin/badges">Open badges</Link>
+                    <Link to="/management/badges">Open badges</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <ShieldCheck className="size-5 text-primary" />
+                  <CardTitle>Team information</CardTitle>
+                  <CardDescription>
+                    Manage teams, programs, seasons, graduation groups, and roster structure.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button disabled variant="outline">
+                    Coming soon
+                  </Button>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <FileCheck className="size-5 text-primary" />
+                  <CardTitle>Paperwork</CardTitle>
+                  <CardDescription>
+                    Track signed forms, consent records, deadlines, and missing paperwork.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button disabled variant="outline">
+                    Coming soon
                   </Button>
                 </CardContent>
               </Card>

@@ -126,7 +126,7 @@ export function AdminBadgesPage() {
         description="Force-award badges to accounts, remove awards, and open badge records."
         actions={
           <Button asChild variant="outline">
-            <Link to="/admin">
+            <Link to="/management">
               <ArrowLeft className="size-4" />
               Back to admin
             </Link>

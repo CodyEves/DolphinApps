@@ -543,7 +543,7 @@ export function AdminPeoplePage() {
         description="Manage provisioned usernames, setup links, password recovery, and account labels."
         actions={
           <Button asChild variant="outline">
-            <Link to="/admin">
+            <Link to="/management">
               <ArrowLeft className="size-4" />
               Back to admin
             </Link>
