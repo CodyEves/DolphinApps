@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ClipboardList,
   Clock,
+  Copy,
   FileQuestion,
   FileText,
   Film,
@@ -126,6 +127,91 @@ type MarkdownImportResult = {
   questions: QuestionForm[];
   warnings: string[];
 };
+
+const markdownCheatSheet = `Use this format to create a DolphinLMS lesson draft. Return only Markdown.
+
+Supported frontmatter:
+---
+title: Lesson title
+type: video | reading | assignment | quiz | exercise
+minutes: 20
+required: true
+passingScore: 80
+videoUrl: https://www.youtube.com/watch?v=...
+---
+
+Lesson body:
+# Lesson title
+
+## Instructions
+Write student-facing directions, context, rubric notes, or reading content here.
+
+## Materials
+- [Resource title](https://example.com)
+- File title | type: file | url: https://example.com/file.pdf | notes: Optional note
+- Plain note title | type: note | notes: What students should know
+
+## Questions
+Use ### Question Type: prompt for each question.
+
+Multiple choice:
+### Multiple Choice: Which PPE is required?
+Points: 2
+- [x] Safety glasses
+- [ ] Loose sleeves
+- [ ] Sandals
+
+True or false:
+### True False: The emergency stop should be tested before use.
+Answer: true
+
+Short answer:
+### Short Answer: Why should material be clamped?
+Answer: To keep the workpiece from spinning
+
+Paragraph:
+### Paragraph: Explain the full setup process in your own words.
+Placeholder: Include PPE, clamping, speed, and cleanup.
+
+Fill in the blank:
+### Fill Blank: The drill press table should be ____ before drilling.
+Answer: locked
+
+Number:
+### Number: What speed setting should be used?
+Answer: 3
+
+Linear scale:
+### Linear Scale: How confident are you with this procedure?
+Range: 1 to 5
+Labels: Not confident | Very confident
+Answer: 4
+
+Matching:
+### Matching: Match each term to its purpose.
+- Chuck key :: Tightens the bit
+- Clamp :: Holds the workpiece
+- Safety glasses :: Protects eyes
+
+Ordering:
+### Ordering: Put these setup steps in order.
+1. Put on safety glasses
+2. Clamp the workpiece
+3. Set the correct speed
+4. Start drilling
+
+File upload:
+### File Upload: Submit your signed checklist.
+
+URL:
+### URL: Paste a link to your design notes.
+Placeholder: https://...
+
+Tips for AI:
+- Make the instructions student-facing and specific.
+- Add answer keys for auto-graded questions.
+- Use file upload or paragraph questions for manual review.
+- Keep each question under one clear skill or concept.`;
 
 const emptyLessonForm: LessonForm = {
   title: "",
@@ -795,6 +881,7 @@ export function LessonEditorPage() {
   const saveLesson = useMutation(api.training.saveLesson);
   const [form, setForm] = useState<LessonForm>(emptyLessonForm);
   const [isMarkdownImportOpen, setIsMarkdownImportOpen] = useState(false);
+  const [isMarkdownGuideOpen, setIsMarkdownGuideOpen] = useState(false);
   const [markdownImport, setMarkdownImport] = useState("");
   const [markdownImportMode, setMarkdownImportMode] = useState<"replace" | "append">(
     "replace",
@@ -1198,6 +1285,15 @@ export function LessonEditorPage() {
     toast.success("Markdown draft applied");
   }
 
+  async function copyMarkdownCheatSheet() {
+    try {
+      await navigator.clipboard.writeText(markdownCheatSheet);
+      toast.success("Markdown cheat sheet copied");
+    } catch {
+      toast.error("Unable to copy cheat sheet");
+    }
+  }
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -1421,23 +1517,64 @@ export function LessonEditorPage() {
                     Paste a draft from AI, docs, or lesson-plan notes.
                   </CardDescription>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsMarkdownImportOpen((current) => !current)}
-                  aria-expanded={isMarkdownImportOpen}
-                  aria-controls="markdown-import-panel"
-                >
-                  <Upload className="size-4" />
-                  {isMarkdownImportOpen ? "Hide importer" : "Import Markdown"}
-                  <ChevronDown
-                    className={`size-4 transition-transform ${
-                      isMarkdownImportOpen ? "rotate-180" : ""
-                    }`}
-                  />
-                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsMarkdownGuideOpen((current) => !current)}
+                    aria-expanded={isMarkdownGuideOpen}
+                    aria-controls="markdown-cheat-sheet-panel"
+                  >
+                    <FileText className="size-4" />
+                    {isMarkdownGuideOpen ? "Hide cheat sheet" : "Cheat sheet"}
+                    <ChevronDown
+                      className={`size-4 transition-transform ${
+                        isMarkdownGuideOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsMarkdownImportOpen((current) => !current)}
+                    aria-expanded={isMarkdownImportOpen}
+                    aria-controls="markdown-import-panel"
+                  >
+                    <Upload className="size-4" />
+                    {isMarkdownImportOpen ? "Hide importer" : "Import Markdown"}
+                    <ChevronDown
+                      className={`size-4 transition-transform ${
+                        isMarkdownImportOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
+            {isMarkdownGuideOpen && (
+              <CardContent
+                id="markdown-cheat-sheet-panel"
+                className="space-y-4 border-b px-5 py-5"
+              >
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="font-medium">AI prompt and lesson format</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Copy this into AI with your lesson plan, then paste the result into the importer.
+                    </p>
+                  </div>
+                  <Button type="button" variant="secondary" onClick={copyMarkdownCheatSheet}>
+                    <Copy className="size-4" />
+                    Copy
+                  </Button>
+                </div>
+                <Textarea
+                  readOnly
+                  value={markdownCheatSheet}
+                  className="min-h-96 resize-y font-mono text-sm"
+                />
+              </CardContent>
+            )}
             {isMarkdownImportOpen && (
               <CardContent
                 id="markdown-import-panel"
