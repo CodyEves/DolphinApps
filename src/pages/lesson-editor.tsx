@@ -128,7 +128,7 @@ type MarkdownImportResult = {
   warnings: string[];
 };
 
-const markdownCheatSheet = `Use this format to create a DolphinLMS lesson draft. Return only Markdown.
+const markdownCheatSheet = `Use this format to create a DolphinLMS lesson draft.
 
 Supported frontmatter:
 ---
@@ -205,13 +205,7 @@ File upload:
 
 URL:
 ### URL: Paste a link to your design notes.
-Placeholder: https://...
-
-Tips for AI:
-- Make the instructions student-facing and specific.
-- Add answer keys for auto-graded questions.
-- Use file upload or paragraph questions for manual review.
-- Keep each question under one clear skill or concept.`;
+Placeholder: https://...`;
 
 const emptyLessonForm: LessonForm = {
   title: "",
@@ -1514,7 +1508,7 @@ export function LessonEditorPage() {
                 <div>
                   <CardTitle>Markdown import</CardTitle>
                   <CardDescription>
-                    Paste a draft from AI, docs, or lesson-plan notes.
+                    Paste a draft from docs, lesson-plan notes, or another generator.
                   </CardDescription>
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -1558,9 +1552,9 @@ export function LessonEditorPage() {
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h3 className="font-medium">AI prompt and lesson format</h3>
+                    <h3 className="font-medium">Markdown lesson format</h3>
                     <p className="text-sm text-muted-foreground">
-                      Copy this into AI with your lesson plan, then paste the result into the importer.
+                      Copy this guide for hand-written or import-ready drafts.
                     </p>
                   </div>
                   <Button type="button" variant="secondary" onClick={copyMarkdownCheatSheet}>
