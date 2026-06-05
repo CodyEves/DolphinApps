@@ -113,6 +113,19 @@ type LessonForm = {
   questions: QuestionForm[];
 };
 
+type MarkdownImportResult = {
+  title?: string;
+  description?: string;
+  lessonType?: LessonType;
+  youtubeUrl?: string;
+  estimatedMinutes?: string;
+  required?: boolean;
+  passingScorePercent?: string;
+  resources: ResourceForm[];
+  questions: QuestionForm[];
+  warnings: string[];
+};
+
 const emptyLessonForm: LessonForm = {
   title: "",
   description: "",
@@ -171,6 +184,408 @@ function createResource(resourceType: ResourceType = "link"): ResourceForm {
     url: "",
     notes: "",
   };
+}
+
+function cleanImportValue(value: string) {
+  return value.trim().replace(/^["']|["']$/g, "");
+}
+
+function parseImportBoolean(value: string | undefined) {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = cleanImportValue(value).toLowerCase();
+
+  if (["true", "yes", "required"].includes(normalized)) {
+    return true;
+  }
+
+  if (["false", "no", "optional"].includes(normalized)) {
+    return false;
+  }
+
+  return undefined;
+}
+
+function normalizeLessonType(value: string | undefined): LessonType | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const normalized = cleanImportValue(value).toLowerCase().replace(/[\s-]+/g, "_");
+
+  if (normalized === "assignment") {
+    return "video_assignment";
+  }
+
+  if (normalized === "quiz" || normalized === "test") {
+    return "exam";
+  }
+
+  if (
+    normalized === "video" ||
+    normalized === "video_assignment" ||
+    normalized === "exam" ||
+    normalized === "reading" ||
+    normalized === "exercise"
+  ) {
+    return normalized;
+  }
+
+  return undefined;
+}
+
+function normalizeQuestionType(value: string): QuestionType | undefined {
+  const normalized = value.toLowerCase().replace(/[\s-]+/g, "_");
+
+  if (normalized === "multiple_choice" || normalized === "choice") {
+    return "multiple_choice";
+  }
+
+  if (normalized === "true_false" || normalized === "true/false") {
+    return "true_false";
+  }
+
+  if (normalized === "short_answer") {
+    return "short_answer";
+  }
+
+  if (normalized === "fill_blank" || normalized === "fill_in_the_blank") {
+    return "fill_blank";
+  }
+
+  if (normalized === "file" || normalized === "file_upload") {
+    return "file_upload";
+  }
+
+  if (
+    normalized === "paragraph" ||
+    normalized === "number" ||
+    normalized === "linear_scale" ||
+    normalized === "scale" ||
+    normalized === "matching" ||
+    normalized === "ordering" ||
+    normalized === "url"
+  ) {
+    return normalized === "scale" ? "linear_scale" : normalized;
+  }
+
+  return undefined;
+}
+
+function splitFrontmatter(markdown: string) {
+  const match = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+
+  if (!match) {
+    return {
+      frontmatter: {} as Record<string, string>,
+      body: markdown,
+    };
+  }
+
+  const frontmatter: Record<string, string> = {};
+
+  for (const line of match[1].split(/\r?\n/)) {
+    const entry = line.match(/^([A-Za-z][\w-]*)\s*:\s*(.+)$/);
+
+    if (entry) {
+      frontmatter[entry[1].trim().toLowerCase()] = cleanImportValue(entry[2]);
+    }
+  }
+
+  return {
+    frontmatter,
+    body: markdown.slice(match[0].length),
+  };
+}
+
+function getMarkdownSection(markdown: string, names: string[]) {
+  const lines = markdown.split(/\r?\n/);
+  const normalizedNames = names.map((name) => name.toLowerCase());
+  const sectionLines: string[] = [];
+  let isCollecting = false;
+
+  for (const line of lines) {
+    const heading = line.match(/^##\s+(.+)$/);
+
+    if (heading) {
+      const headingName = heading[1].trim().toLowerCase();
+
+      if (isCollecting) {
+        break;
+      }
+
+      isCollecting = normalizedNames.some((name) => headingName.includes(name));
+      continue;
+    }
+
+    if (isCollecting) {
+      sectionLines.push(line);
+    }
+  }
+
+  return sectionLines.join("\n").trim();
+}
+
+function getFallbackDescription(markdown: string) {
+  const lines = markdown.split(/\r?\n/);
+  const descriptionLines: string[] = [];
+  let hasStarted = false;
+
+  for (const line of lines) {
+    if (/^#\s+/.test(line)) {
+      hasStarted = true;
+      continue;
+    }
+
+    if (/^##\s+(materials?|questions?|student work|quiz|assessment)/i.test(line)) {
+      break;
+    }
+
+    if (/^#{2,4}\s+/.test(line)) {
+      continue;
+    }
+
+    if (hasStarted || line.trim()) {
+      descriptionLines.push(line);
+    }
+  }
+
+  return descriptionLines.join("\n").trim();
+}
+
+function parseMarkdownMaterials(markdown: string) {
+  const section = getMarkdownSection(markdown, ["materials", "resources", "attachments"]);
+  const resources: ResourceForm[] = [];
+
+  for (const line of section.split(/\r?\n/)) {
+    const item = line.trim().match(/^[-*]\s+(.+)$/);
+
+    if (!item) {
+      continue;
+    }
+
+    const text = item[1].trim();
+    const markdownLink = text.match(/^\[([^\]]+)\]\(([^)]+)\)(?:\s*[-:]\s*(.+))?$/);
+
+    if (markdownLink) {
+      resources.push({
+        ...createResource("link"),
+        title: markdownLink[1].trim(),
+        url: markdownLink[2].trim(),
+        notes: markdownLink[3]?.trim() ?? "",
+      });
+      continue;
+    }
+
+    const parts = text.split("|").map((part) => part.trim());
+    const resource = createResource("note");
+    resource.title = parts[0];
+
+    for (const part of parts.slice(1)) {
+      const [rawKey, ...rawValue] = part.split(":");
+      const key = rawKey.trim().toLowerCase();
+      const value = rawValue.join(":").trim();
+
+      if (key === "type" && ["link", "file", "note"].includes(value)) {
+        resource.resourceType = value as ResourceType;
+      } else if (key === "url") {
+        resource.url = value;
+      } else if (key === "notes" || key === "note") {
+        resource.notes = value;
+      }
+    }
+
+    if (resource.url && resource.resourceType === "note") {
+      resource.resourceType = "link";
+    }
+
+    resources.push(resource);
+  }
+
+  return resources;
+}
+
+function splitQuestionBlocks(markdown: string) {
+  const lines = markdown.split(/\r?\n/);
+  const blocks: Array<{ heading: string; lines: string[] }> = [];
+  let currentBlock: { heading: string; lines: string[] } | null = null;
+
+  for (const line of lines) {
+    const heading = line.match(/^#{3,4}\s+(.+)$/);
+
+    if (heading) {
+      const typeName = heading[1].split(":")[0].trim();
+
+      if (normalizeQuestionType(typeName)) {
+        if (currentBlock) {
+          blocks.push(currentBlock);
+        }
+
+        currentBlock = {
+          heading: heading[1].trim(),
+          lines: [],
+        };
+        continue;
+      }
+    }
+
+    if (currentBlock) {
+      currentBlock.lines.push(line);
+    }
+  }
+
+  if (currentBlock) {
+    blocks.push(currentBlock);
+  }
+
+  return blocks;
+}
+
+function parseMarkdownQuestions(markdown: string) {
+  const questions: QuestionForm[] = [];
+  const warnings: string[] = [];
+
+  for (const block of splitQuestionBlocks(markdown)) {
+    const [rawType, ...promptParts] = block.heading.split(":");
+    const type = normalizeQuestionType(rawType.trim());
+
+    if (!type) {
+      continue;
+    }
+
+    const question = createQuestion(type);
+    const firstPromptLine = block.lines.find(
+      (line) =>
+        line.trim() &&
+        !/^(points?|answer|range|labels?|placeholder)\s*:/i.test(line.trim()) &&
+        !/^[-*]\s+/.test(line.trim()) &&
+        !/^\d+[.)]\s+/.test(line.trim()),
+    );
+
+    question.prompt =
+      promptParts.join(":").trim() || firstPromptLine?.replace(/^prompt\s*:/i, "").trim() || "";
+    question.choices = [];
+    question.matchingPairs = [];
+
+    for (const rawLine of block.lines) {
+      const line = rawLine.trim();
+
+      if (!line) {
+        continue;
+      }
+
+      const points = line.match(/^points?\s*:\s*(\d+)/i);
+      const answer = line.match(/^answer\s*:\s*(.+)$/i);
+      const placeholder = line.match(/^placeholder\s*:\s*(.+)$/i);
+      const range = line.match(/^range\s*:\s*(-?\d+)\s*(?:-|to)\s*(-?\d+)/i);
+      const labels = line.match(/^labels?\s*:\s*(.+?)\s*(?:\||,)\s*(.+)$/i);
+      const checkedChoice = line.match(/^[-*]\s+\[(x|X| )\]\s+(.+)$/);
+      const bullet = line.match(/^[-*]\s+(.+)$/);
+      const ordered = line.match(/^\d+[.)]\s+(.+)$/);
+
+      if (points) {
+        question.points = points[1];
+      } else if (answer) {
+        question.correctAnswer = cleanImportValue(answer[1]);
+      } else if (placeholder) {
+        question.answerPlaceholder = cleanImportValue(placeholder[1]);
+      } else if (range && type === "linear_scale") {
+        question.scaleMin = range[1];
+        question.scaleMax = range[2];
+      } else if (labels && type === "linear_scale") {
+        question.scaleMinLabel = cleanImportValue(labels[1]);
+        question.scaleMaxLabel = cleanImportValue(labels[2]);
+      } else if (checkedChoice && type === "multiple_choice") {
+        question.choices.push(createChoice(checkedChoice[2], checkedChoice[1].toLowerCase() === "x"));
+      } else if (bullet && type === "matching") {
+        const pair = bullet[1].split(/\s*(?:::|->)\s*/);
+
+        if (pair.length >= 2) {
+          question.matchingPairs.push({
+            clientId: crypto.randomUUID(),
+            prompt: pair[0].trim(),
+            answer: pair.slice(1).join(" :: ").trim(),
+          });
+        }
+      } else if ((bullet || ordered) && type === "ordering") {
+        question.choices.push(createChoice((bullet?.[1] ?? ordered?.[1] ?? "").trim()));
+      }
+    }
+
+    if (type === "true_false") {
+      question.correctAnswer =
+        question.correctAnswer.toLowerCase() === "false" ? "false" : "true";
+    }
+
+    if (type === "multiple_choice") {
+      question.allowMultipleCorrect =
+        question.choices.filter((choice) => choice.isCorrect).length > 1;
+    }
+
+    if (type === "ordering" && !question.correctAnswer) {
+      question.correctAnswer = JSON.stringify(
+        question.choices.map((choice) => choice.text.trim()).filter(Boolean),
+      );
+    }
+
+    if (type === "matching" && !question.correctAnswer) {
+      question.correctAnswer = JSON.stringify(
+        question.matchingPairs.map((pair) => `${pair.prompt}::${pair.answer}`),
+      );
+    }
+
+    if (!question.prompt) {
+      warnings.push(`A ${questionTypeLabel(type)} question is missing a prompt.`);
+    }
+
+    if (!isQuestionReady(question)) {
+      warnings.push(`${question.prompt || questionTypeLabel(type)} needs more details.`);
+    }
+
+    questions.push(question);
+  }
+
+  return { questions, warnings };
+}
+
+function parseLessonMarkdown(markdown: string): MarkdownImportResult {
+  const warnings: string[] = [];
+  const { frontmatter, body } = splitFrontmatter(markdown);
+  const h1 = body.match(/^#\s+(.+)$/m);
+  const lessonType = normalizeLessonType(frontmatter.type ?? frontmatter.lessontype);
+  const description =
+    frontmatter.description ??
+    (getMarkdownSection(body, ["instructions", "overview", "description"]) ||
+      getFallbackDescription(body));
+  const parsedQuestions = parseMarkdownQuestions(body);
+  const result: MarkdownImportResult = {
+    title: frontmatter.title ?? h1?.[1]?.trim(),
+    description,
+    lessonType,
+    youtubeUrl: frontmatter.youtubeurl ?? frontmatter.videourl ?? frontmatter.video,
+    estimatedMinutes: frontmatter.minutes ?? frontmatter.estimatedminutes,
+    required: parseImportBoolean(frontmatter.required),
+    passingScorePercent: frontmatter.passingscore ?? frontmatter.passingscorepercent,
+    resources: parseMarkdownMaterials(body),
+    questions: parsedQuestions.questions,
+    warnings: [...warnings, ...parsedQuestions.warnings],
+  };
+
+  if (!result.title) {
+    result.warnings.push("No title found. Add a # heading or title frontmatter.");
+  }
+
+  if (!result.description) {
+    result.warnings.push("No instructions found.");
+  }
+
+  if (!result.lessonType && frontmatter.type) {
+    result.warnings.push(`Unknown lesson type "${frontmatter.type}".`);
+  }
+
+  return result;
 }
 
 function parseCorrectAnswers(value: string | undefined) {
@@ -378,6 +793,10 @@ export function LessonEditorPage() {
   );
   const saveLesson = useMutation(api.training.saveLesson);
   const [form, setForm] = useState<LessonForm>(emptyLessonForm);
+  const [markdownImport, setMarkdownImport] = useState("");
+  const [markdownImportMode, setMarkdownImportMode] = useState<"replace" | "append">(
+    "replace",
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   const trackBackHref = lessonRecord?.unit
@@ -407,6 +826,17 @@ export function LessonEditorPage() {
         return resource.resourceType === "note" || Boolean(resource.url.trim());
       }).length,
     [form.resources],
+  );
+  const parsedMarkdownImport = useMemo(
+    () => (markdownImport.trim() ? parseLessonMarkdown(markdownImport) : null),
+    [markdownImport],
+  );
+  const canApplyMarkdownImport = Boolean(
+    parsedMarkdownImport &&
+      (parsedMarkdownImport.title ||
+        parsedMarkdownImport.description ||
+        parsedMarkdownImport.resources.length > 0 ||
+        parsedMarkdownImport.questions.length > 0),
   );
 
   useEffect(() => {
@@ -721,6 +1151,51 @@ export function LessonEditorPage() {
     }));
   }
 
+  function applyMarkdownImport() {
+    if (!parsedMarkdownImport) {
+      return;
+    }
+
+    setForm((current) => {
+      const nextLessonType =
+        parsedMarkdownImport.lessonType ??
+        (parsedMarkdownImport.questions.length > 0 && current.lessonType === "video"
+          ? "video_assignment"
+          : current.lessonType);
+      const importedMinutes = Number(parsedMarkdownImport.estimatedMinutes);
+      const importedPassingScore = Number(parsedMarkdownImport.passingScorePercent);
+
+      return {
+        ...current,
+        title: parsedMarkdownImport.title ?? current.title,
+        description: parsedMarkdownImport.description ?? current.description,
+        lessonType: nextLessonType,
+        youtubeUrl: parsedMarkdownImport.youtubeUrl ?? current.youtubeUrl,
+        estimatedMinutes:
+          Number.isFinite(importedMinutes) && importedMinutes > 0
+            ? String(importedMinutes)
+            : current.estimatedMinutes,
+        required: parsedMarkdownImport.required ?? current.required,
+        passingScorePercent:
+          Number.isFinite(importedPassingScore) &&
+          importedPassingScore >= 0 &&
+          importedPassingScore <= 100
+            ? String(importedPassingScore)
+            : current.passingScorePercent,
+        resources:
+          markdownImportMode === "append"
+            ? [...current.resources, ...parsedMarkdownImport.resources]
+            : parsedMarkdownImport.resources,
+        questions:
+          markdownImportMode === "append"
+            ? [...current.questions, ...parsedMarkdownImport.questions]
+            : parsedMarkdownImport.questions,
+      };
+    });
+
+    toast.success("Markdown draft applied");
+  }
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -935,6 +1410,133 @@ export function LessonEditorPage() {
         </aside>
 
         <div className="space-y-5">
+          <Card className="overflow-hidden border-primary/15 py-0">
+            <CardHeader className="border-b bg-muted/35 px-5 py-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <CardTitle>Markdown import</CardTitle>
+                  <CardDescription>
+                    Paste a draft from AI, docs, or lesson-plan notes.
+                  </CardDescription>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Select
+                    value={markdownImportMode}
+                    onValueChange={(value: "replace" | "append") =>
+                      setMarkdownImportMode(value)
+                    }
+                  >
+                    <SelectTrigger className="w-full sm:w-44">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="replace">Replace draft</SelectItem>
+                      <SelectItem value="append">Append work</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={applyMarkdownImport}
+                    disabled={!canApplyMarkdownImport}
+                  >
+                    <Upload className="size-4" />
+                    Apply
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setMarkdownImport("")}
+                    disabled={!markdownImport}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+              <div className="space-y-2">
+                <Label htmlFor="markdown-import">Markdown</Label>
+                <Textarea
+                  id="markdown-import"
+                  value={markdownImport}
+                  onChange={(event) => setMarkdownImport(event.target.value)}
+                  placeholder={`---
+title: Drill Press Safety
+type: assignment
+minutes: 20
+required: true
+passingScore: 80
+---
+
+# Drill Press Safety
+
+## Instructions
+Review setup, PPE, clamping, speed selection, and cleanup.
+
+## Materials
+- [Safety manual](https://example.com/safety)
+- Signed checklist | type: file | url: https://example.com/checklist.pdf
+
+## Questions
+### Multiple Choice: Which PPE is required?
+- [x] Safety glasses
+- [ ] Loose sleeves
+
+### Short Answer: Why should material be clamped?
+Answer: To keep the workpiece from spinning
+
+### File Upload: Submit your signed checklist`}
+                  className="min-h-72 resize-y font-mono text-sm"
+                />
+              </div>
+              <div className="space-y-3 rounded-md border bg-background p-4 text-sm">
+                <div className="flex items-center gap-2 font-medium">
+                  <FileText className="size-4 text-primary" />
+                  Import preview
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Title</span>
+                    <span className="max-w-40 truncate font-medium">
+                      {parsedMarkdownImport?.title ?? "None"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Format</span>
+                    <span className="font-medium">
+                      {parsedMarkdownImport?.lessonType
+                        ? selectedLessonTypeLabel(parsedMarkdownImport.lessonType)
+                        : "Current"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Materials</span>
+                    <span className="font-medium">
+                      {parsedMarkdownImport?.resources.length ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-muted-foreground">Questions</span>
+                    <span className="font-medium">
+                      {parsedMarkdownImport?.questions.length ?? 0}
+                    </span>
+                  </div>
+                </div>
+                {parsedMarkdownImport && parsedMarkdownImport.warnings.length > 0 && (
+                  <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive">
+                    {parsedMarkdownImport.warnings.slice(0, 4).map((warning) => (
+                      <p key={warning}>{warning}</p>
+                    ))}
+                    {parsedMarkdownImport.warnings.length > 4 && (
+                      <p>{parsedMarkdownImport.warnings.length - 4} more warnings</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="overflow-hidden border-primary/15 py-0">
             <CardHeader className="border-b bg-muted/35 px-5 py-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
