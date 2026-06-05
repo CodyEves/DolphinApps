@@ -898,8 +898,8 @@ export const saveLesson = mutation({
               lessonId: args.lessonId,
               resourceType: resource.resourceType,
               title: resourceTitle,
-              url: resourceUrl || undefined,
-              notes: resourceNotes || undefined,
+              ...(resourceUrl ? { url: resourceUrl } : {}),
+              ...(resourceNotes ? { notes: resourceNotes } : {}),
               order: (resourceIndex + 1) * 10,
               createdAt: now,
               updatedAt: now,
@@ -911,8 +911,8 @@ export const saveLesson = mutation({
         await ctx.db.patch(resourceId, {
           resourceType: resource.resourceType,
           title: resourceTitle,
-          url: resourceUrl || undefined,
-          notes: resourceNotes || undefined,
+          ...(resourceUrl ? { url: resourceUrl } : {}),
+          ...(resourceNotes ? { notes: resourceNotes } : {}),
           order: (resourceIndex + 1) * 10,
           updatedAt: now,
         });
@@ -1036,16 +1036,21 @@ export const saveLesson = mutation({
       const questionPatch = {
         type: question.type,
         prompt,
-        choices: choices && choices.length > 0 ? choices : undefined,
-        correctAnswer: correctAnswer || undefined,
-        allowMultipleCorrect: question.allowMultipleCorrect,
-        matchingPairs:
-          matchingPairs && matchingPairs.length > 0 ? matchingPairs : undefined,
-        scaleMin: question.scaleMin,
-        scaleMax: question.scaleMax,
-        scaleMinLabel: question.scaleMinLabel?.trim() || undefined,
-        scaleMaxLabel: question.scaleMaxLabel?.trim() || undefined,
-        answerPlaceholder: answerPlaceholder || undefined,
+        ...(choices && choices.length > 0 ? { choices } : {}),
+        ...(correctAnswer ? { correctAnswer } : {}),
+        ...(question.allowMultipleCorrect !== undefined
+          ? { allowMultipleCorrect: question.allowMultipleCorrect }
+          : {}),
+        ...(matchingPairs && matchingPairs.length > 0 ? { matchingPairs } : {}),
+        ...(question.scaleMin !== undefined ? { scaleMin: question.scaleMin } : {}),
+        ...(question.scaleMax !== undefined ? { scaleMax: question.scaleMax } : {}),
+        ...(question.scaleMinLabel?.trim()
+          ? { scaleMinLabel: question.scaleMinLabel.trim() }
+          : {}),
+        ...(question.scaleMaxLabel?.trim()
+          ? { scaleMaxLabel: question.scaleMaxLabel.trim() }
+          : {}),
+        ...(answerPlaceholder ? { answerPlaceholder } : {}),
         order: (questionIndex + 1) * 10,
         points: question.points,
       };

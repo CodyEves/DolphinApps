@@ -741,11 +741,11 @@ export function LessonEditorPage() {
         required: form.required,
         passingScorePercent: Number(form.passingScorePercent),
         resources: form.resources.map((resource) => ({
-          id: resource.id,
+          ...(resource.id ? { id: resource.id } : {}),
           resourceType: resource.resourceType,
           title: resource.title,
-          url: resource.url.trim() || undefined,
-          notes: resource.notes.trim() || undefined,
+          ...(resource.url.trim() ? { url: resource.url.trim() } : {}),
+          ...(resource.notes.trim() ? { notes: resource.notes.trim() } : {}),
         })),
         questions: hasStudentWork
           ? form.questions.map((question) => {
@@ -758,56 +758,47 @@ export function LessonEditorPage() {
                   answer: pair.answer.trim(),
                 }))
                 .filter((pair) => pair.prompt && pair.answer);
+              const correctAnswer =
+                question.type === "multiple_choice"
+                  ? JSON.stringify(
+                      question.choices
+                        .filter((choice) => choice.isCorrect && choice.text.trim())
+                        .map((choice) => choice.text.trim()),
+                    )
+                  : question.type === "ordering"
+                    ? JSON.stringify(choices)
+                    : question.type === "matching"
+                      ? JSON.stringify(
+                          matchingPairs.map(
+                            (pair) => `${pair.prompt}::${pair.answer}`,
+                          ),
+                        )
+                      : question.correctAnswer.trim();
 
               return {
-                id: question.id,
+                ...(question.id ? { id: question.id } : {}),
                 type: question.type,
                 prompt: question.prompt,
-                choices:
-                  question.type === "multiple_choice" ||
-                  question.type === "ordering"
-                    ? choices
-                    : undefined,
-                correctAnswer:
-                  question.type === "multiple_choice"
-                    ? JSON.stringify(
-                        question.choices
-                          .filter((choice) => choice.isCorrect && choice.text.trim())
-                          .map((choice) => choice.text.trim()),
-                      )
-                    : question.type === "ordering"
-                      ? JSON.stringify(choices)
-                      : question.type === "matching"
-                        ? JSON.stringify(
-                            matchingPairs.map(
-                              (pair) => `${pair.prompt}::${pair.answer}`,
-                            ),
-                          )
-                        : question.correctAnswer.trim() || undefined,
-                allowMultipleCorrect:
-                  question.type === "multiple_choice"
-                    ? question.allowMultipleCorrect
-                    : undefined,
-                matchingPairs:
-                  question.type === "matching" ? matchingPairs : undefined,
-                scaleMin:
-                  question.type === "linear_scale"
-                    ? Number(question.scaleMin)
-                    : undefined,
-                scaleMax:
-                  question.type === "linear_scale"
-                    ? Number(question.scaleMax)
-                    : undefined,
-                scaleMinLabel:
-                  question.type === "linear_scale"
-                    ? question.scaleMinLabel
-                    : undefined,
-                scaleMaxLabel:
-                  question.type === "linear_scale"
-                    ? question.scaleMaxLabel
-                    : undefined,
-                answerPlaceholder:
-                  question.answerPlaceholder.trim() || undefined,
+                ...(question.type === "multiple_choice" ||
+                question.type === "ordering"
+                  ? { choices }
+                  : {}),
+                ...(correctAnswer ? { correctAnswer } : {}),
+                ...(question.type === "multiple_choice"
+                  ? { allowMultipleCorrect: question.allowMultipleCorrect }
+                  : {}),
+                ...(question.type === "matching" ? { matchingPairs } : {}),
+                ...(question.type === "linear_scale"
+                  ? {
+                      scaleMin: Number(question.scaleMin),
+                      scaleMax: Number(question.scaleMax),
+                      scaleMinLabel: question.scaleMinLabel,
+                      scaleMaxLabel: question.scaleMaxLabel,
+                    }
+                  : {}),
+                ...(question.answerPlaceholder.trim()
+                  ? { answerPlaceholder: question.answerPlaceholder.trim() }
+                  : {}),
                 points: Number(question.points),
               };
             })
