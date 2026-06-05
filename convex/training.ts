@@ -23,8 +23,14 @@ const questionTypeValidator = v.union(
   v.literal("multiple_choice"),
   v.literal("true_false"),
   v.literal("short_answer"),
+  v.literal("paragraph"),
   v.literal("fill_blank"),
   v.literal("file_upload"),
+  v.literal("number"),
+  v.literal("linear_scale"),
+  v.literal("matching"),
+  v.literal("ordering"),
+  v.literal("url"),
 );
 
 const questionInputValidator = v.object({
@@ -34,7 +40,23 @@ const questionInputValidator = v.object({
   choices: v.optional(v.array(v.string())),
   correctAnswer: v.optional(v.string()),
   allowMultipleCorrect: v.optional(v.boolean()),
+  matchingPairs: v.optional(
+    v.array(v.object({ prompt: v.string(), answer: v.string() })),
+  ),
+  scaleMin: v.optional(v.number()),
+  scaleMax: v.optional(v.number()),
+  scaleMinLabel: v.optional(v.string()),
+  scaleMaxLabel: v.optional(v.string()),
+  answerPlaceholder: v.optional(v.string()),
   points: v.number(),
+});
+
+const lessonResourceInputValidator = v.object({
+  id: v.optional(v.id("lessonResources")),
+  resourceType: v.union(v.literal("link"), v.literal("file"), v.literal("note")),
+  title: v.string(),
+  url: v.optional(v.string()),
+  notes: v.optional(v.string()),
 });
 
 const answerInputValidator = v.object({
@@ -169,6 +191,10 @@ async function collectLessonContent(ctx: QueryCtx | MutationCtx, lessonId: Id<"l
         .withIndex("by_quiz_order", (q) => q.eq("quizId", quiz._id))
         .collect()
     : [];
+  const resources = await ctx.db
+    .query("lessonResources")
+    .withIndex("by_lesson_order", (q) => q.eq("lessonId", lesson._id))
+    .collect();
 
   return {
     lesson,
@@ -176,6 +202,7 @@ async function collectLessonContent(ctx: QueryCtx | MutationCtx, lessonId: Id<"l
     track,
     quiz,
     questions,
+    resources,
   };
 }
 
@@ -200,6 +227,15 @@ async function deleteLessonQuiz(ctx: MutationCtx, lessonId: Id<"lessons">) {
 
 async function deleteLesson(ctx: MutationCtx, lessonId: Id<"lessons">) {
   await deleteLessonQuiz(ctx, lessonId);
+
+  const resources = await ctx.db
+    .query("lessonResources")
+    .withIndex("by_lesson", (q) => q.eq("lessonId", lessonId))
+    .collect();
+
+  for (const resource of resources) {
+    await ctx.db.delete(resource._id);
+  }
 
   const progress = await ctx.db
     .query("lessonProgress")
@@ -238,6 +274,35 @@ function parseAnswerList(value: string | undefined) {
   return [normalizeAnswer(value)];
 }
 
+function parseOrderedAnswerList(value: string | undefined) {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((item): item is string => typeof item === "string")
+        .map(normalizeAnswer);
+    }
+  } catch {
+    return [normalizeAnswer(value)];
+  }
+
+  return [normalizeAnswer(value)];
+}
+
+function needsManualReview(question: { type: string; correctAnswer?: string }) {
+  return (
+    question.type === "file_upload" ||
+    question.type === "paragraph" ||
+    (question.type === "short_answer" && !question.correctAnswer) ||
+    (question.type === "url" && !question.correctAnswer)
+  );
+}
+
 function answerMatches(question: { type: string; correctAnswer?: string }, answer: string) {
   if (question.type === "multiple_choice") {
     const expected = parseAnswerList(question.correctAnswer);
@@ -247,6 +312,20 @@ function answerMatches(question: { type: string; correctAnswer?: string }, answe
       expected.length === submitted.length &&
       expected.every((expectedAnswer, index) => expectedAnswer === submitted[index])
     );
+  }
+
+  if (question.type === "ordering" || question.type === "matching") {
+    const expected = parseOrderedAnswerList(question.correctAnswer);
+    const submitted = parseOrderedAnswerList(answer);
+
+    return (
+      expected.length === submitted.length &&
+      expected.every((expectedAnswer, index) => expectedAnswer === submitted[index])
+    );
+  }
+
+  if (question.type === "number") {
+    return Number(question.correctAnswer) === Number(answer);
   }
 
   return normalizeAnswer(question.correctAnswer) === normalizeAnswer(answer);
@@ -397,10 +476,8 @@ export const submitLessonQuiz = mutation({
     const answersByQuestionId = new Map(
       args.answers.map((answer) => [answer.questionId, answer.answer]),
     );
-    const fileUploadQuestions = content.questions.filter(
-      (question) => question.type === "file_upload",
-    );
-    const hasFileUploadQuestions = fileUploadQuestions.length > 0;
+    const reviewQuestions = content.questions.filter(needsManualReview);
+    const hasReviewQuestions = reviewQuestions.length > 0;
     const totalPoints = content.questions.reduce(
       (total, question) => total + question.points,
       0,
@@ -414,7 +491,7 @@ export const submitLessonQuiz = mutation({
         continue;
       }
 
-      if (question.type === "file_upload") {
+      if (needsManualReview(question)) {
         earnedPoints += question.points;
         continue;
       }
@@ -424,7 +501,7 @@ export const submitLessonQuiz = mutation({
       }
     }
 
-    if (hasFileUploadQuestions) {
+    if (hasReviewQuestions) {
       const now = Date.now();
       const attemptId = await ctx.db.insert("quizAttempts", {
         quizId: content.quiz._id,
@@ -434,7 +511,7 @@ export const submitLessonQuiz = mutation({
         startedAt: now,
       });
 
-      for (const question of fileUploadQuestions) {
+      for (const question of reviewQuestions) {
         const answer = answersByQuestionId.get(question._id);
 
         if (!answer) {
@@ -752,6 +829,7 @@ export const saveLesson = mutation({
     estimatedMinutes: v.number(),
     required: v.boolean(),
     passingScorePercent: v.number(),
+    resources: v.array(lessonResourceInputValidator),
     questions: v.array(questionInputValidator),
   },
   handler: async (ctx, args) => {
@@ -785,6 +863,68 @@ export const saveLesson = mutation({
       updatedAt: Date.now(),
     });
 
+    const existingResources = await ctx.db
+      .query("lessonResources")
+      .withIndex("by_lesson_order", (q) => q.eq("lessonId", args.lessonId))
+      .collect();
+    const seenResourceIds = new Set<Id<"lessonResources">>();
+    const now = Date.now();
+
+    for (const [resourceIndex, resource] of args.resources.entries()) {
+      const resourceTitle = resource.title.trim();
+      const resourceUrl = resource.url?.trim();
+      const resourceNotes = resource.notes?.trim();
+
+      if (!resourceTitle) {
+        throw new Error("Every material needs a title.");
+      }
+
+      if (
+        (resource.resourceType === "link" || resource.resourceType === "file") &&
+        !resourceUrl
+      ) {
+        throw new Error("Links and file resources need a URL.");
+      }
+
+      const existingResource =
+        resource.id &&
+        existingResources.some((candidate) => candidate._id === resource.id)
+          ? await ctx.db.get(resource.id)
+          : null;
+      const resourceId =
+        existingResource && resource.id
+          ? resource.id
+          : await ctx.db.insert("lessonResources", {
+              lessonId: args.lessonId,
+              resourceType: resource.resourceType,
+              title: resourceTitle,
+              url: resourceUrl || undefined,
+              notes: resourceNotes || undefined,
+              order: (resourceIndex + 1) * 10,
+              createdAt: now,
+              updatedAt: now,
+            });
+
+      seenResourceIds.add(resourceId);
+
+      if (existingResource) {
+        await ctx.db.patch(resourceId, {
+          resourceType: resource.resourceType,
+          title: resourceTitle,
+          url: resourceUrl || undefined,
+          notes: resourceNotes || undefined,
+          order: (resourceIndex + 1) * 10,
+          updatedAt: now,
+        });
+      }
+    }
+
+    for (const resource of existingResources) {
+      if (!seenResourceIds.has(resource._id)) {
+        await ctx.db.delete(resource._id);
+      }
+    }
+
     if (args.questions.length === 0) {
       await deleteLessonQuiz(ctx, args.lessonId);
       return args.lessonId;
@@ -795,7 +935,6 @@ export const saveLesson = mutation({
     }
 
     const existingQuiz = await getLessonQuiz(ctx, args.lessonId);
-    const now = Date.now();
     const quizId =
       existingQuiz?._id ??
       (await ctx.db.insert("quizzes", {
@@ -827,6 +966,13 @@ export const saveLesson = mutation({
       const choices = question.choices
         ?.map((choice) => choice.trim())
         .filter((choice) => choice.length > 0);
+      const matchingPairs = question.matchingPairs
+        ?.map((pair) => ({
+          prompt: pair.prompt.trim(),
+          answer: pair.answer.trim(),
+        }))
+        .filter((pair) => pair.prompt.length > 0 && pair.answer.length > 0);
+      const answerPlaceholder = question.answerPlaceholder?.trim();
 
       if (!prompt) {
         throw new Error("Every question needs a prompt.");
@@ -838,6 +984,23 @@ export const saveLesson = mutation({
 
       if (question.type === "multiple_choice" && (!choices || choices.length < 2)) {
         throw new Error("Multiple choice questions need at least two choices.");
+      }
+
+      if (question.type === "ordering" && (!choices || choices.length < 2)) {
+        throw new Error("Ordering questions need at least two items.");
+      }
+
+      if (question.type === "matching" && (!matchingPairs || matchingPairs.length < 2)) {
+        throw new Error("Matching questions need at least two pairs.");
+      }
+
+      if (
+        question.type === "linear_scale" &&
+        (question.scaleMin === undefined ||
+          question.scaleMax === undefined ||
+          question.scaleMax <= question.scaleMin)
+      ) {
+        throw new Error("Linear scale questions need a valid range.");
       }
 
       if (question.type === "multiple_choice") {
@@ -861,6 +1024,32 @@ export const saveLesson = mutation({
         }
       }
 
+      if (
+        ["true_false", "fill_blank", "number", "linear_scale", "matching", "ordering"].includes(
+          question.type,
+        ) &&
+        !correctAnswer
+      ) {
+        throw new Error("Auto-graded questions need a correct answer.");
+      }
+
+      const questionPatch = {
+        type: question.type,
+        prompt,
+        choices: choices && choices.length > 0 ? choices : undefined,
+        correctAnswer: correctAnswer || undefined,
+        allowMultipleCorrect: question.allowMultipleCorrect,
+        matchingPairs:
+          matchingPairs && matchingPairs.length > 0 ? matchingPairs : undefined,
+        scaleMin: question.scaleMin,
+        scaleMax: question.scaleMax,
+        scaleMinLabel: question.scaleMinLabel?.trim() || undefined,
+        scaleMaxLabel: question.scaleMaxLabel?.trim() || undefined,
+        answerPlaceholder: answerPlaceholder || undefined,
+        order: (questionIndex + 1) * 10,
+        points: question.points,
+      };
+
       const existingQuestion =
         question.id && existingQuestions.some((candidate) => candidate._id === question.id)
           ? await ctx.db.get(question.id)
@@ -870,27 +1059,13 @@ export const saveLesson = mutation({
           ? question.id
           : await ctx.db.insert("questions", {
               quizId,
-              type: question.type,
-              prompt,
-              choices: choices && choices.length > 0 ? choices : undefined,
-              correctAnswer: correctAnswer || undefined,
-              allowMultipleCorrect: question.allowMultipleCorrect,
-              order: (questionIndex + 1) * 10,
-              points: question.points,
+              ...questionPatch,
             });
 
       seenQuestionIds.add(questionId);
 
       if (existingQuestion) {
-        await ctx.db.patch(questionId, {
-          type: question.type,
-          prompt,
-          choices: choices && choices.length > 0 ? choices : undefined,
-          correctAnswer: correctAnswer || undefined,
-          allowMultipleCorrect: question.allowMultipleCorrect,
-          order: (questionIndex + 1) * 10,
-          points: question.points,
-        });
+        await ctx.db.patch(questionId, questionPatch);
       }
     }
 

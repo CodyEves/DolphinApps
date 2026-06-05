@@ -2,6 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
+  BookOpen,
   CheckCircle2,
   ClipboardList,
   Clock,
@@ -73,6 +74,14 @@ function lessonTypeLabel(type: string) {
     return "Quiz or exam";
   }
 
+  if (type === "reading") {
+    return "Material";
+  }
+
+  if (type === "exercise") {
+    return "Practice";
+  }
+
   return "Video lesson";
 }
 
@@ -89,6 +98,14 @@ function LessonTypeIcon({
 
   if (type === "exam") {
     return <FileQuestion className={className} />;
+  }
+
+  if (type === "reading") {
+    return <BookOpen className={className} />;
+  }
+
+  if (type === "exercise") {
+    return <CheckCircle2 className={className} />;
   }
 
   return <Film className={className} />;

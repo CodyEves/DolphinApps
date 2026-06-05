@@ -36,8 +36,19 @@ const questionType = v.union(
   v.literal("multiple_choice"),
   v.literal("true_false"),
   v.literal("short_answer"),
+  v.literal("paragraph"),
   v.literal("fill_blank"),
   v.literal("file_upload"),
+  v.literal("number"),
+  v.literal("linear_scale"),
+  v.literal("matching"),
+  v.literal("ordering"),
+  v.literal("url"),
+);
+const lessonResourceType = v.union(
+  v.literal("link"),
+  v.literal("file"),
+  v.literal("note"),
 );
 const attemptStatus = v.union(
   v.literal("in_progress"),
@@ -206,6 +217,19 @@ export default defineSchema({
     .index("by_unit", ["unitId"])
     .index("by_unit_order", ["unitId", "order"]),
 
+  lessonResources: defineTable({
+    lessonId: v.id("lessons"),
+    resourceType: lessonResourceType,
+    title: v.string(),
+    url: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    order: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_lesson", ["lessonId"])
+    .index("by_lesson_order", ["lessonId", "order"]),
+
   lessonProgress: defineTable({
     userId: v.id("users"),
     lessonId: v.id("lessons"),
@@ -241,6 +265,14 @@ export default defineSchema({
     choices: v.optional(v.array(v.string())),
     correctAnswer: v.optional(v.string()),
     allowMultipleCorrect: v.optional(v.boolean()),
+    matchingPairs: v.optional(
+      v.array(v.object({ prompt: v.string(), answer: v.string() })),
+    ),
+    scaleMin: v.optional(v.number()),
+    scaleMax: v.optional(v.number()),
+    scaleMinLabel: v.optional(v.string()),
+    scaleMaxLabel: v.optional(v.string()),
+    answerPlaceholder: v.optional(v.string()),
     order: v.number(),
     points: v.number(),
   })

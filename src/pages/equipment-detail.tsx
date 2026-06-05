@@ -167,6 +167,16 @@ function parseCorrectAnswers(value: string | undefined) {
   return [value];
 }
 
+function isEquipmentQuestionType(type: string): type is QuestionType {
+  return (
+    type === "multiple_choice" ||
+    type === "true_false" ||
+    type === "short_answer" ||
+    type === "fill_blank" ||
+    type === "file_upload"
+  );
+}
+
 function formatDate(timestamp: number | undefined) {
   if (!timestamp) {
     return "";
@@ -278,7 +288,7 @@ export function EquipmentDetailPage() {
           instructorApprovalRequired: item.instructorApprovalRequired,
           isActive: item.isActive,
           passingScorePercent: String(item.quiz?.passingScorePercent ?? 80),
-          questions: item.questions.map((question) => {
+          questions: item.questions.filter((question) => isEquipmentQuestionType(question.type)).map((question) => {
             const correctAnswers = parseCorrectAnswers(question.correctAnswer);
             const choices =
               question.type === "multiple_choice"
@@ -292,7 +302,7 @@ export function EquipmentDetailPage() {
             return {
               clientId: question._id,
               id: question._id,
-              type: question.type,
+              type: question.type as QuestionType,
               prompt: question.prompt,
               choices,
               correctAnswer: question.correctAnswer ?? "",

@@ -2,6 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
+  BookOpen,
   CheckCircle2,
   ClipboardList,
   Clock,
@@ -29,6 +30,13 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
@@ -91,12 +99,36 @@ function questionTypeLabel(type: string) {
     return "Multiple choice";
   }
 
+  if (type === "paragraph") {
+    return "Paragraph";
+  }
+
   if (type === "fill_blank") {
     return "Fill in the blank";
   }
 
   if (type === "file_upload") {
     return "File upload";
+  }
+
+  if (type === "number") {
+    return "Number";
+  }
+
+  if (type === "linear_scale") {
+    return "Linear scale";
+  }
+
+  if (type === "matching") {
+    return "Matching";
+  }
+
+  if (type === "ordering") {
+    return "Ordering";
+  }
+
+  if (type === "url") {
+    return "URL";
   }
 
   if (type === "true_false") {
@@ -113,6 +145,14 @@ function lessonTypeLabel(type: string) {
 
   if (type === "exam") {
     return "Quiz or exam";
+  }
+
+  if (type === "reading") {
+    return "Material";
+  }
+
+  if (type === "exercise") {
+    return "Practice";
   }
 
   return "Video lesson";
@@ -133,7 +173,37 @@ function LessonTypeIcon({
     return <FileQuestion className={className} />;
   }
 
+  if (type === "reading") {
+    return <BookOpen className={className} />;
+  }
+
+  if (type === "exercise") {
+    return <CheckCircle2 className={className} />;
+  }
+
   return <Film className={className} />;
+}
+
+function parseAnswerArray(answer: string | string[] | undefined) {
+  if (Array.isArray(answer)) {
+    return answer;
+  }
+
+  if (!answer) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(answer);
+
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is string => typeof item === "string");
+    }
+  } catch {
+    return [];
+  }
+
+  return [];
 }
 
 export function LessonViewPage() {
@@ -163,8 +233,10 @@ export function LessonViewPage() {
   const videoUrl = externalVideoUrl(visibleContent?.lesson.youtubeUrl);
   const hasQuestions = Boolean(visibleContent && visibleContent.questions.length > 0);
   const hasPassedQuestions = visibleContent?.latestQuizAttempt?.status === "passed";
-  const isPlainVideoLesson =
-    visibleContent?.lesson.lessonType === "video" && !hasQuestions;
+  const isSelfCompleteLesson =
+    (visibleContent?.lesson.lessonType === "video" ||
+      visibleContent?.lesson.lessonType === "reading") &&
+    !hasQuestions;
   const totalPoints =
     visibleContent?.questions.reduce((sum, question) => sum + question.points, 0) ?? 0;
 
@@ -173,7 +245,7 @@ export function LessonViewPage() {
       return;
     }
 
-    if (!isPlainVideoLesson) {
+    if (!isSelfCompleteLesson) {
       toast.error("This lesson must be completed through its assigned activity.");
       return;
     }
@@ -203,6 +275,18 @@ export function LessonViewPage() {
         [questionId]: checked
           ? [...existingAnswers, answer]
           : existingAnswers.filter((item) => item !== answer),
+      };
+    });
+  }
+
+  function setArrayAnswer(questionId: string, answerIndex: number, answer: string) {
+    setAnswers((current) => {
+      const nextAnswers = parseAnswerArray(current[questionId]);
+      nextAnswers[answerIndex] = answer;
+
+      return {
+        ...current,
+        [questionId]: nextAnswers,
       };
     });
   }
@@ -247,6 +331,17 @@ export function LessonViewPage() {
 
     const submittedAnswers = visibleContent.questions.map((question) => {
       const answer = answers[question._id];
+      const expectedArrayAnswerCount =
+        question.type === "matching"
+          ? question.matchingPairs?.length ?? 0
+          : question.type === "ordering"
+            ? question.choices?.length ?? 0
+            : 0;
+      const hasMissingArrayAnswer =
+        Array.isArray(answer) &&
+        expectedArrayAnswerCount > 0 &&
+        (answer.length !== expectedArrayAnswerCount ||
+          answer.some((item) => !item));
       const normalizedAnswer = Array.isArray(answer)
         ? JSON.stringify(answer)
         : (answer ?? "").trim();
@@ -254,9 +349,12 @@ export function LessonViewPage() {
       return {
         questionId: question._id,
         answer: normalizedAnswer,
+        hasMissingArrayAnswer,
       };
     });
-    const missingAnswer = submittedAnswers.some((answer) => !answer.answer);
+    const missingAnswer = submittedAnswers.some(
+      (answer) => !answer.answer || answer.hasMissingArrayAnswer,
+    );
 
     if (missingAnswer) {
       toast.error("Answer every question before submitting.");
@@ -268,7 +366,10 @@ export function LessonViewPage() {
     try {
       const result = await submitLessonQuiz({
         lessonId,
-        answers: submittedAnswers,
+        answers: submittedAnswers.map(({ questionId, answer }) => ({
+          questionId,
+          answer,
+        })),
       });
 
       if (result.status === "submitted") {
@@ -409,6 +510,46 @@ export function LessonViewPage() {
                 </div>
               )}
 
+              {visibleContent.resources.length > 0 && (
+                <div className="rounded-md border bg-background p-4">
+                  <h2 className="mb-3 font-medium">Materials</h2>
+                  <div className="space-y-2">
+                    {visibleContent.resources.map((resource) => (
+                      <div
+                        key={resource._id}
+                        className="flex flex-col gap-2 rounded-md border bg-card p-3 sm:flex-row sm:items-start sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline">
+                              {resource.resourceType === "file"
+                                ? "File"
+                                : resource.resourceType === "note"
+                                  ? "Note"
+                                  : "Link"}
+                            </Badge>
+                            <p className="font-medium">{resource.title}</p>
+                          </div>
+                          {resource.notes && (
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                              {resource.notes}
+                            </p>
+                          )}
+                        </div>
+                        {resource.url && (
+                          <Button asChild variant="outline" size="sm">
+                            <a href={resource.url} target="_blank" rel="noreferrer">
+                              <ExternalLink className="size-4" />
+                              Open
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {videoUrl && (
                 <Button asChild variant="outline">
                   <a href={videoUrl} target="_blank" rel="noreferrer">
@@ -460,6 +601,9 @@ export function LessonViewPage() {
               {visibleContent.questions.map((question, questionIndex) => {
                 const answer = answers[question._id];
                 const selectedAnswers = Array.isArray(answer) ? answer : [];
+                const arrayAnswers = parseAnswerArray(answer);
+                const scaleMin = question.scaleMin ?? 1;
+                const scaleMax = question.scaleMax ?? 5;
 
                 return (
                   <div key={question._id} className="rounded-md border bg-background p-4 shadow-sm">
@@ -522,12 +666,159 @@ export function LessonViewPage() {
                       <div className="mt-4 space-y-2">
                         <Label>Response</Label>
                         <Textarea
-                          placeholder="Write your response"
+                          placeholder={question.answerPlaceholder ?? "Write your response"}
                           value={typeof answer === "string" ? answer : ""}
                           onChange={(event) =>
                             setSingleAnswer(question._id, event.target.value)
                           }
                         />
+                      </div>
+                    )}
+
+                    {question.type === "paragraph" && (
+                      <div className="mt-4 space-y-2">
+                        <Label>Response</Label>
+                        <Textarea
+                          placeholder={
+                            question.answerPlaceholder ?? "Write your response"
+                          }
+                          value={typeof answer === "string" ? answer : ""}
+                          onChange={(event) =>
+                            setSingleAnswer(question._id, event.target.value)
+                          }
+                          className="min-h-32"
+                        />
+                      </div>
+                    )}
+
+                    {question.type === "number" && (
+                      <div className="mt-4 space-y-2">
+                        <Label>Number</Label>
+                        <Input
+                          type="number"
+                          placeholder="Enter a number"
+                          value={typeof answer === "string" ? answer : ""}
+                          onChange={(event) =>
+                            setSingleAnswer(question._id, event.target.value)
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {question.type === "url" && (
+                      <div className="mt-4 space-y-2">
+                        <Label>URL</Label>
+                        <Input
+                          type="url"
+                          placeholder={question.answerPlaceholder ?? "https://..."}
+                          value={typeof answer === "string" ? answer : ""}
+                          onChange={(event) =>
+                            setSingleAnswer(question._id, event.target.value)
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {question.type === "linear_scale" && (
+                      <div className="mt-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                          <span>{question.scaleMinLabel}</span>
+                          <span>{question.scaleMaxLabel}</span>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-5">
+                          {Array.from(
+                            { length: Math.max(0, scaleMax - scaleMin + 1) },
+                            (_, index) => scaleMin + index,
+                          ).map((scaleValue) => (
+                            <label
+                              key={scaleValue}
+                              className="flex items-center justify-center gap-2 rounded-md border bg-card p-3 text-sm transition-colors hover:bg-accent/50"
+                            >
+                              <input
+                                type="radio"
+                                name={`${question._id}-scale-answer`}
+                                checked={answer === String(scaleValue)}
+                                onChange={() =>
+                                  setSingleAnswer(question._id, String(scaleValue))
+                                }
+                                className="size-4 accent-primary"
+                              />
+                              {scaleValue}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {question.type === "matching" && (
+                      <div className="mt-4 space-y-3">
+                        {question.matchingPairs?.map((pair, pairIndex) => {
+                          const selectedPairAnswer =
+                            arrayAnswers[pairIndex]?.split("::")[1] ?? "";
+
+                          return (
+                            <div
+                              key={`${question._id}-${pair.prompt}`}
+                              className="grid gap-2 rounded-md border bg-card p-3 sm:grid-cols-[1fr_220px]"
+                            >
+                              <p className="text-sm font-medium">{pair.prompt}</p>
+                              <Select
+                                value={selectedPairAnswer}
+                                onValueChange={(value) =>
+                                  setArrayAnswer(
+                                    question._id,
+                                    pairIndex,
+                                    `${pair.prompt}::${value}`,
+                                  )
+                                }
+                              >
+                                <SelectTrigger className="w-full bg-background">
+                                  <SelectValue placeholder="Choose match" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {question.matchingPairs?.map((option) => (
+                                    <SelectItem
+                                      key={`${pair.prompt}-${option.answer}`}
+                                      value={option.answer}
+                                    >
+                                      {option.answer}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {question.type === "ordering" && (
+                      <div className="mt-4 space-y-3">
+                        {question.choices?.map((_, orderIndex) => (
+                          <div
+                            key={`${question._id}-order-${orderIndex}`}
+                            className="grid gap-2 rounded-md border bg-card p-3 sm:grid-cols-[80px_1fr]"
+                          >
+                            <Badge variant="outline">#{orderIndex + 1}</Badge>
+                            <Select
+                              value={arrayAnswers[orderIndex] ?? ""}
+                              onValueChange={(value) =>
+                                setArrayAnswer(question._id, orderIndex, value)
+                              }
+                            >
+                              <SelectTrigger className="w-full bg-background">
+                                <SelectValue placeholder="Choose item" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {question.choices?.map((choice) => (
+                                  <SelectItem key={choice} value={choice}>
+                                    {choice}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
                       </div>
                     )}
 
@@ -651,14 +942,14 @@ export function LessonViewPage() {
 
               <Button
                 onClick={handleCompleteLesson}
-                disabled={isComplete || !isPlainVideoLesson}
+                disabled={isComplete || !isSelfCompleteLesson}
                 variant={isComplete ? "secondary" : "default"}
                 className="w-full"
               >
                 <PlayCircle className="size-4" />
                 {isComplete
                   ? "Completed"
-                  : isPlainVideoLesson
+                  : isSelfCompleteLesson
                     ? "Mark lesson complete"
                     : "Complete activity to finish"}
               </Button>

@@ -9,12 +9,13 @@ import {
   FileQuestion,
   FileText,
   Film,
+  GripVertical,
   Link2,
   ListChecks,
   Paperclip,
   Plus,
   Save,
-  ShieldCheck,
+  SlidersHorizontal,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -52,13 +53,35 @@ type QuestionType =
   | "multiple_choice"
   | "true_false"
   | "short_answer"
+  | "paragraph"
   | "fill_blank"
-  | "file_upload";
+  | "file_upload"
+  | "number"
+  | "linear_scale"
+  | "matching"
+  | "ordering"
+  | "url";
+type ResourceType = "link" | "file" | "note";
 
 type ChoiceForm = {
   clientId: string;
   text: string;
   isCorrect: boolean;
+};
+
+type MatchingPairForm = {
+  clientId: string;
+  prompt: string;
+  answer: string;
+};
+
+type ResourceForm = {
+  clientId: string;
+  id?: Id<"lessonResources">;
+  resourceType: ResourceType;
+  title: string;
+  url: string;
+  notes: string;
 };
 
 type QuestionForm = {
@@ -67,9 +90,15 @@ type QuestionForm = {
   type: QuestionType;
   prompt: string;
   choices: ChoiceForm[];
+  matchingPairs: MatchingPairForm[];
   correctAnswer: string;
   allowMultipleCorrect: boolean;
   points: string;
+  scaleMin: string;
+  scaleMax: string;
+  scaleMinLabel: string;
+  scaleMaxLabel: string;
+  answerPlaceholder: string;
 };
 
 type LessonForm = {
@@ -80,6 +109,7 @@ type LessonForm = {
   estimatedMinutes: string;
   required: boolean;
   passingScorePercent: string;
+  resources: ResourceForm[];
   questions: QuestionForm[];
 };
 
@@ -91,8 +121,25 @@ const emptyLessonForm: LessonForm = {
   estimatedMinutes: "15",
   required: true,
   passingScorePercent: "80",
+  resources: [],
   questions: [],
 };
+
+function createChoice(text: string, isCorrect = false): ChoiceForm {
+  return {
+    clientId: crypto.randomUUID(),
+    text,
+    isCorrect,
+  };
+}
+
+function createMatchingPair(index: number): MatchingPairForm {
+  return {
+    clientId: crypto.randomUUID(),
+    prompt: `Item ${index}`,
+    answer: `Match ${index}`,
+  };
+}
 
 function createQuestion(type: QuestionType = "multiple_choice"): QuestionForm {
   return {
@@ -100,15 +147,29 @@ function createQuestion(type: QuestionType = "multiple_choice"): QuestionForm {
     type,
     prompt: "",
     choices:
-      type === "multiple_choice"
-        ? [
-            { clientId: crypto.randomUUID(), text: "Option A", isCorrect: true },
-            { clientId: crypto.randomUUID(), text: "Option B", isCorrect: false },
-          ]
+      type === "multiple_choice" || type === "ordering"
+        ? [createChoice("Option A", true), createChoice("Option B")]
         : [],
-    correctAnswer: "",
+    matchingPairs:
+      type === "matching" ? [createMatchingPair(1), createMatchingPair(2)] : [],
+    correctAnswer: type === "true_false" ? "true" : "",
     allowMultipleCorrect: false,
     points: "1",
+    scaleMin: "1",
+    scaleMax: "5",
+    scaleMinLabel: "Low",
+    scaleMaxLabel: "High",
+    answerPlaceholder: "",
+  };
+}
+
+function createResource(resourceType: ResourceType = "link"): ResourceForm {
+  return {
+    clientId: crypto.randomUUID(),
+    resourceType,
+    title: "",
+    url: "",
+    notes: "",
   };
 }
 
@@ -130,32 +191,44 @@ function parseCorrectAnswers(value: string | undefined) {
   return [value];
 }
 
-function needsQuestions(type: LessonType) {
-  return type === "video_assignment" || type === "exam";
-}
-
 function needsVideo(type: LessonType) {
   return type === "video" || type === "video_assignment";
+}
+
+function requiresStudentWork(type: LessonType) {
+  return type === "video_assignment" || type === "exam" || type === "exercise";
 }
 
 const lessonTypeOptions = [
   {
     value: "video" as const,
-    label: "Video lesson",
-    description: "Share a video and let students mark it complete.",
+    label: "Video",
+    description: "Watch-and-complete lesson",
     icon: Film,
+  },
+  {
+    value: "reading" as const,
+    label: "Material",
+    description: "Reading, links, and references",
+    icon: BookOpen,
   },
   {
     value: "video_assignment" as const,
     label: "Assignment",
-    description: "Pair a video with questions, uploads, or written work.",
+    description: "Instructions plus student work",
     icon: ClipboardList,
   },
   {
     value: "exam" as const,
-    label: "Quiz or exam",
-    description: "Create a question-only assessment.",
+    label: "Quiz",
+    description: "Questions only",
     icon: FileQuestion,
+  },
+  {
+    value: "exercise" as const,
+    label: "Practice",
+    description: "Hands-on or written activity",
+    icon: CheckCircle2,
   },
 ];
 
@@ -163,14 +236,56 @@ const questionTypeOptions = [
   {
     value: "multiple_choice" as const,
     label: "Multiple choice",
-    description: "Auto-graded options",
+    description: "One or many correct choices",
     icon: ListChecks,
+  },
+  {
+    value: "true_false" as const,
+    label: "True / false",
+    description: "Two-option check",
+    icon: CheckCircle2,
   },
   {
     value: "short_answer" as const,
     label: "Short answer",
-    description: "Written response",
+    description: "Optional answer key",
     icon: FileText,
+  },
+  {
+    value: "paragraph" as const,
+    label: "Paragraph",
+    description: "Manual review response",
+    icon: FileText,
+  },
+  {
+    value: "fill_blank" as const,
+    label: "Fill blank",
+    description: "Exact text answer",
+    icon: BookOpen,
+  },
+  {
+    value: "number" as const,
+    label: "Number",
+    description: "Numeric answer",
+    icon: SlidersHorizontal,
+  },
+  {
+    value: "linear_scale" as const,
+    label: "Linear scale",
+    description: "Range selection",
+    icon: SlidersHorizontal,
+  },
+  {
+    value: "matching" as const,
+    label: "Matching",
+    description: "Pair terms and answers",
+    icon: GripVertical,
+  },
+  {
+    value: "ordering" as const,
+    label: "Ordering",
+    description: "Put items in sequence",
+    icon: GripVertical,
   },
   {
     value: "file_upload" as const,
@@ -179,16 +294,10 @@ const questionTypeOptions = [
     icon: Upload,
   },
   {
-    value: "fill_blank" as const,
-    label: "Fill blank",
-    description: "Exact answer",
-    icon: BookOpen,
-  },
-  {
-    value: "true_false" as const,
-    label: "True / false",
-    description: "Quick check",
-    icon: CheckCircle2,
+    value: "url" as const,
+    label: "URL",
+    description: "Link submission",
+    icon: Link2,
   },
 ];
 
@@ -200,26 +309,59 @@ function questionTypeLabel(type: QuestionType) {
 }
 
 function isQuestionReady(question: QuestionForm) {
-  if (!question.prompt.trim()) {
+  if (!question.prompt.trim() || Number(question.points) < 1) {
     return false;
   }
 
-  if (Number(question.points) < 1) {
-    return false;
+  if (question.type === "multiple_choice") {
+    const choices = question.choices.filter((choice) => choice.text.trim());
+
+    return (
+      choices.length >= 2 &&
+      question.choices.some((choice) => choice.isCorrect && choice.text.trim())
+    );
   }
 
-  if (question.type !== "multiple_choice") {
-    return true;
+  if (question.type === "matching") {
+    return (
+      question.matchingPairs.filter(
+        (pair) => pair.prompt.trim() && pair.answer.trim(),
+      ).length >= 2
+    );
   }
 
-  const choices = question.choices
-    .map((choice) => choice.text.trim())
-    .filter((choice) => choice.length > 0);
+  if (question.type === "ordering") {
+    return question.choices.filter((choice) => choice.text.trim()).length >= 2;
+  }
 
-  return (
-    choices.length >= 2 &&
-    question.choices.some((choice) => choice.isCorrect && choice.text.trim())
-  );
+  if (question.type === "linear_scale") {
+    const min = Number(question.scaleMin);
+    const max = Number(question.scaleMax);
+    const answer = Number(question.correctAnswer);
+
+    return (
+      Number.isFinite(min) &&
+      Number.isFinite(max) &&
+      max > min &&
+      Number.isFinite(answer) &&
+      answer >= min &&
+      answer <= max
+    );
+  }
+
+  if (
+    question.type === "true_false" ||
+    question.type === "fill_blank" ||
+    question.type === "number"
+  ) {
+    return Boolean(question.correctAnswer.trim());
+  }
+
+  return true;
+}
+
+function selectedLessonTypeLabel(type: LessonType) {
+  return lessonTypeOptions.find((option) => option.value === type)?.label ?? "Lesson";
 }
 
 export function LessonEditorPage() {
@@ -241,7 +383,8 @@ export function LessonEditorPage() {
   const trackBackHref = lessonRecord?.unit
     ? `/training/tracks/${lessonRecord.unit.trackId}/edit`
     : "/training";
-  const isQuestionLesson = needsQuestions(form.lessonType);
+  const requiresWork = requiresStudentWork(form.lessonType);
+  const hasStudentWork = form.questions.length > 0;
   const totalPoints = useMemo(
     () =>
       form.questions.reduce((sum, question) => {
@@ -253,6 +396,17 @@ export function LessonEditorPage() {
   const readyQuestionCount = useMemo(
     () => form.questions.filter((question) => isQuestionReady(question)).length,
     [form.questions],
+  );
+  const readyResourceCount = useMemo(
+    () =>
+      form.resources.filter((resource) => {
+        if (!resource.title.trim()) {
+          return false;
+        }
+
+        return resource.resourceType === "note" || Boolean(resource.url.trim());
+      }).length,
+    [form.resources],
   );
 
   useEffect(() => {
@@ -270,10 +424,18 @@ export function LessonEditorPage() {
       estimatedMinutes: String(lessonRecord.lesson.estimatedMinutes),
       required: lessonRecord.lesson.required,
       passingScorePercent: String(lessonRecord.quiz?.passingScorePercent ?? 80),
+      resources: lessonRecord.resources.map((resource) => ({
+        clientId: resource._id,
+        id: resource._id,
+        resourceType: resource.resourceType,
+        title: resource.title,
+        url: resource.url ?? "",
+        notes: resource.notes ?? "",
+      })),
       questions: lessonRecord.questions.map((question) => {
         const correctAnswers = parseCorrectAnswers(question.correctAnswer);
         const choices =
-          question.type === "multiple_choice"
+          question.type === "multiple_choice" || question.type === "ordering"
             ? (question.choices ?? ["Option A", "Option B"]).map((choice) => ({
                 clientId: crypto.randomUUID(),
                 text: choice,
@@ -287,11 +449,20 @@ export function LessonEditorPage() {
           type: question.type,
           prompt: question.prompt,
           choices,
+          matchingPairs: (question.matchingPairs ?? []).map((pair) => ({
+            clientId: crypto.randomUUID(),
+            prompt: pair.prompt,
+            answer: pair.answer,
+          })),
           correctAnswer: question.correctAnswer ?? "",
           allowMultipleCorrect:
-            question.allowMultipleCorrect === true ||
-            correctAnswers.length > 1,
+            question.allowMultipleCorrect === true || correctAnswers.length > 1,
           points: String(question.points),
+          scaleMin: String(question.scaleMin ?? 1),
+          scaleMax: String(question.scaleMax ?? 5),
+          scaleMinLabel: question.scaleMinLabel ?? "Low",
+          scaleMaxLabel: question.scaleMaxLabel ?? "High",
+          answerPlaceholder: question.answerPlaceholder ?? "",
         };
       }),
     });
@@ -309,12 +480,16 @@ export function LessonEditorPage() {
       return false;
     }
 
-    if (isQuestionLesson && form.questions.length === 0) {
+    if (form.resources.length !== readyResourceCount) {
+      return false;
+    }
+
+    if (requiresWork && form.questions.length === 0) {
       return false;
     }
 
     if (
-      isQuestionLesson &&
+      hasStudentWork &&
       (!Number.isFinite(passingScorePercent) ||
         passingScorePercent < 0 ||
         passingScorePercent > 100 ||
@@ -328,9 +503,12 @@ export function LessonEditorPage() {
     form.estimatedMinutes,
     form.passingScorePercent,
     form.questions.length,
+    form.resources.length,
     form.title,
-    isQuestionLesson,
+    hasStudentWork,
     readyQuestionCount,
+    readyResourceCount,
+    requiresWork,
   ]);
 
   function setLessonType(value: LessonType) {
@@ -338,9 +516,32 @@ export function LessonEditorPage() {
       ...current,
       lessonType: value,
       questions:
-        needsQuestions(value) && current.questions.length === 0
-          ? [createQuestion()]
+        requiresStudentWork(value) && current.questions.length === 0
+          ? [createQuestion(value === "exam" ? "multiple_choice" : "file_upload")]
           : current.questions,
+    }));
+  }
+
+  function addResource(resourceType: ResourceType = "link") {
+    setForm((current) => ({
+      ...current,
+      resources: [...current.resources, createResource(resourceType)],
+    }));
+  }
+
+  function updateResource(clientId: string, patch: Partial<ResourceForm>) {
+    setForm((current) => ({
+      ...current,
+      resources: current.resources.map((resource) =>
+        resource.clientId === clientId ? { ...resource, ...patch } : resource,
+      ),
+    }));
+  }
+
+  function removeResource(clientId: string) {
+    setForm((current) => ({
+      ...current,
+      resources: current.resources.filter((resource) => resource.clientId !== clientId),
     }));
   }
 
@@ -360,6 +561,24 @@ export function LessonEditorPage() {
     }));
   }
 
+  function changeQuestionType(question: QuestionForm, type: QuestionType) {
+    const template = createQuestion(type);
+
+    updateQuestion(question.clientId, {
+      type,
+      choices: template.choices.length > 0 ? template.choices : question.choices,
+      matchingPairs:
+        template.matchingPairs.length > 0
+          ? template.matchingPairs
+          : question.matchingPairs,
+      correctAnswer: type === "true_false" ? "true" : "",
+      scaleMin: template.scaleMin,
+      scaleMax: template.scaleMax,
+      scaleMinLabel: template.scaleMinLabel,
+      scaleMaxLabel: template.scaleMaxLabel,
+    });
+  }
+
   function removeQuestion(clientId: string) {
     setForm((current) => ({
       ...current,
@@ -376,11 +595,7 @@ export function LessonEditorPage() {
               ...question,
               choices: [
                 ...question.choices,
-                {
-                  clientId: crypto.randomUUID(),
-                  text: `Option ${question.choices.length + 1}`,
-                  isCorrect: false,
-                },
+                createChoice(`Option ${question.choices.length + 1}`),
               ],
             }
           : question,
@@ -453,6 +668,59 @@ export function LessonEditorPage() {
     }));
   }
 
+  function addMatchingPair(questionClientId: string) {
+    setForm((current) => ({
+      ...current,
+      questions: current.questions.map((question) =>
+        question.clientId === questionClientId
+          ? {
+              ...question,
+              matchingPairs: [
+                ...question.matchingPairs,
+                createMatchingPair(question.matchingPairs.length + 1),
+              ],
+            }
+          : question,
+      ),
+    }));
+  }
+
+  function updateMatchingPair(
+    questionClientId: string,
+    pairClientId: string,
+    patch: Partial<MatchingPairForm>,
+  ) {
+    setForm((current) => ({
+      ...current,
+      questions: current.questions.map((question) =>
+        question.clientId === questionClientId
+          ? {
+              ...question,
+              matchingPairs: question.matchingPairs.map((pair) =>
+                pair.clientId === pairClientId ? { ...pair, ...patch } : pair,
+              ),
+            }
+          : question,
+      ),
+    }));
+  }
+
+  function removeMatchingPair(questionClientId: string, pairClientId: string) {
+    setForm((current) => ({
+      ...current,
+      questions: current.questions.map((question) =>
+        question.clientId === questionClientId
+          ? {
+              ...question,
+              matchingPairs: question.matchingPairs.filter(
+                (pair) => pair.clientId !== pairClientId,
+              ),
+            }
+          : question,
+      ),
+    }));
+  }
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -472,31 +740,77 @@ export function LessonEditorPage() {
         estimatedMinutes: Number(form.estimatedMinutes),
         required: form.required,
         passingScorePercent: Number(form.passingScorePercent),
-        questions: isQuestionLesson
-          ? form.questions.map((question) => ({
-              id: question.id,
-              type: question.type,
-              prompt: question.prompt,
-              choices:
-                question.type === "multiple_choice"
-                  ? question.choices
-                      .map((choice) => choice.text.trim())
-                      .filter((choice) => choice.length > 0)
-                  : undefined,
-              correctAnswer:
-                question.type === "multiple_choice"
-                  ? JSON.stringify(
-                      question.choices
-                        .filter((choice) => choice.isCorrect && choice.text.trim())
-                        .map((choice) => choice.text.trim()),
-                    )
-                  : question.correctAnswer.trim() || undefined,
-              allowMultipleCorrect:
-                question.type === "multiple_choice"
-                  ? question.allowMultipleCorrect
-                  : undefined,
-              points: Number(question.points),
-            }))
+        resources: form.resources.map((resource) => ({
+          id: resource.id,
+          resourceType: resource.resourceType,
+          title: resource.title,
+          url: resource.url.trim() || undefined,
+          notes: resource.notes.trim() || undefined,
+        })),
+        questions: hasStudentWork
+          ? form.questions.map((question) => {
+              const choices = question.choices
+                .map((choice) => choice.text.trim())
+                .filter((choice) => choice.length > 0);
+              const matchingPairs = question.matchingPairs
+                .map((pair) => ({
+                  prompt: pair.prompt.trim(),
+                  answer: pair.answer.trim(),
+                }))
+                .filter((pair) => pair.prompt && pair.answer);
+
+              return {
+                id: question.id,
+                type: question.type,
+                prompt: question.prompt,
+                choices:
+                  question.type === "multiple_choice" ||
+                  question.type === "ordering"
+                    ? choices
+                    : undefined,
+                correctAnswer:
+                  question.type === "multiple_choice"
+                    ? JSON.stringify(
+                        question.choices
+                          .filter((choice) => choice.isCorrect && choice.text.trim())
+                          .map((choice) => choice.text.trim()),
+                      )
+                    : question.type === "ordering"
+                      ? JSON.stringify(choices)
+                      : question.type === "matching"
+                        ? JSON.stringify(
+                            matchingPairs.map(
+                              (pair) => `${pair.prompt}::${pair.answer}`,
+                            ),
+                          )
+                        : question.correctAnswer.trim() || undefined,
+                allowMultipleCorrect:
+                  question.type === "multiple_choice"
+                    ? question.allowMultipleCorrect
+                    : undefined,
+                matchingPairs:
+                  question.type === "matching" ? matchingPairs : undefined,
+                scaleMin:
+                  question.type === "linear_scale"
+                    ? Number(question.scaleMin)
+                    : undefined,
+                scaleMax:
+                  question.type === "linear_scale"
+                    ? Number(question.scaleMax)
+                    : undefined,
+                scaleMinLabel:
+                  question.type === "linear_scale"
+                    ? question.scaleMinLabel
+                    : undefined,
+                scaleMaxLabel:
+                  question.type === "linear_scale"
+                    ? question.scaleMaxLabel
+                    : undefined,
+                answerPlaceholder:
+                  question.answerPlaceholder.trim() || undefined,
+                points: Number(question.points),
+              };
+            })
           : [],
       });
       toast.success("Lesson saved");
@@ -593,11 +907,11 @@ export function LessonEditorPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-7xl">
       <PageHeading
         eyebrow="Learning"
-        title="Edit lesson"
-        description="Build the lesson content, assignment prompts, and grading settings in one place."
+        title="Lesson composer"
+        description="Create the post, materials, student work, and grading settings from one board."
         actions={
           <>
             <Badge variant="secondary">{lessonRecord?.unit?.title ?? "Lesson"}</Badge>
@@ -613,16 +927,31 @@ export function LessonEditorPage() {
 
       <form
         onSubmit={handleSave}
-        className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start"
+        className="grid gap-5 xl:grid-cols-[220px_minmax(0,1fr)_320px] xl:items-start"
       >
+        <aside className="hidden space-y-2 xl:sticky xl:top-20 xl:block">
+          {[
+            ["Details", "Title, instructions, format"],
+            ["Materials", `${readyResourceCount}/${form.resources.length} ready`],
+            ["Student work", `${readyQuestionCount}/${form.questions.length} ready`],
+            ["Settings", `${totalPoints} pts`],
+          ].map(([title, detail]) => (
+            <div key={title} className="rounded-md border bg-card px-3 py-2 text-sm">
+              <p className="font-medium">{title}</p>
+              <p className="text-xs text-muted-foreground">{detail}</p>
+            </div>
+          ))}
+        </aside>
+
         <div className="space-y-5">
           <Card className="overflow-hidden border-primary/15 py-0">
             <CardHeader className="border-b bg-muted/35 px-5 py-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                <div className="space-y-1">
-                  <CardTitle>Assignment composer</CardTitle>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle>Classroom composer</CardTitle>
                   <CardDescription>
-                    Start with the student-facing title and instructions.
+                    {selectedLessonTypeLabel(form.lessonType)} in{" "}
+                    {lessonRecord?.unit?.title ?? "this unit"}
                   </CardDescription>
                 </div>
                 <Badge variant={form.required ? "default" : "outline"}>
@@ -631,7 +960,7 @@ export function LessonEditorPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-5 px-5 py-5">
-              <div className="grid gap-3 md:grid-cols-3">
+              <div className="grid gap-3 md:grid-cols-5">
                 {lessonTypeOptions.map((option) => {
                   const Icon = option.icon;
                   const isSelected = form.lessonType === option.value;
@@ -641,7 +970,7 @@ export function LessonEditorPage() {
                       key={option.value}
                       type="button"
                       onClick={() => setLessonType(option.value)}
-                      className={`rounded-md border p-4 text-left transition hover:border-primary/60 hover:bg-accent/45 ${
+                      className={`rounded-md border p-3 text-left transition hover:border-primary/60 hover:bg-accent/45 ${
                         isSelected
                           ? "border-primary bg-primary/10 shadow-sm"
                           : "bg-background"
@@ -669,7 +998,7 @@ export function LessonEditorPage() {
                   onChange={(event) =>
                     setForm((current) => ({ ...current, title: event.target.value }))
                   }
-                  placeholder="Name the assignment students will see"
+                  placeholder="Name the lesson students will see"
                   className="h-12 text-lg font-semibold"
                   required
                 />
@@ -685,20 +1014,18 @@ export function LessonEditorPage() {
                       description: event.target.value,
                     }))
                   }
-                  placeholder="Add the directions, expectations, links, or context students need."
-                  className="min-h-32 resize-y"
+                  placeholder="Directions, context, rubric notes, or reading text."
+                  className="min-h-36 resize-y"
                 />
               </div>
-
               {needsVideo(form.lessonType) && (
-                <div className="rounded-md border bg-background p-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Link2 className="size-4 text-primary" />
-                    <Label htmlFor="lesson-youtube">Video link</Label>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lesson-video" className="flex items-center gap-2">
+                    <Film className="size-4 text-primary" />
+                    YouTube video
+                  </Label>
                   <Input
-                    id="lesson-youtube"
-                    type="url"
+                    id="lesson-video"
                     value={form.youtubeUrl}
                     onChange={(event) =>
                       setForm((current) => ({
@@ -713,115 +1040,214 @@ export function LessonEditorPage() {
             </CardContent>
           </Card>
 
-          {isQuestionLesson && (
-            <Card className="overflow-hidden py-0">
-              <CardHeader className="border-b bg-muted/25 px-5 py-4">
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <CardTitle>Student work</CardTitle>
-                      <CardDescription>
-                        Add prompts the way students will complete them.
-                      </CardDescription>
-                    </div>
-                    <Badge variant="outline">
-                      {readyQuestionCount} of {form.questions.length} ready
-                    </Badge>
+          <Card className="overflow-hidden py-0">
+            <CardHeader className="border-b bg-muted/25 px-5 py-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle>Materials</CardTitle>
+                  <CardDescription>
+                    Attach links, references, files, or notes to the lesson.
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" onClick={() => addResource("link")}>
+                    <Link2 className="size-4" />
+                    Link
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => addResource("file")}>
+                    <Paperclip className="size-4" />
+                    File
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => addResource("note")}>
+                    <FileText className="size-4" />
+                    Note
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3 px-5 py-5">
+              {form.resources.length === 0 && (
+                <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+                  No materials attached.
+                </div>
+              )}
+              {form.resources.map((resource, resourceIndex) => (
+                <div
+                  key={resource.clientId}
+                  className="grid gap-3 rounded-md border bg-background p-4 shadow-sm md:grid-cols-[160px_1fr_auto]"
+                >
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select
+                      value={resource.resourceType}
+                      onValueChange={(value: ResourceType) =>
+                        updateResource(resource.clientId, { resourceType: value })
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="link">Link</SelectItem>
+                        <SelectItem value="file">File</SelectItem>
+                        <SelectItem value="note">Note</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
-                    {questionTypeOptions.map((option) => {
-                      const Icon = option.icon;
-
-                      return (
-                        <Button
-                          key={option.value}
-                          type="button"
-                          variant="outline"
-                          className="h-auto justify-start whitespace-normal px-3 py-2 text-left"
-                          onClick={() => addQuestion(option.value)}
-                        >
-                          <Icon className="size-4" />
-                          <span className="min-w-0">
-                            <span className="block text-sm">{option.label}</span>
-                            <span className="block text-xs font-normal text-muted-foreground">
-                              {option.description}
-                            </span>
-                          </span>
-                        </Button>
-                      );
-                    })}
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor={`${resource.clientId}-title`}>
+                        Material {resourceIndex + 1}
+                      </Label>
+                      <Input
+                        id={`${resource.clientId}-title`}
+                        value={resource.title}
+                        onChange={(event) =>
+                          updateResource(resource.clientId, {
+                            title: event.target.value,
+                          })
+                        }
+                        placeholder="Resource title"
+                      />
+                    </div>
+                    {resource.resourceType !== "note" && (
+                      <div className="space-y-2">
+                        <Label htmlFor={`${resource.clientId}-url`}>URL</Label>
+                        <Input
+                          id={`${resource.clientId}-url`}
+                          value={resource.url}
+                          onChange={(event) =>
+                            updateResource(resource.clientId, {
+                              url: event.target.value,
+                            })
+                          }
+                          placeholder="https://..."
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor={`${resource.clientId}-notes`}>Notes</Label>
+                      <Textarea
+                        id={`${resource.clientId}-notes`}
+                        value={resource.notes}
+                        onChange={(event) =>
+                          updateResource(resource.clientId, {
+                            notes: event.target.value,
+                          })
+                        }
+                        placeholder="Optional context for students"
+                        className="min-h-20"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-start justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeResource(resource.clientId)}
+                      aria-label={`Remove material ${resourceIndex + 1}`}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4 px-5 py-5">
-                {form.questions.map((question, questionIndex) => (
-                  <div
-                    key={question.clientId}
-                    className="rounded-md border bg-background p-4 shadow-sm"
-                  >
-                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">Question {questionIndex + 1}</Badge>
-                        <Badge variant="secondary">
-                          {questionTypeLabel(question.type)}
-                        </Badge>
-                        {isQuestionReady(question) ? (
-                          <Badge variant="outline">
-                            <CheckCircle2 className="size-3" />
-                            Ready
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline">Needs details</Badge>
-                        )}
-                      </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden py-0">
+            <CardHeader className="border-b bg-muted/25 px-5 py-4">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle>Student work</CardTitle>
+                    <CardDescription>
+                      Add questions, uploads, written prompts, matching, or ordering.
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline">
+                    {readyQuestionCount} of {form.questions.length} ready
+                  </Badge>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {questionTypeOptions.map((option) => {
+                    const Icon = option.icon;
+
+                    return (
                       <Button
+                        key={option.value}
                         type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeQuestion(question.clientId)}
+                        variant="outline"
+                        className="h-auto justify-start whitespace-normal px-3 py-2 text-left"
+                        onClick={() => addQuestion(option.value)}
                       >
-                        <Trash2 className="size-4" />
-                        Remove
+                        <Icon className="size-4" />
+                        <span className="min-w-0">
+                          <span className="block text-sm">{option.label}</span>
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            {option.description}
+                          </span>
+                        </span>
                       </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 px-5 py-5">
+              {form.questions.length === 0 && (
+                <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+                  No student work added.
+                </div>
+              )}
+              {form.questions.map((question, questionIndex) => (
+                <div
+                  key={question.clientId}
+                  className="rounded-md border bg-background p-4 shadow-sm"
+                >
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline">Question {questionIndex + 1}</Badge>
+                      <Badge variant="secondary">{questionTypeLabel(question.type)}</Badge>
+                      {isQuestionReady(question) ? (
+                        <Badge variant="outline">
+                          <CheckCircle2 className="size-3" />
+                          Ready
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">Needs details</Badge>
+                      )}
                     </div>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeQuestion(question.clientId)}
+                    >
+                      <Trash2 className="size-4" />
+                      Remove
+                    </Button>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Question type</Label>
                       <Select
                         value={question.type}
                         onValueChange={(value: QuestionType) =>
-                          updateQuestion(question.clientId, {
-                            type: value,
-                            choices:
-                              value === "multiple_choice" &&
-                              question.choices.length === 0
-                                ? [
-                                    {
-                                      clientId: crypto.randomUUID(),
-                                      text: "Option A",
-                                      isCorrect: true,
-                                    },
-                                    {
-                                      clientId: crypto.randomUUID(),
-                                      text: "Option B",
-                                      isCorrect: false,
-                                    },
-                                  ]
-                                : question.choices,
-                          })
+                          changeQuestionType(question, value)
                         }
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="multiple_choice">
-                            Multiple choice
-                          </SelectItem>
-                          <SelectItem value="fill_blank">Fill in the blank</SelectItem>
-                          <SelectItem value="file_upload">File upload</SelectItem>
-                          <SelectItem value="short_answer">Short answer</SelectItem>
-                          <SelectItem value="true_false">True / false</SelectItem>
+                          {questionTypeOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -854,16 +1280,9 @@ export function LessonEditorPage() {
                         required
                       />
                     </div>
+
                     {question.type === "multiple_choice" && (
-                      <div className="space-y-2 md:col-span-2">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                          <div>
-                            <Label>Choices</Label>
-                            <p className="text-sm text-muted-foreground">
-                              Select the correct answer with the control on the left.
-                            </p>
-                          </div>
-                        </div>
+                      <div className="space-y-3 md:col-span-2">
                         <label className="flex items-center gap-2 text-sm">
                           <Checkbox
                             checked={question.allowMultipleCorrect}
@@ -957,44 +1376,255 @@ export function LessonEditorPage() {
                         </Button>
                       </div>
                     )}
-                      {question.type !== "file_upload" &&
-                        question.type !== "multiple_choice" && (
-                          <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor={`${question.clientId}-answer`}>
-                              Correct answer
-                            </Label>
-                            <Input
-                              id={`${question.clientId}-answer`}
-                              value={question.correctAnswer}
-                              onChange={(event) =>
-                                updateQuestion(question.clientId, {
-                                  correctAnswer: event.target.value,
-                                })
-                              }
-                              placeholder={
-                                question.type === "fill_blank"
-                                  ? "Expected blank text"
-                                  : "Answer key"
-                              }
-                            />
-                          </div>
-                        )}
-                    </div>
+
+                    {question.type === "ordering" && (
+                      <div className="space-y-3 md:col-span-2">
+                        <Label>Correct order</Label>
+                        <div className="space-y-2">
+                          {question.choices.map((choice, choiceIndex) => (
+                            <div
+                              key={choice.clientId}
+                              className="grid grid-cols-[auto_1fr_auto] items-center gap-2"
+                            >
+                              <Badge variant="outline">{choiceIndex + 1}</Badge>
+                              <Input
+                                value={choice.text}
+                                onChange={(event) =>
+                                  updateChoice(
+                                    question.clientId,
+                                    choice.clientId,
+                                    event.target.value,
+                                  )
+                                }
+                                placeholder={`Step ${choiceIndex + 1}`}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  removeChoice(question.clientId, choice.clientId)
+                                }
+                                disabled={question.choices.length <= 2}
+                                aria-label={`Remove step ${choiceIndex + 1}`}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addChoice(question.clientId)}
+                        >
+                          <Plus className="size-4" />
+                          Add item
+                        </Button>
+                      </div>
+                    )}
+
+                    {question.type === "matching" && (
+                      <div className="space-y-3 md:col-span-2">
+                        <Label>Matching pairs</Label>
+                        <div className="space-y-2">
+                          {question.matchingPairs.map((pair, pairIndex) => (
+                            <div
+                              key={pair.clientId}
+                              className="grid gap-2 md:grid-cols-[1fr_1fr_auto]"
+                            >
+                              <Input
+                                value={pair.prompt}
+                                onChange={(event) =>
+                                  updateMatchingPair(
+                                    question.clientId,
+                                    pair.clientId,
+                                    { prompt: event.target.value },
+                                  )
+                                }
+                                placeholder={`Prompt ${pairIndex + 1}`}
+                              />
+                              <Input
+                                value={pair.answer}
+                                onChange={(event) =>
+                                  updateMatchingPair(
+                                    question.clientId,
+                                    pair.clientId,
+                                    { answer: event.target.value },
+                                  )
+                                }
+                                placeholder={`Match ${pairIndex + 1}`}
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  removeMatchingPair(question.clientId, pair.clientId)
+                                }
+                                disabled={question.matchingPairs.length <= 2}
+                                aria-label={`Remove pair ${pairIndex + 1}`}
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => addMatchingPair(question.clientId)}
+                        >
+                          <Plus className="size-4" />
+                          Add pair
+                        </Button>
+                      </div>
+                    )}
+
+                    {question.type === "linear_scale" && (
+                      <div className="grid gap-3 md:col-span-2 md:grid-cols-5">
+                        <div className="space-y-2">
+                          <Label>Min</Label>
+                          <Input
+                            type="number"
+                            value={question.scaleMin}
+                            onChange={(event) =>
+                              updateQuestion(question.clientId, {
+                                scaleMin: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Max</Label>
+                          <Input
+                            type="number"
+                            value={question.scaleMax}
+                            onChange={(event) =>
+                              updateQuestion(question.clientId, {
+                                scaleMax: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Correct</Label>
+                          <Input
+                            type="number"
+                            value={question.correctAnswer}
+                            onChange={(event) =>
+                              updateQuestion(question.clientId, {
+                                correctAnswer: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Min label</Label>
+                          <Input
+                            value={question.scaleMinLabel}
+                            onChange={(event) =>
+                              updateQuestion(question.clientId, {
+                                scaleMinLabel: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Max label</Label>
+                          <Input
+                            value={question.scaleMaxLabel}
+                            onChange={(event) =>
+                              updateQuestion(question.clientId, {
+                                scaleMaxLabel: event.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {question.type === "true_false" && (
+                      <div className="space-y-2 md:col-span-2">
+                        <Label>Correct answer</Label>
+                        <Select
+                          value={question.correctAnswer || "true"}
+                          onValueChange={(value) =>
+                            updateQuestion(question.clientId, { correctAnswer: value })
+                          }
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="true">True</SelectItem>
+                            <SelectItem value="false">False</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {["fill_blank", "number", "short_answer", "url"].includes(
+                      question.type,
+                    ) && (
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor={`${question.clientId}-answer`}>
+                          {question.type === "short_answer" || question.type === "url"
+                            ? "Answer key"
+                            : "Correct answer"}
+                        </Label>
+                        <Input
+                          id={`${question.clientId}-answer`}
+                          type={question.type === "number" ? "number" : "text"}
+                          value={question.correctAnswer}
+                          onChange={(event) =>
+                            updateQuestion(question.clientId, {
+                              correctAnswer: event.target.value,
+                            })
+                          }
+                          placeholder={
+                            question.type === "short_answer" || question.type === "url"
+                              ? "Leave blank for manual review"
+                              : "Expected answer"
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {["paragraph", "short_answer", "url"].includes(question.type) && (
+                      <div className="space-y-2 md:col-span-2">
+                        <Label htmlFor={`${question.clientId}-placeholder`}>
+                          Student placeholder
+                        </Label>
+                        <Input
+                          id={`${question.clientId}-placeholder`}
+                          value={question.answerPlaceholder}
+                          onChange={(event) =>
+                            updateQuestion(question.clientId, {
+                              answerPlaceholder: event.target.value,
+                            })
+                          }
+                          placeholder="Optional prompt inside the answer field"
+                        />
+                      </div>
+                    )}
                   </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         </div>
 
-        <aside className="space-y-4 lg:sticky lg:top-20">
+        <aside className="space-y-4 xl:sticky xl:top-20">
           <Card className="py-0">
             <CardHeader className="border-b px-5 py-4">
               <CardTitle>Settings</CardTitle>
-              <CardDescription>Save-ready controls stay here.</CardDescription>
+              <CardDescription>Publishing and grading controls.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-5 px-5 py-5">
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
                 <div className="space-y-2">
                   <Label htmlFor="lesson-minutes" className="flex items-center gap-2">
                     <Clock className="size-4 text-primary" />
@@ -1015,10 +1645,10 @@ export function LessonEditorPage() {
                   />
                 </div>
 
-                {isQuestionLesson && (
+                {hasStudentWork && (
                   <div className="space-y-2">
                     <Label htmlFor="passing-score" className="flex items-center gap-2">
-                      <ShieldCheck className="size-4 text-primary" />
+                      <CheckCircle2 className="size-4 text-primary" />
                       Passing score
                     </Label>
                     <Input
@@ -1061,40 +1691,32 @@ export function LessonEditorPage() {
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-muted-foreground">Format</span>
                   <span className="font-medium">
-                    {
-                      lessonTypeOptions.find(
-                        (option) => option.value === form.lessonType,
-                      )?.label
-                    }
+                    {selectedLessonTypeLabel(form.lessonType)}
                   </span>
                 </div>
-                {isQuestionLesson && (
-                  <>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-muted-foreground">Questions</span>
-                      <span className="font-medium">
-                        {readyQuestionCount}/{form.questions.length} ready
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-muted-foreground">Points</span>
-                      <span className="font-medium">{totalPoints}</span>
-                    </div>
-                  </>
-                )}
-                {needsVideo(form.lessonType) && (
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Materials</span>
+                  <span className="font-medium">
+                    {readyResourceCount}/{form.resources.length}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground">Questions</span>
+                  <span className="font-medium">
+                    {readyQuestionCount}/{form.questions.length}
+                  </span>
+                </div>
+                {hasStudentWork && (
                   <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Video</span>
-                    <span className="font-medium">
-                      {form.youtubeUrl.trim() ? "Linked" : "Not added"}
-                    </span>
+                    <span className="text-muted-foreground">Points</span>
+                    <span className="font-medium">{totalPoints}</span>
                   </div>
                 )}
               </div>
 
               {!canSave && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                  Add the missing title, prompt details, or grading values before saving.
+                  Add the missing title, materials, student work, or grading values before saving.
                 </div>
               )}
 
@@ -1112,21 +1734,6 @@ export function LessonEditorPage() {
               </div>
             </CardContent>
           </Card>
-
-          {isQuestionLesson && (
-            <Card className="py-0">
-              <CardContent className="space-y-3 px-5 py-5">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Paperclip className="size-4 text-primary" />
-                  Assignment feel
-                </div>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  Students see the instructions, video, and questions together when
-                  they open this lesson.
-                </p>
-              </CardContent>
-            </Card>
-          )}
         </aside>
       </form>
     </div>
