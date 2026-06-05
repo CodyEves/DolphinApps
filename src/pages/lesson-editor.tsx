@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   BookOpen,
   CheckCircle2,
+  ChevronDown,
   ClipboardList,
   Clock,
   FileQuestion,
@@ -793,6 +794,7 @@ export function LessonEditorPage() {
   );
   const saveLesson = useMutation(api.training.saveLesson);
   const [form, setForm] = useState<LessonForm>(emptyLessonForm);
+  const [isMarkdownImportOpen, setIsMarkdownImportOpen] = useState(false);
   const [markdownImport, setMarkdownImport] = useState("");
   const [markdownImportMode, setMarkdownImportMode] = useState<"replace" | "append">(
     "replace",
@@ -1419,49 +1421,35 @@ export function LessonEditorPage() {
                     Paste a draft from AI, docs, or lesson-plan notes.
                   </CardDescription>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Select
-                    value={markdownImportMode}
-                    onValueChange={(value: "replace" | "append") =>
-                      setMarkdownImportMode(value)
-                    }
-                  >
-                    <SelectTrigger className="w-full sm:w-44">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="replace">Replace draft</SelectItem>
-                      <SelectItem value="append">Append work</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={applyMarkdownImport}
-                    disabled={!canApplyMarkdownImport}
-                  >
-                    <Upload className="size-4" />
-                    Apply
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setMarkdownImport("")}
-                    disabled={!markdownImport}
-                  >
-                    Clear
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsMarkdownImportOpen((current) => !current)}
+                  aria-expanded={isMarkdownImportOpen}
+                  aria-controls="markdown-import-panel"
+                >
+                  <Upload className="size-4" />
+                  {isMarkdownImportOpen ? "Hide importer" : "Import Markdown"}
+                  <ChevronDown
+                    className={`size-4 transition-transform ${
+                      isMarkdownImportOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </Button>
               </div>
             </CardHeader>
-            <CardContent className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-              <div className="space-y-2">
-                <Label htmlFor="markdown-import">Markdown</Label>
-                <Textarea
-                  id="markdown-import"
-                  value={markdownImport}
-                  onChange={(event) => setMarkdownImport(event.target.value)}
-                  placeholder={`---
+            {isMarkdownImportOpen && (
+              <CardContent
+                id="markdown-import-panel"
+                className="grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_280px]"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="markdown-import">Markdown</Label>
+                  <Textarea
+                    id="markdown-import"
+                    value={markdownImport}
+                    onChange={(event) => setMarkdownImport(event.target.value)}
+                    placeholder={`---
 title: Drill Press Safety
 type: assignment
 minutes: 20
@@ -1487,54 +1475,98 @@ Review setup, PPE, clamping, speed selection, and cleanup.
 Answer: To keep the workpiece from spinning
 
 ### File Upload: Submit your signed checklist`}
-                  className="min-h-72 resize-y font-mono text-sm"
-                />
-              </div>
-              <div className="space-y-3 rounded-md border bg-background p-4 text-sm">
-                <div className="flex items-center gap-2 font-medium">
-                  <FileText className="size-4 text-primary" />
-                  Import preview
+                    className="min-h-72 resize-y font-mono text-sm"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Title</span>
-                    <span className="max-w-40 truncate font-medium">
-                      {parsedMarkdownImport?.title ?? "None"}
-                    </span>
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-2 rounded-md border bg-background p-4 text-sm">
+                    <Label>Import mode</Label>
+                    <Select
+                      value={markdownImportMode}
+                      onValueChange={(value: "replace" | "append") =>
+                        setMarkdownImportMode(value)
+                      }
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="replace">Replace draft</SelectItem>
+                        <SelectItem value="append">Append work</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={applyMarkdownImport}
+                        disabled={!canApplyMarkdownImport}
+                      >
+                        <Upload className="size-4" />
+                        Apply
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setMarkdownImport("")}
+                        disabled={!markdownImport}
+                      >
+                        Clear
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Format</span>
-                    <span className="font-medium">
-                      {parsedMarkdownImport?.lessonType
-                        ? selectedLessonTypeLabel(parsedMarkdownImport.lessonType)
-                        : "Current"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Materials</span>
-                    <span className="font-medium">
-                      {parsedMarkdownImport?.resources.length ?? 0}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-muted-foreground">Questions</span>
-                    <span className="font-medium">
-                      {parsedMarkdownImport?.questions.length ?? 0}
-                    </span>
+                  <div className="space-y-3 rounded-md border bg-background p-4 text-sm">
+                    <div className="flex items-center gap-2 font-medium">
+                      <FileText className="size-4 text-primary" />
+                      Import preview
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-muted-foreground">Title</span>
+                        <span className="max-w-40 truncate font-medium">
+                          {parsedMarkdownImport?.title ?? "None"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-muted-foreground">Format</span>
+                        <span className="font-medium">
+                          {parsedMarkdownImport?.lessonType
+                            ? selectedLessonTypeLabel(parsedMarkdownImport.lessonType)
+                            : "Current"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-muted-foreground">Materials</span>
+                        <span className="font-medium">
+                          {parsedMarkdownImport?.resources.length ?? 0}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-muted-foreground">Questions</span>
+                        <span className="font-medium">
+                          {parsedMarkdownImport?.questions.length ?? 0}
+                        </span>
+                      </div>
+                    </div>
+                    {parsedMarkdownImport &&
+                      parsedMarkdownImport.warnings.length > 0 && (
+                        <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive">
+                          {parsedMarkdownImport.warnings
+                            .slice(0, 4)
+                            .map((warning) => (
+                              <p key={warning}>{warning}</p>
+                            ))}
+                          {parsedMarkdownImport.warnings.length > 4 && (
+                            <p>
+                              {parsedMarkdownImport.warnings.length - 4} more warnings
+                            </p>
+                          )}
+                        </div>
+                      )}
                   </div>
                 </div>
-                {parsedMarkdownImport && parsedMarkdownImport.warnings.length > 0 && (
-                  <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-destructive">
-                    {parsedMarkdownImport.warnings.slice(0, 4).map((warning) => (
-                      <p key={warning}>{warning}</p>
-                    ))}
-                    {parsedMarkdownImport.warnings.length > 4 && (
-                      <p>{parsedMarkdownImport.warnings.length - 4} more warnings</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </CardContent>
+              </CardContent>
+            )}
           </Card>
 
           <Card className="overflow-hidden border-primary/15 py-0">
