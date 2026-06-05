@@ -510,11 +510,11 @@ export function LessonViewPage() {
                 </div>
               )}
 
-              {visibleContent.resources.length > 0 && (
+              {(visibleContent.resources ?? []).length > 0 && (
                 <div className="rounded-md border bg-background p-4">
                   <h2 className="mb-3 font-medium">Materials</h2>
                   <div className="space-y-2">
-                    {visibleContent.resources.map((resource) => (
+                    {(visibleContent.resources ?? []).map((resource) => (
                       <div
                         key={resource._id}
                         className="flex flex-col gap-2 rounded-md border bg-card p-3 sm:flex-row sm:items-start sm:justify-between"

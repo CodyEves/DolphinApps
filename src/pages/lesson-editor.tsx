@@ -424,7 +424,7 @@ export function LessonEditorPage() {
       estimatedMinutes: String(lessonRecord.lesson.estimatedMinutes),
       required: lessonRecord.lesson.required,
       passingScorePercent: String(lessonRecord.quiz?.passingScorePercent ?? 80),
-      resources: lessonRecord.resources.map((resource) => ({
+      resources: (lessonRecord.resources ?? []).map((resource) => ({
         clientId: resource._id,
         id: resource._id,
         resourceType: resource.resourceType,

@@ -829,7 +829,7 @@ export const saveLesson = mutation({
     estimatedMinutes: v.number(),
     required: v.boolean(),
     passingScorePercent: v.number(),
-    resources: v.array(lessonResourceInputValidator),
+    resources: v.optional(v.array(lessonResourceInputValidator)),
     questions: v.array(questionInputValidator),
   },
   handler: async (ctx, args) => {
@@ -870,7 +870,7 @@ export const saveLesson = mutation({
     const seenResourceIds = new Set<Id<"lessonResources">>();
     const now = Date.now();
 
-    for (const [resourceIndex, resource] of args.resources.entries()) {
+    for (const [resourceIndex, resource] of (args.resources ?? []).entries()) {
       const resourceTitle = resource.title.trim();
       const resourceUrl = resource.url?.trim();
       const resourceNotes = resource.notes?.trim();
