@@ -139,6 +139,7 @@ const router = createBrowserRouter([
       { path: "shop", element: <ShopAttendancePage /> },
       { path: "shop/display", element: <ShopAttendancePage /> },
       { path: "shop/records", element: <ShopAttendancePage /> },
+      { path: "shop/records/:recordUserId", element: <ShopAttendancePage /> },
       { path: "shop/link-slack", element: <SlackLinkPage /> },
       { path: "equipment/:equipmentId", element: <EquipmentDetailPage /> },
       { path: "reviews", element: <ReviewsPage /> },

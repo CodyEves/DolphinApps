@@ -27,7 +27,7 @@ import {
   X,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 import { PageHeading } from "@/components/page-heading";
@@ -351,6 +351,8 @@ function EditableAttendanceRecord({
 export function ShopAttendancePage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { recordUserId: recordUserIdParam } = useParams();
   const [searchParams] = useSearchParams();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
@@ -358,7 +360,8 @@ export function ShopAttendancePage() {
     effectiveRole === "admin" || effectiveRole === "mentor" || effectiveRole === "instructor";
   const canDisplayRole = canManage || effectiveRole === "kiosk";
   const canUseStudentCheckIn = effectiveRole !== "kiosk";
-  const showRecordsRoute = location.pathname.endsWith("/records");
+  const showRecordsRoute = location.pathname.startsWith("/shop/records");
+  const selectedRecordUserId = recordUserIdParam as Id<"users"> | undefined;
   const current = useQuery(api.shopAttendance.currentShopSession, isAuthenticated ? {} : "skip");
   const displayStats = useQuery(
     api.shopAttendance.shopDisplayStats,
@@ -383,7 +386,8 @@ export function ShopAttendancePage() {
   const slackLink = useQuery(api.shopAttendance.mySlackLink, isAuthenticated ? {} : "skip");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [recordUserId, setRecordUserId] = useState("all");
+  const [recordSearch, setRecordSearch] = useState("");
+  const [isRecordSearchOpen, setIsRecordSearchOpen] = useState(false);
   const [recordFromDate, setRecordFromDate] = useState("");
   const [recordToDate, setRecordToDate] = useState("");
   const report = useQuery(
@@ -401,9 +405,9 @@ export function ShopAttendancePage() {
   );
   const recordRows = useQuery(
     api.shopAttendance.listAttendanceRecords,
-    isAuthenticated && canManage && showRecordsRoute
+    isAuthenticated && canManage && showRecordsRoute && selectedRecordUserId
       ? {
-          userId: recordUserId === "all" ? undefined : (recordUserId as Id<"users">),
+          userId: selectedRecordUserId,
           from: recordFromDate ? new Date(`${recordFromDate}T00:00:00`).getTime() : undefined,
           to: recordToDate ? new Date(`${recordToDate}T23:59:59`).getTime() : undefined,
         }
@@ -703,6 +707,28 @@ export function ShopAttendancePage() {
   const reportRows = useMemo(() => report?.rows ?? [], [report?.rows]);
   const reportTotals = useMemo(() => report?.totals ?? [], [report?.totals]);
   const attendanceRecords = useMemo(() => recordRows ?? [], [recordRows]);
+  const recordPeopleRows = useMemo(() => recordPeople ?? [], [recordPeople]);
+  const selectedRecordPerson = recordPeopleRows.find((person) => person.userId === selectedRecordUserId);
+  const recordSearchResults = useMemo(() => {
+    const term = recordSearch.trim().toLowerCase();
+
+    if (!term) {
+      return recordPeopleRows;
+    }
+
+    return recordPeopleRows.filter((person) =>
+      [
+        person.name,
+        person.studentGroup,
+        person.primaryProgram,
+        person.graduationYear ? String(person.graduationYear) : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [recordPeopleRows, recordSearch]);
   const openRows = useMemo(() => liveAttendance ?? [], [liveAttendance]);
   const reviewRows = useMemo(() => reviewQueue ?? [], [reviewQueue]);
   const activeDisplayCode = current?.session ? displayCode : "";
@@ -757,46 +783,59 @@ export function ShopAttendancePage() {
               <Card>
                 <CardHeader>
                   <ClipboardList className="size-5 text-primary" />
-                  <CardTitle>Attendance records</CardTitle>
-                  <CardDescription>View, edit, or delete shop records by person.</CardDescription>
+                  <CardTitle>{selectedRecordPerson ? selectedRecordPerson.name : "Student attendance records"}</CardTitle>
+                  <CardDescription>
+                    {selectedRecordPerson
+                      ? "Edit or delete this student's shop attendance entries."
+                      : "Search or pick a student to view their attendance details."}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_160px_160px_auto_auto] lg:items-end">
-                    <div className="space-y-2">
-                      <Label>Person</Label>
-                      <Select value={recordUserId} onValueChange={setRecordUserId}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">All people</SelectItem>
-                          {(recordPeople ?? []).map((person) => (
-                            <SelectItem key={person.userId} value={person.userId}>
-                              {person.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_auto] lg:items-end">
+                    <div className="relative space-y-2">
+                      <Label htmlFor="recordSearch">Find student</Label>
+                      <Input
+                        id="recordSearch"
+                        value={recordSearch}
+                        onChange={(event) => {
+                          setRecordSearch(event.target.value);
+                          setIsRecordSearchOpen(true);
+                        }}
+                        onFocus={() => setIsRecordSearchOpen(true)}
+                        onBlur={() => window.setTimeout(() => setIsRecordSearchOpen(false), 120)}
+                        placeholder="Search by name, team, program, or graduation year"
+                      />
+                      {isRecordSearchOpen && (
+                        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
+                          {recordSearchResults.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">No students found.</div>
+                          ) : (
+                            recordSearchResults.map((person) => (
+                              <button
+                                key={person.userId}
+                                type="button"
+                                className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => {
+                                  setRecordSearch(person.name);
+                                  setIsRecordSearchOpen(false);
+                                  navigate(`/shop/records/${person.userId}`);
+                                }}
+                              >
+                                <span className="min-w-0">
+                                  <span className="block truncate font-medium">{person.name}</span>
+                                  <span className="block truncate text-xs text-muted-foreground">
+                                    {person.studentGroup ?? "Student"}
+                                    {person.graduationYear ? ` · ${person.graduationYear}` : ""}
+                                  </span>
+                                </span>
+                                <span className="shrink-0 text-xs text-muted-foreground">View</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <Label>From</Label>
-                      <Input type="date" value={recordFromDate} onChange={(event) => setRecordFromDate(event.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>To</Label>
-                      <Input type="date" value={recordToDate} onChange={(event) => setRecordToDate(event.target.value)} />
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setRecordUserId("all");
-                        setRecordFromDate("");
-                        setRecordToDate("");
-                      }}
-                    >
-                      Clear
-                    </Button>
                     <Button asChild variant="outline">
                       <Link to="/shop">
                         <ArrowLeftRight className="size-4" />
@@ -804,43 +843,104 @@ export function ShopAttendancePage() {
                       </Link>
                     </Button>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-md border p-4">
-                      <p className="text-sm text-muted-foreground">Records</p>
-                      <p className="mt-1 text-2xl font-semibold">{attendanceRecords.length}</p>
-                    </div>
-                    <div className="rounded-md border p-4">
-                      <p className="text-sm text-muted-foreground">Complete</p>
-                      <p className="mt-1 text-2xl font-semibold">
-                        {attendanceRecords.filter((record) => record.status === "complete").length}
-                      </p>
-                    </div>
-                    <div className="rounded-md border p-4">
-                      <p className="text-sm text-muted-foreground">Needs review</p>
-                      <p className="mt-1 text-2xl font-semibold">
-                        {attendanceRecords.filter((record) => record.status === "needs_review").length}
-                      </p>
-                    </div>
-                  </div>
+                  {selectedRecordUserId && (
+                    <>
+                      <div className="grid gap-3 lg:grid-cols-[160px_160px_auto_auto] lg:items-end">
+                        <div className="space-y-2">
+                          <Label>From</Label>
+                          <Input type="date" value={recordFromDate} onChange={(event) => setRecordFromDate(event.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>To</Label>
+                          <Input type="date" value={recordToDate} onChange={(event) => setRecordToDate(event.target.value)} />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setRecordFromDate("");
+                            setRecordToDate("");
+                          }}
+                        >
+                          Clear dates
+                        </Button>
+                        <Button asChild variant="outline">
+                          <Link to="/shop/records">
+                            <Users className="size-4" />
+                            All students
+                          </Link>
+                        </Button>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-md border p-4">
+                          <p className="text-sm text-muted-foreground">Records</p>
+                          <p className="mt-1 text-2xl font-semibold">{attendanceRecords.length}</p>
+                        </div>
+                        <div className="rounded-md border p-4">
+                          <p className="text-sm text-muted-foreground">Complete</p>
+                          <p className="mt-1 text-2xl font-semibold">
+                            {attendanceRecords.filter((record) => record.status === "complete").length}
+                          </p>
+                        </div>
+                        <div className="rounded-md border p-4">
+                          <p className="text-sm text-muted-foreground">Needs review</p>
+                          <p className="mt-1 text-2xl font-semibold">
+                            {attendanceRecords.filter((record) => record.status === "needs_review").length}
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
-              <div className="space-y-3">
-                {recordRows === undefined && (
-                  <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading records...</div>
-                )}
-                {recordRows && attendanceRecords.length === 0 && (
-                  <div className="rounded-md border p-4 text-sm text-muted-foreground">No attendance records match these filters.</div>
-                )}
-                {attendanceRecords.map((record) => (
-                  <EditableAttendanceRecord
-                    key={record._id}
-                    record={record}
-                    isBusy={busyRecordId === record._id}
-                    onSave={(args) => void handleReview(args)}
-                    onDelete={(attendanceSessionId) => void handleDeleteAttendance(attendanceSessionId)}
-                  />
-                ))}
-              </div>
+              {selectedRecordUserId ? (
+                <div className="space-y-3">
+                  {selectedRecordUserId && recordPeople && !selectedRecordPerson && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Student not found.</div>
+                  )}
+                  {recordRows === undefined && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading records...</div>
+                  )}
+                  {recordRows && attendanceRecords.length === 0 && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">No attendance records match these filters.</div>
+                  )}
+                  {attendanceRecords.map((record) => (
+                    <EditableAttendanceRecord
+                      key={record._id}
+                      record={record}
+                      isBusy={busyRecordId === record._id}
+                      onSave={(args) => void handleReview(args)}
+                      onDelete={(attendanceSessionId) => void handleDeleteAttendance(attendanceSessionId)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recordPeople === undefined && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading students...</div>
+                  )}
+                  {recordPeople && recordPeopleRows.length === 0 && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">No active students found.</div>
+                  )}
+                  {recordPeopleRows.map((person) => (
+                    <Link
+                      key={person.userId}
+                      to={`/shop/records/${person.userId}`}
+                      className="grid gap-2 rounded-md border bg-card p-4 transition-colors hover:bg-accent hover:text-accent-foreground sm:grid-cols-[1fr_auto] sm:items-center"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{person.name}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                          <span>{person.studentGroup ?? "Student"}</span>
+                          {person.graduationYear && <span>{person.graduationYear}</span>}
+                          {person.primaryProgram && <span>{person.primaryProgram}</span>}
+                        </div>
+                      </div>
+                      <Badge variant="outline">View records</Badge>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <Card>
