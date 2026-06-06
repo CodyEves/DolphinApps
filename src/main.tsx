@@ -138,6 +138,7 @@ const router = createBrowserRouter([
       { path: "parts/:partId", element: <PartDetailPage /> },
       { path: "shop", element: <ShopAttendancePage /> },
       { path: "shop/display", element: <ShopAttendancePage /> },
+      { path: "shop/records", element: <ShopAttendancePage /> },
       { path: "shop/link-slack", element: <SlackLinkPage /> },
       { path: "equipment/:equipmentId", element: <EquipmentDetailPage /> },
       { path: "reviews", element: <ReviewsPage /> },

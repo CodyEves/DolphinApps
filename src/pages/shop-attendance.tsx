@@ -18,8 +18,11 @@ import {
   Plus,
   QrCode,
   ShieldCheck,
+  Save,
   Square,
+  Trash2,
   TimerReset,
+  Trophy,
   Users,
   X,
 } from "lucide-react";
@@ -239,6 +242,112 @@ function ReviewRecord({
   );
 }
 
+function EditableAttendanceRecord({
+  record,
+  onSave,
+  onDelete,
+  isBusy,
+}: {
+  record: {
+    _id: Id<"attendanceSessions">;
+    studentName: string;
+    status: AttendanceStatus;
+    source: string;
+    signInAt: number;
+    signOutAt?: number;
+    reviewNote?: string;
+    shopTitle?: string;
+  };
+  isBusy: boolean;
+  onSave: (args: {
+    attendanceSessionId: Id<"attendanceSessions">;
+    status: AttendanceStatus;
+    signInAt?: number;
+    signOutAt?: number;
+    note?: string;
+  }) => void;
+  onDelete: (attendanceSessionId: Id<"attendanceSessions">) => void;
+}) {
+  const [status, setStatus] = useState<AttendanceStatus>(record.status);
+  const [signInAt, setSignInAt] = useState(toDateTimeLocal(record.signInAt));
+  const [signOutAt, setSignOutAt] = useState(toDateTimeLocal(record.signOutAt));
+  const [note, setNote] = useState(record.reviewNote ?? "");
+  const needsOutTime = status === "complete" || status === "needs_review";
+
+  return (
+    <div className="grid gap-3 rounded-md border bg-card p-4 xl:grid-cols-[minmax(180px,1fr)_150px_190px_190px_minmax(180px,1fr)_auto] xl:items-end">
+      <div className="min-w-0">
+        <p className="truncate font-medium">{record.studentName}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <Badge variant={record.status === "needs_review" ? "secondary" : "outline"}>
+            {record.status.replace("_", " ")}
+          </Badge>
+          <span>{record.source}</span>
+          <span>{formatHours(minutesBetween(record.signInAt, record.signOutAt))}</span>
+        </div>
+        {record.shopTitle && (
+          <p className="mt-1 truncate text-xs text-muted-foreground">{record.shopTitle}</p>
+        )}
+      </div>
+      <div className="space-y-2">
+        <Label>Status</Label>
+        <Select value={status} onValueChange={(value) => setStatus(value as AttendanceStatus)}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="open">Open</SelectItem>
+            <SelectItem value="complete">Complete</SelectItem>
+            <SelectItem value="needs_review">Needs review</SelectItem>
+            <SelectItem value="void">Void</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>In</Label>
+        <Input type="datetime-local" value={signInAt} onChange={(event) => setSignInAt(event.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label>Out</Label>
+        <Input type="datetime-local" value={signOutAt} onChange={(event) => setSignOutAt(event.target.value)} />
+      </div>
+      <div className="space-y-2">
+        <Label>Note</Label>
+        <Input value={note} onChange={(event) => setNote(event.target.value)} placeholder="Correction note" />
+      </div>
+      <div className="flex flex-wrap gap-2 xl:justify-end">
+        <Button
+          type="button"
+          size="sm"
+          disabled={isBusy || !signInAt || (needsOutTime && !signOutAt)}
+          onClick={() =>
+            onSave({
+              attendanceSessionId: record._id,
+              status,
+              signInAt: fromDateTimeLocal(signInAt),
+              signOutAt: signOutAt ? fromDateTimeLocal(signOutAt) : undefined,
+              note,
+            })
+          }
+        >
+          {isBusy ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+          Save
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={isBusy}
+          onClick={() => onDelete(record._id)}
+        >
+          <Trash2 className="size-4" />
+          Delete
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ShopAttendancePage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const location = useLocation();
@@ -249,7 +358,12 @@ export function ShopAttendancePage() {
     effectiveRole === "admin" || effectiveRole === "mentor" || effectiveRole === "instructor";
   const canDisplayRole = canManage || effectiveRole === "kiosk";
   const canUseStudentCheckIn = effectiveRole !== "kiosk";
+  const showRecordsRoute = location.pathname.endsWith("/records");
   const current = useQuery(api.shopAttendance.currentShopSession, isAuthenticated ? {} : "skip");
+  const displayStats = useQuery(
+    api.shopAttendance.shopDisplayStats,
+    isAuthenticated && canDisplayRole ? {} : "skip",
+  );
   const myAttendance = useQuery(
     api.shopAttendance.myCurrentAttendance,
     isAuthenticated && canUseStudentCheckIn ? {} : "skip",
@@ -269,6 +383,9 @@ export function ShopAttendancePage() {
   const slackLink = useQuery(api.shopAttendance.mySlackLink, isAuthenticated ? {} : "skip");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [recordUserId, setRecordUserId] = useState("all");
+  const [recordFromDate, setRecordFromDate] = useState("");
+  const [recordToDate, setRecordToDate] = useState("");
   const report = useQuery(
     api.shopAttendance.listHoursReport,
     isAuthenticated && canManage
@@ -278,12 +395,27 @@ export function ShopAttendancePage() {
         }
       : "skip",
   );
+  const recordPeople = useQuery(
+    api.shopAttendance.listAttendanceRecordPeople,
+    isAuthenticated && canManage && showRecordsRoute ? {} : "skip",
+  );
+  const recordRows = useQuery(
+    api.shopAttendance.listAttendanceRecords,
+    isAuthenticated && canManage && showRecordsRoute
+      ? {
+          userId: recordUserId === "all" ? undefined : (recordUserId as Id<"users">),
+          from: recordFromDate ? new Date(`${recordFromDate}T00:00:00`).getTime() : undefined,
+          to: recordToDate ? new Date(`${recordToDate}T23:59:59`).getTime() : undefined,
+        }
+      : "skip",
+  );
   const startShopSession = useMutation(api.shopAttendance.startShopSession);
   const endShopSession = useMutation(api.shopAttendance.endShopSession);
   const generateCode = useMutation(api.shopAttendance.generateOrReadCurrentCode);
   const signInWithCode = useMutation(api.shopAttendance.signInWithCode);
   const signOutWithCode = useMutation(api.shopAttendance.signOutWithCode);
   const reviewAttendance = useMutation(api.shopAttendance.reviewAttendanceSession);
+  const deleteAttendance = useMutation(api.shopAttendance.deleteAttendanceSession);
   const createManualAttendance = useMutation(api.shopAttendance.createManualAttendanceSession);
   const notifyClosed = useAction(api.shopSlack.notifyShopSessionClosed);
   const [shopTitle, setShopTitle] = useState("");
@@ -489,6 +621,23 @@ export function ShopAttendancePage() {
     }
   }
 
+  async function handleDeleteAttendance(attendanceSessionId: Id<"attendanceSessions">) {
+    if (!window.confirm("Delete this attendance record? This cannot be undone.")) {
+      return;
+    }
+
+    setBusyRecordId(attendanceSessionId);
+
+    try {
+      await deleteAttendance({ attendanceSessionId });
+      toast.success("Attendance record deleted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete attendance");
+    } finally {
+      setBusyRecordId(null);
+    }
+  }
+
   async function handleManualCorrection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -553,12 +702,15 @@ export function ShopAttendancePage() {
 
   const reportRows = useMemo(() => report?.rows ?? [], [report?.rows]);
   const reportTotals = useMemo(() => report?.totals ?? [], [report?.totals]);
+  const attendanceRecords = useMemo(() => recordRows ?? [], [recordRows]);
   const openRows = useMemo(() => liveAttendance ?? [], [liveAttendance]);
   const reviewRows = useMemo(() => reviewQueue ?? [], [reviewQueue]);
   const activeDisplayCode = current?.session ? displayCode : "";
   const activeQrDataUrl = current?.session ? qrDataUrl : "";
   const codeSecondsRemaining = Math.max(0, Math.ceil((displayCodeExpiresAt - now) / 1000));
   const showDisplayRoute = location.pathname.endsWith("/display") && canDisplayRole;
+  const displayCurrentCount = displayStats?.currentCount ?? current?.openCount ?? 0;
+  const displayPeakToday = displayStats?.peakToday ?? displayCurrentCount;
   const totalReportMinutes = useMemo(
     () => reportTotals.reduce((total, row) => total + row.minutes, 0),
     [reportTotals],
@@ -599,7 +751,112 @@ export function ShopAttendancePage() {
       </Unauthenticated>
 
       <Authenticated>
-        {showDisplayRoute ? (
+        {showRecordsRoute ? (
+          canManage ? (
+            <div className="space-y-5">
+              <Card>
+                <CardHeader>
+                  <ClipboardList className="size-5 text-primary" />
+                  <CardTitle>Attendance records</CardTitle>
+                  <CardDescription>View, edit, or delete shop records by person.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_160px_160px_auto_auto] lg:items-end">
+                    <div className="space-y-2">
+                      <Label>Person</Label>
+                      <Select value={recordUserId} onValueChange={setRecordUserId}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All people</SelectItem>
+                          {(recordPeople ?? []).map((person) => (
+                            <SelectItem key={person.userId} value={person.userId}>
+                              {person.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>From</Label>
+                      <Input type="date" value={recordFromDate} onChange={(event) => setRecordFromDate(event.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>To</Label>
+                      <Input type="date" value={recordToDate} onChange={(event) => setRecordToDate(event.target.value)} />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setRecordUserId("all");
+                        setRecordFromDate("");
+                        setRecordToDate("");
+                      }}
+                    >
+                      Clear
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link to="/shop">
+                        <ArrowLeftRight className="size-4" />
+                        Shop
+                      </Link>
+                    </Button>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-md border p-4">
+                      <p className="text-sm text-muted-foreground">Records</p>
+                      <p className="mt-1 text-2xl font-semibold">{attendanceRecords.length}</p>
+                    </div>
+                    <div className="rounded-md border p-4">
+                      <p className="text-sm text-muted-foreground">Complete</p>
+                      <p className="mt-1 text-2xl font-semibold">
+                        {attendanceRecords.filter((record) => record.status === "complete").length}
+                      </p>
+                    </div>
+                    <div className="rounded-md border p-4">
+                      <p className="text-sm text-muted-foreground">Needs review</p>
+                      <p className="mt-1 text-2xl font-semibold">
+                        {attendanceRecords.filter((record) => record.status === "needs_review").length}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <div className="space-y-3">
+                {recordRows === undefined && (
+                  <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading records...</div>
+                )}
+                {recordRows && attendanceRecords.length === 0 && (
+                  <div className="rounded-md border p-4 text-sm text-muted-foreground">No attendance records match these filters.</div>
+                )}
+                {attendanceRecords.map((record) => (
+                  <EditableAttendanceRecord
+                    key={record._id}
+                    record={record}
+                    isBusy={busyRecordId === record._id}
+                    onSave={(args) => void handleReview(args)}
+                    onDelete={(attendanceSessionId) => void handleDeleteAttendance(attendanceSessionId)}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <Card>
+              <CardHeader>
+                <LockKeyhole className="size-5 text-primary" />
+                <CardTitle>Records are restricted</CardTitle>
+                <CardDescription>Only mentors, instructors, and admins can view attendance records.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button asChild>
+                  <Link to="/shop/display">Return to display</Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )
+        ) : showDisplayRoute ? (
           <div className="fixed inset-0 z-[100] grid bg-background p-4 text-foreground sm:p-8">
             <div className="grid min-h-0 gap-6 lg:grid-cols-[1fr_42vw] lg:items-center">
               <section className="grid content-center gap-6">
@@ -619,6 +876,34 @@ export function ShopAttendancePage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-md border bg-card p-5 font-mono text-xl">/shop in {activeDisplayCode || "CODE"}</div>
                   <div className="rounded-md border bg-card p-5 font-mono text-xl">/shop out {activeDisplayCode || "CODE"}</div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-md border bg-card p-5">
+                    <p className="text-sm text-muted-foreground">Signed in now</p>
+                    <p className="mt-2 text-5xl font-semibold">{displayCurrentCount}</p>
+                  </div>
+                  <div className="rounded-md border bg-card p-5">
+                    <p className="text-sm text-muted-foreground">Peak today</p>
+                    <p className="mt-2 text-5xl font-semibold">{displayPeakToday}</p>
+                  </div>
+                </div>
+                <div className="rounded-md border bg-card p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Trophy className="size-5 text-primary" />
+                    <p className="font-medium">Top hours this week</p>
+                  </div>
+                  <div className="space-y-2">
+                    {(displayStats?.leaderboard ?? []).length === 0 && (
+                      <p className="text-sm text-muted-foreground">No hours recorded yet this week.</p>
+                    )}
+                    {(displayStats?.leaderboard ?? []).map((row, index) => (
+                      <div key={row.userId} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 text-sm">
+                        <Badge variant="outline">{index + 1}</Badge>
+                        <span className="min-w-0 truncate">{row.studentName}</span>
+                        <span className="font-medium">{formatHours(row.minutes)}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <Button type="button" onClick={() => void handleBrowserFullscreen()}>
@@ -731,15 +1016,15 @@ export function ShopAttendancePage() {
                           <div className="grid gap-3 sm:grid-cols-3">
                             <div className="rounded-md border p-4">
                               <p className="text-sm text-muted-foreground">Signed in</p>
-                              <p className="mt-1 text-2xl font-semibold">{current.openCount}</p>
+                              <p className="mt-1 text-2xl font-semibold">{displayCurrentCount}</p>
                             </div>
                             <div className="rounded-md border p-4">
                               <p className="text-sm text-muted-foreground">Needs review</p>
                               <p className="mt-1 text-2xl font-semibold">{current.needsReviewCount}</p>
                             </div>
                             <div className="rounded-md border p-4">
-                              <p className="text-sm text-muted-foreground">Status</p>
-                              <p className="mt-1 text-2xl font-semibold">Open</p>
+                              <p className="text-sm text-muted-foreground">Peak today</p>
+                              <p className="mt-1 text-2xl font-semibold">{displayPeakToday}</p>
                             </div>
                           </div>
                           <Textarea

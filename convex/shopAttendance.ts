@@ -12,6 +12,8 @@ const attendanceStatusValidator = v.union(
   v.literal("void"),
 );
 
+const SHOP_TIME_ZONE = "America/Los_Angeles";
+
 async function sha256Hex(value: string) {
   const bytes = new TextEncoder().encode(value.trim().toUpperCase());
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -27,6 +29,109 @@ function normalizeCode(value: string) {
 
 function displayNameFor(profile: Doc<"profiles"> | null, user: Doc<"users"> | null) {
   return profile?.displayName ?? user?.name ?? profile?.email ?? user?.email ?? "Team member";
+}
+
+function zonedParts(timestamp: number) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: SHOP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(timestamp));
+  const part = (type: string) => Number(parts.find((item) => item.type === type)?.value ?? 0);
+
+  return {
+    year: part("year"),
+    month: part("month"),
+    day: part("day"),
+    hour: part("hour"),
+    minute: part("minute"),
+    second: part("second"),
+  };
+}
+
+function timeZoneOffsetMs(timestamp: number) {
+  const parts = zonedParts(timestamp);
+  const zonedAsUtc = Date.UTC(
+    parts.year,
+    parts.month - 1,
+    parts.day,
+    parts.hour,
+    parts.minute,
+    parts.second,
+  );
+
+  return zonedAsUtc - timestamp;
+}
+
+function zonedDateTimeToUtcMs(
+  year: number,
+  month: number,
+  day: number,
+  hour = 0,
+  minute = 0,
+  second = 0,
+) {
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second);
+  const firstPass = utcGuess - timeZoneOffsetMs(utcGuess);
+
+  return utcGuess - timeZoneOffsetMs(firstPass);
+}
+
+function addLocalDays(
+  date: { year: number; month: number; day: number },
+  days: number,
+) {
+  const shifted = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
+
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+  };
+}
+
+function shopDayBounds(timestamp = Date.now()) {
+  const parts = zonedParts(timestamp);
+  const start = zonedDateTimeToUtcMs(parts.year, parts.month, parts.day);
+  const tomorrow = addLocalDays(parts, 1);
+
+  return {
+    start,
+    end: zonedDateTimeToUtcMs(tomorrow.year, tomorrow.month, tomorrow.day),
+  };
+}
+
+function shopWeekBounds(timestamp = Date.now()) {
+  const parts = zonedParts(timestamp);
+  const weekdayText = new Intl.DateTimeFormat("en-US", {
+    timeZone: SHOP_TIME_ZONE,
+    weekday: "short",
+  }).format(new Date(timestamp));
+  const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekdayText);
+  const weekStart = addLocalDays(parts, -(weekday < 0 ? 0 : weekday));
+  const weekEnd = addLocalDays(weekStart, 7);
+
+  return {
+    start: zonedDateTimeToUtcMs(weekStart.year, weekStart.month, weekStart.day),
+    end: zonedDateTimeToUtcMs(weekEnd.year, weekEnd.month, weekEnd.day),
+  };
+}
+
+function intervalMinutesWithin(
+  item: Pick<Doc<"attendanceSessions">, "signInAt" | "signOutAt" | "status">,
+  from: number,
+  to: number,
+  now: number,
+) {
+  const start = Math.max(item.signInAt, from);
+  const end = Math.min(item.signOutAt ?? now, to);
+
+  return end > start ? Math.round((end - start) / 60000) : 0;
 }
 
 async function currentProfile(ctx: QueryCtx | MutationCtx) {
@@ -107,6 +212,7 @@ async function activeShopSession(ctx: QueryCtx | MutationCtx) {
 
 async function attendanceDetails(ctx: QueryCtx | MutationCtx, item: Doc<"attendanceSessions">) {
   const user = await ctx.db.get(item.userId);
+  const shopSession = await ctx.db.get(item.shopSessionId);
   const profile =
     item.profileId
       ? await ctx.db.get(item.profileId)
@@ -128,6 +234,9 @@ async function attendanceDetails(ctx: QueryCtx | MutationCtx, item: Doc<"attenda
     studentGroup: profile?.studentGroup,
     primaryProgram: profile?.primaryProgram,
     graduationYear: profile?.graduationYear,
+    shopTitle: shopSession?.title,
+    shopOpenedAt: shopSession?.openedAt,
+    shopClosedAt: shopSession?.closedAt,
     reviewedByName: reviewedByProfile?.displayName,
   };
 }
@@ -578,6 +687,134 @@ export const listHoursReport = query({
   },
 });
 
+export const shopDisplayStats = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireShopCodeDisplay(ctx);
+    const now = Date.now();
+    const day = shopDayBounds(now);
+    const week = shopWeekBounds(now);
+    const items = (await ctx.db.query("attendanceSessions").collect()).filter(
+      (item) => item.status !== "void",
+    );
+    const currentCount = items.filter((item) => item.status === "open").length;
+    const todayEvents = items
+      .filter((item) => item.signInAt < day.end && (item.signOutAt ?? now) > day.start)
+      .flatMap((item) => {
+        const start = Math.max(item.signInAt, day.start);
+        const end = Math.min(item.signOutAt ?? now, day.end);
+
+        return end > start
+          ? [
+              { at: start, delta: 1 },
+              { at: end, delta: -1 },
+            ]
+          : [];
+      })
+      .sort((a, b) => a.at - b.at || b.delta - a.delta);
+    let active = 0;
+    let peakToday = 0;
+
+    for (const event of todayEvents) {
+      active += event.delta;
+      peakToday = Math.max(peakToday, active);
+    }
+
+    const totalsByUser = new Map<Id<"users">, number>();
+
+    for (const item of items) {
+      const minutes = intervalMinutesWithin(item, week.start, week.end, now);
+
+      if (minutes > 0) {
+        totalsByUser.set(item.userId, (totalsByUser.get(item.userId) ?? 0) + minutes);
+      }
+    }
+
+    const leaderboard = await Promise.all(
+      [...totalsByUser.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(async ([userId, minutes]) => {
+          const user = await ctx.db.get(userId);
+          const profile = await ctx.db
+            .query("profiles")
+            .withIndex("by_user", (q) => q.eq("userId", userId))
+            .first();
+
+          return {
+            userId,
+            studentName: displayNameFor(profile, user),
+            minutes,
+          };
+        }),
+    );
+
+    return {
+      currentCount,
+      peakToday,
+      leaderboard,
+      dayStartsAt: day.start,
+      weekStartsAt: week.start,
+      weekEndsAt: week.end,
+    };
+  },
+});
+
+export const listAttendanceRecordPeople = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireShopManager(ctx);
+    const profiles = await ctx.db.query("profiles").collect();
+
+    return await Promise.all(
+      profiles
+        .sort((a, b) =>
+          (a.displayName ?? a.email ?? "").localeCompare(b.displayName ?? b.email ?? ""),
+        )
+        .map(async (profile) => {
+          const user = await ctx.db.get(profile.userId);
+
+          return {
+            userId: profile.userId,
+            profileId: profile._id,
+            name: displayNameFor(profile, user),
+            role: profile.role,
+            status: profile.status,
+            studentGroup: profile.studentGroup,
+            primaryProgram: profile.primaryProgram,
+            graduationYear: profile.graduationYear,
+          };
+        }),
+    );
+  },
+});
+
+export const listAttendanceRecords = query({
+  args: {
+    userId: v.optional(v.id("users")),
+    from: v.optional(v.number()),
+    to: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireShopManager(ctx);
+    const from = args.from ?? 0;
+    const to = args.to ?? Number.MAX_SAFE_INTEGER;
+    const items = args.userId
+      ? await ctx.db
+          .query("attendanceSessions")
+          .withIndex("by_user", (q) => q.eq("userId", args.userId!))
+          .collect()
+      : await ctx.db.query("attendanceSessions").collect();
+
+    return await Promise.all(
+      items
+        .filter((item) => item.signInAt >= from && item.signInAt <= to)
+        .sort((a, b) => b.signInAt - a.signInAt)
+        .map((item) => attendanceDetails(ctx, item)),
+    );
+  },
+});
+
 export const listPeopleForManualAttendance = query({
   args: {},
   handler: async (ctx) => {
@@ -685,6 +922,38 @@ export const reviewAttendanceSession = mutation({
       reviewNote: args.note?.trim() || undefined,
       updatedAt: Date.now(),
     });
+
+    return args.attendanceSessionId;
+  },
+});
+
+export const deleteAttendanceSession = mutation({
+  args: {
+    attendanceSessionId: v.id("attendanceSessions"),
+  },
+  handler: async (ctx, args) => {
+    await requireShopManager(ctx);
+    const item = await ctx.db.get(args.attendanceSessionId);
+
+    if (!item) {
+      throw new Error("Attendance record not found.");
+    }
+
+    const shopSession = await ctx.db.get(item.shopSessionId);
+    const sessionItems = await ctx.db
+      .query("attendanceSessions")
+      .withIndex("by_session", (q) => q.eq("shopSessionId", item.shopSessionId))
+      .collect();
+
+    await ctx.db.delete(args.attendanceSessionId);
+
+    if (
+      shopSession?.title === "Manual correction" &&
+      shopSession.status === "closed" &&
+      sessionItems.length <= 1
+    ) {
+      await ctx.db.delete(shopSession._id);
+    }
 
     return args.attendanceSessionId;
   },
