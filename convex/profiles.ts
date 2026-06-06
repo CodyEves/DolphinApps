@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { validateProfileContent } from "./lib/profanity";
 import { programForProfile, programValidator } from "./lib/programs";
 
 const roleValidator = v.union(
@@ -158,6 +159,12 @@ export const updateMyProfile = mutation({
 
     if (bio.length > 240) {
       throw new Error("Bio must be 240 characters or fewer.");
+    }
+
+    const contentIssue = validateProfileContent({ displayName, bio });
+
+    if (contentIssue) {
+      throw new Error(contentIssue.message);
     }
 
     const existing = await ctx.db

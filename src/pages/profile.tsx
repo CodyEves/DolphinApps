@@ -30,6 +30,7 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { validateProfileContent } from "@convex/lib/profanity";
 
 function initials(nameOrEmail?: string | null) {
   if (!nameOrEmail) {
@@ -129,6 +130,10 @@ export function ProfilePage() {
     totalLessonCount > 0 ? Math.round((completedLessonCount / totalLessonCount) * 100) : 0;
   const avatarUrl = avatarPreviewUrl ?? viewer?.avatarUrl ?? undefined;
   const profileName = displayName || viewer?.user.email || "Team member";
+  const profileContentIssue = useMemo(
+    () => validateProfileContent({ displayName, bio }),
+    [bio, displayName],
+  );
 
   async function handleAvatarUpload(file: File | undefined) {
     if (!file) {
@@ -172,6 +177,12 @@ export function ProfilePage() {
 
   async function handleSaveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (profileContentIssue) {
+      toast.error(profileContentIssue.message);
+      return;
+    }
+
     setIsSavingProfile(true);
 
     try {
@@ -260,8 +271,14 @@ export function ProfilePage() {
                       value={displayName}
                       onChange={(event) => setDisplayName(event.target.value)}
                       placeholder="Your name"
+                      aria-invalid={profileContentIssue?.field === "displayName"}
                       required
                     />
+                    {profileContentIssue?.field === "displayName" && (
+                      <p className="text-sm text-destructive">
+                        {profileContentIssue.message}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Email</Label>
@@ -275,14 +292,23 @@ export function ProfilePage() {
                       onChange={(event) => setBio(event.target.value.slice(0, 240))}
                       placeholder="A short note about your role, interests, or what you're working on."
                       className="min-h-28"
+                      aria-invalid={profileContentIssue?.field === "bio"}
                     />
                     <p className="text-sm text-muted-foreground">
                       {bio.length}/240 characters
                     </p>
+                    {profileContentIssue?.field === "bio" && (
+                      <p className="text-sm text-destructive">
+                        {profileContentIssue.message}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <Button type="submit" disabled={isSavingProfile || isUploadingAvatar}>
+                <Button
+                  type="submit"
+                  disabled={isSavingProfile || isUploadingAvatar || !!profileContentIssue}
+                >
                   <Save className="size-4" />
                   {isSavingProfile ? "Saving..." : "Save profile"}
                 </Button>
