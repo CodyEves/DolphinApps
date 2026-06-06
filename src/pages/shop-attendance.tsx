@@ -352,7 +352,7 @@ export function ShopAttendancePage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { recordUserId: recordUserIdParam } = useParams();
+  const { studentUserId: studentUserIdParam } = useParams();
   const [searchParams] = useSearchParams();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
@@ -361,7 +361,10 @@ export function ShopAttendancePage() {
   const canDisplayRole = canManage || effectiveRole === "kiosk";
   const canUseStudentCheckIn = effectiveRole !== "kiosk";
   const showRecordsRoute = location.pathname.startsWith("/shop/records");
-  const selectedRecordUserId = recordUserIdParam as Id<"users"> | undefined;
+  const showReviewRoute = location.pathname.startsWith("/shop/review");
+  const showReportsRoute = location.pathname.startsWith("/shop/reports");
+  const showStudentRosterRoute = showRecordsRoute || showReviewRoute || showReportsRoute;
+  const selectedStudentUserId = studentUserIdParam as Id<"users"> | undefined;
   const current = useQuery(api.shopAttendance.currentShopSession, isAuthenticated ? {} : "skip");
   const displayStats = useQuery(
     api.shopAttendance.shopDisplayStats,
@@ -386,14 +389,15 @@ export function ShopAttendancePage() {
   const slackLink = useQuery(api.shopAttendance.mySlackLink, isAuthenticated ? {} : "skip");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [recordSearch, setRecordSearch] = useState("");
-  const [isRecordSearchOpen, setIsRecordSearchOpen] = useState(false);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [isStudentSearchOpen, setIsStudentSearchOpen] = useState(false);
   const [recordFromDate, setRecordFromDate] = useState("");
   const [recordToDate, setRecordToDate] = useState("");
   const report = useQuery(
     api.shopAttendance.listHoursReport,
-    isAuthenticated && canManage
+    isAuthenticated && canManage && (!showReportsRoute || !!selectedStudentUserId)
       ? {
+          userId: showReportsRoute ? selectedStudentUserId : undefined,
           from: fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : undefined,
           to: toDate ? new Date(`${toDate}T23:59:59`).getTime() : undefined,
         }
@@ -401,13 +405,13 @@ export function ShopAttendancePage() {
   );
   const recordPeople = useQuery(
     api.shopAttendance.listAttendanceRecordPeople,
-    isAuthenticated && canManage && showRecordsRoute ? {} : "skip",
+    isAuthenticated && canManage && showStudentRosterRoute ? {} : "skip",
   );
   const recordRows = useQuery(
     api.shopAttendance.listAttendanceRecords,
-    isAuthenticated && canManage && showRecordsRoute && selectedRecordUserId
+    isAuthenticated && canManage && showRecordsRoute && selectedStudentUserId
       ? {
-          userId: selectedRecordUserId,
+          userId: selectedStudentUserId,
           from: recordFromDate ? new Date(`${recordFromDate}T00:00:00`).getTime() : undefined,
           to: recordToDate ? new Date(`${recordToDate}T23:59:59`).getTime() : undefined,
         }
@@ -708,9 +712,9 @@ export function ShopAttendancePage() {
   const reportTotals = useMemo(() => report?.totals ?? [], [report?.totals]);
   const attendanceRecords = useMemo(() => recordRows ?? [], [recordRows]);
   const recordPeopleRows = useMemo(() => recordPeople ?? [], [recordPeople]);
-  const selectedRecordPerson = recordPeopleRows.find((person) => person.userId === selectedRecordUserId);
-  const recordSearchResults = useMemo(() => {
-    const term = recordSearch.trim().toLowerCase();
+  const selectedStudentPerson = recordPeopleRows.find((person) => person.userId === selectedStudentUserId);
+  const studentSearchResults = useMemo(() => {
+    const term = studentSearch.trim().toLowerCase();
 
     if (!term) {
       return recordPeopleRows;
@@ -728,9 +732,27 @@ export function ShopAttendancePage() {
         .toLowerCase()
         .includes(term),
     );
-  }, [recordPeopleRows, recordSearch]);
+  }, [recordPeopleRows, studentSearch]);
   const openRows = useMemo(() => liveAttendance ?? [], [liveAttendance]);
   const reviewRows = useMemo(() => reviewQueue ?? [], [reviewQueue]);
+  const filteredReviewRows = useMemo(
+    () =>
+      selectedStudentUserId
+        ? reviewRows.filter((record) => record.userId === selectedStudentUserId)
+        : reviewRows,
+    [reviewRows, selectedStudentUserId],
+  );
+  const reviewCountsByUser = useMemo(() => {
+    const counts = new Map<Id<"users">, number>();
+
+    for (const record of reviewRows) {
+      counts.set(record.userId, (counts.get(record.userId) ?? 0) + 1);
+    }
+
+    return counts;
+  }, [reviewRows]);
+  const routeBase = showReportsRoute ? "/shop/reports" : showReviewRoute ? "/shop/review" : "/shop/records";
+  const routeLabel = showReportsRoute ? "reports" : showReviewRoute ? "review queue" : "attendance records";
   const activeDisplayCode = current?.session ? displayCode : "";
   const activeQrDataUrl = current?.session ? qrDataUrl : "";
   const codeSecondsRemaining = Math.max(0, Math.ceil((displayCodeExpiresAt - now) / 1000));
@@ -777,59 +799,71 @@ export function ShopAttendancePage() {
       </Unauthenticated>
 
       <Authenticated>
-        {showRecordsRoute ? (
+        {showStudentRosterRoute ? (
           canManage ? (
             <div className="space-y-5">
               <Card>
                 <CardHeader>
                   <ClipboardList className="size-5 text-primary" />
-                  <CardTitle>{selectedRecordPerson ? selectedRecordPerson.name : "Student attendance records"}</CardTitle>
+                  <CardTitle>
+                    {selectedStudentPerson
+                      ? selectedStudentPerson.name
+                      : showReportsRoute
+                      ? "Student reports"
+                      : showReviewRoute
+                      ? "Student review"
+                      : "Student attendance records"}
+                  </CardTitle>
                   <CardDescription>
-                    {selectedRecordPerson
-                      ? "Edit or delete this student's shop attendance entries."
-                      : "Search or pick a student to view their attendance details."}
+                    {selectedStudentPerson
+                      ? `Viewing ${routeLabel} for this student.`
+                      : `Search or pick a student to view their ${routeLabel}.`}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_auto] lg:items-end">
                     <div className="relative space-y-2">
-                      <Label htmlFor="recordSearch">Find student</Label>
+                      <Label htmlFor="studentSearch">Find student</Label>
                       <Input
-                        id="recordSearch"
-                        value={recordSearch}
+                        id="studentSearch"
+                        value={studentSearch}
                         onChange={(event) => {
-                          setRecordSearch(event.target.value);
-                          setIsRecordSearchOpen(true);
+                          setStudentSearch(event.target.value);
+                          setIsStudentSearchOpen(true);
                         }}
-                        onFocus={() => setIsRecordSearchOpen(true)}
-                        onBlur={() => window.setTimeout(() => setIsRecordSearchOpen(false), 120)}
+                        onFocus={() => setIsStudentSearchOpen(true)}
+                        onBlur={() => window.setTimeout(() => setIsStudentSearchOpen(false), 120)}
                         placeholder="Search by name, team, program, or graduation year"
                       />
-                      {isRecordSearchOpen && (
+                      {isStudentSearchOpen && (
                         <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
-                          {recordSearchResults.length === 0 ? (
+                          {studentSearchResults.length === 0 ? (
                             <div className="px-3 py-2 text-sm text-muted-foreground">No students found.</div>
                           ) : (
-                            recordSearchResults.map((person) => (
+                            studentSearchResults.map((person) => (
                               <button
                                 key={person.userId}
                                 type="button"
                                 className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
                                 onMouseDown={(event) => event.preventDefault()}
                                 onClick={() => {
-                                  setRecordSearch(person.name);
-                                  setIsRecordSearchOpen(false);
-                                  navigate(`/shop/records/${person.userId}`);
+                                  setStudentSearch(person.name);
+                                  setIsStudentSearchOpen(false);
+                                  navigate(`${routeBase}/${person.userId}`);
                                 }}
                               >
                                 <span className="min-w-0">
                                   <span className="block truncate font-medium">{person.name}</span>
                                   <span className="block truncate text-xs text-muted-foreground">
                                     {person.studentGroup ?? "Student"}
-                                    {person.graduationYear ? ` · ${person.graduationYear}` : ""}
+                                    {person.graduationYear ? ` - ${person.graduationYear}` : ""}
                                   </span>
                                 </span>
-                                <span className="shrink-0 text-xs text-muted-foreground">View</span>
+                                <span className="shrink-0 text-xs text-muted-foreground">
+                                  {showReviewRoute && reviewCountsByUser.get(person.userId)
+                                    ? `${reviewCountsByUser.get(person.userId)} review`
+                                    : "View"}
+                                </span>
                               </button>
                             ))
                           )}
@@ -843,59 +877,112 @@ export function ShopAttendancePage() {
                       </Link>
                     </Button>
                   </div>
-                  {selectedRecordUserId && (
+                  {selectedStudentUserId && (showRecordsRoute || showReportsRoute) && (
                     <>
                       <div className="grid gap-3 lg:grid-cols-[160px_160px_auto_auto] lg:items-end">
                         <div className="space-y-2">
                           <Label>From</Label>
-                          <Input type="date" value={recordFromDate} onChange={(event) => setRecordFromDate(event.target.value)} />
+                          <Input
+                            type="date"
+                            value={showReportsRoute ? fromDate : recordFromDate}
+                            onChange={(event) =>
+                              showReportsRoute
+                                ? setFromDate(event.target.value)
+                                : setRecordFromDate(event.target.value)
+                            }
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>To</Label>
-                          <Input type="date" value={recordToDate} onChange={(event) => setRecordToDate(event.target.value)} />
+                          <Input
+                            type="date"
+                            value={showReportsRoute ? toDate : recordToDate}
+                            onChange={(event) =>
+                              showReportsRoute
+                                ? setToDate(event.target.value)
+                                : setRecordToDate(event.target.value)
+                            }
+                          />
                         </div>
                         <Button
                           type="button"
                           variant="outline"
                           onClick={() => {
-                            setRecordFromDate("");
-                            setRecordToDate("");
+                            if (showReportsRoute) {
+                              setFromDate("");
+                              setToDate("");
+                            } else {
+                              setRecordFromDate("");
+                              setRecordToDate("");
+                            }
                           }}
                         >
                           Clear dates
                         </Button>
                         <Button asChild variant="outline">
-                          <Link to="/shop/records">
+                          <Link to={routeBase}>
                             <Users className="size-4" />
                             All students
                           </Link>
                         </Button>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-md border p-4">
-                          <p className="text-sm text-muted-foreground">Records</p>
-                          <p className="mt-1 text-2xl font-semibold">{attendanceRecords.length}</p>
-                        </div>
-                        <div className="rounded-md border p-4">
-                          <p className="text-sm text-muted-foreground">Complete</p>
-                          <p className="mt-1 text-2xl font-semibold">
-                            {attendanceRecords.filter((record) => record.status === "complete").length}
-                          </p>
-                        </div>
-                        <div className="rounded-md border p-4">
-                          <p className="text-sm text-muted-foreground">Needs review</p>
-                          <p className="mt-1 text-2xl font-semibold">
-                            {attendanceRecords.filter((record) => record.status === "needs_review").length}
-                          </p>
-                        </div>
-                      </div>
                     </>
+                  )}
+                  {selectedStudentUserId && showRecordsRoute && (
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-md border p-4">
+                        <p className="text-sm text-muted-foreground">Records</p>
+                        <p className="mt-1 text-2xl font-semibold">{attendanceRecords.length}</p>
+                      </div>
+                      <div className="rounded-md border p-4">
+                        <p className="text-sm text-muted-foreground">Complete</p>
+                        <p className="mt-1 text-2xl font-semibold">
+                          {attendanceRecords.filter((record) => record.status === "complete").length}
+                        </p>
+                      </div>
+                      <div className="rounded-md border p-4">
+                        <p className="text-sm text-muted-foreground">Needs review</p>
+                        <p className="mt-1 text-2xl font-semibold">
+                          {attendanceRecords.filter((record) => record.status === "needs_review").length}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedStudentUserId && showReviewRoute && (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-md border p-4">
+                        <p className="text-sm text-muted-foreground">Needs review</p>
+                        <p className="mt-1 text-2xl font-semibold">{filteredReviewRows.length}</p>
+                      </div>
+                      <div className="rounded-md border p-4">
+                        <p className="text-sm text-muted-foreground">Total queue</p>
+                        <p className="mt-1 text-2xl font-semibold">{reviewRows.length}</p>
+                      </div>
+                    </div>
+                  )}
+                  {selectedStudentUserId && showReportsRoute && (
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-md border p-4">
+                        <p className="text-sm text-muted-foreground">Records</p>
+                        <p className="mt-1 text-2xl font-semibold">{reportRows.length}</p>
+                      </div>
+                      <div className="rounded-md border p-4">
+                        <p className="text-sm text-muted-foreground">Total hours</p>
+                        <p className="mt-1 text-2xl font-semibold">{formatHours(totalReportMinutes)}</p>
+                      </div>
+                      <div className="rounded-md border p-4">
+                        <p className="text-sm text-muted-foreground">Provisional hours</p>
+                        <p className="mt-1 text-2xl font-semibold">
+                          {formatHours(reportTotals.reduce((total, row) => total + row.needsReviewMinutes, 0))}
+                        </p>
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>
-              {selectedRecordUserId ? (
+              {selectedStudentUserId && showRecordsRoute ? (
                 <div className="space-y-3">
-                  {selectedRecordUserId && recordPeople && !selectedRecordPerson && (
+                  {recordPeople && !selectedStudentPerson && (
                     <div className="rounded-md border p-4 text-sm text-muted-foreground">Student not found.</div>
                   )}
                   {recordRows === undefined && (
@@ -914,6 +1001,78 @@ export function ShopAttendancePage() {
                     />
                   ))}
                 </div>
+              ) : selectedStudentUserId && showReviewRoute ? (
+                <div className="space-y-3">
+                  {recordPeople && !selectedStudentPerson && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Student not found.</div>
+                  )}
+                  {reviewQueue === undefined && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading review queue...</div>
+                  )}
+                  {reviewQueue && filteredReviewRows.length === 0 && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">No attendance records need review for this student.</div>
+                  )}
+                  {filteredReviewRows.map((record) => (
+                    <ReviewRecord
+                      key={record._id}
+                      record={record}
+                      isBusy={busyRecordId === record._id}
+                      onReview={(args) => void handleReview(args)}
+                    />
+                  ))}
+                </div>
+              ) : selectedStudentUserId && showReportsRoute ? (
+                <div className="space-y-3">
+                  {report === undefined && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading report...</div>
+                  )}
+                  {report && reportRows.length === 0 && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">No report records match these filters.</div>
+                  )}
+                  {reportRows.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        downloadCsv("shop-student-hours.csv", [
+                          ["Student", "Status", "Source", "Sign in", "Sign out", "Minutes", "Hours"],
+                          ...reportRows.map((row) => {
+                            const minutes = minutesBetween(row.signInAt, row.signOutAt);
+
+                            return [
+                              row.studentName,
+                              row.status,
+                              row.source,
+                              formatDateTime(row.signInAt),
+                              formatDateTime(row.signOutAt),
+                              String(minutes),
+                              (minutes / 60).toFixed(2),
+                            ];
+                          }),
+                        ])
+                      }
+                    >
+                      <Download className="size-4" />
+                      Export CSV
+                    </Button>
+                  )}
+                  {reportRows.map((row) => {
+                    const minutes = minutesBetween(row.signInAt, row.signOutAt);
+
+                    return (
+                      <div key={row._id} className="grid gap-2 rounded-md border bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{formatDateTime(row.signInAt)}</p>
+                          <p className="text-sm text-muted-foreground">{formatDateTime(row.signOutAt)}</p>
+                        </div>
+                        <Badge variant={row.status === "needs_review" ? "secondary" : "outline"}>
+                          {row.status.replace("_", " ")}
+                        </Badge>
+                        <p className="text-sm font-medium">{formatHours(minutes)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
                 <div className="space-y-3">
                   {recordPeople === undefined && (
@@ -925,7 +1084,7 @@ export function ShopAttendancePage() {
                   {recordPeopleRows.map((person) => (
                     <Link
                       key={person.userId}
-                      to={`/shop/records/${person.userId}`}
+                      to={`${routeBase}/${person.userId}`}
                       className="grid gap-2 rounded-md border bg-card p-4 transition-colors hover:bg-accent hover:text-accent-foreground sm:grid-cols-[1fr_auto] sm:items-center"
                     >
                       <div className="min-w-0">
@@ -936,7 +1095,13 @@ export function ShopAttendancePage() {
                           {person.primaryProgram && <span>{person.primaryProgram}</span>}
                         </div>
                       </div>
-                      <Badge variant="outline">View records</Badge>
+                      <Badge variant="outline">
+                        {showReviewRoute && reviewCountsByUser.get(person.userId)
+                          ? `${reviewCountsByUser.get(person.userId)} to review`
+                          : showReportsRoute
+                          ? "View report"
+                          : "View records"}
+                      </Badge>
                     </Link>
                   ))}
                 </div>
@@ -1060,13 +1225,17 @@ export function ShopAttendancePage() {
                   <Users className="size-4" />
                   Live
                 </TabsTrigger>
-                <TabsTrigger value="review">
-                  <ShieldCheck className="size-4" />
-                  Review
+                <TabsTrigger value="review" asChild>
+                  <Link to="/shop/review">
+                    <ShieldCheck className="size-4" />
+                    Review
+                  </Link>
                 </TabsTrigger>
-                <TabsTrigger value="reports">
-                  <ClipboardList className="size-4" />
-                  Reports
+                <TabsTrigger value="reports" asChild>
+                  <Link to="/shop/reports">
+                    <ClipboardList className="size-4" />
+                    Reports
+                  </Link>
                 </TabsTrigger>
               </>
             )}

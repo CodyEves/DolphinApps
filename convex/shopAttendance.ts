@@ -627,6 +627,7 @@ export const listReviewQueue = query({
 
 export const listHoursReport = query({
   args: {
+    userId: v.optional(v.id("users")),
     from: v.optional(v.number()),
     to: v.optional(v.number()),
   },
@@ -635,6 +636,7 @@ export const listHoursReport = query({
     const from = args.from ?? 0;
     const to = args.to ?? Number.MAX_SAFE_INTEGER;
     const items = (await ctx.db.query("attendanceSessions").collect())
+      .filter((item) => !args.userId || item.userId === args.userId)
       .filter((item) => item.signInAt >= from && item.signInAt <= to)
       .filter((item) => item.status !== "open" && item.status !== "void")
       .sort((a, b) => b.signInAt - a.signInAt);

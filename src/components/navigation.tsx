@@ -84,6 +84,8 @@ const managementNavItems: NavItem[] = [
 const shopNavItems: NavItem[] = [
   { href: "/shop/display", label: "Display", icon: Clock },
   { href: "/shop/records", label: "Records", icon: ClipboardCheck, reviewOnly: true },
+  { href: "/shop/review", label: "Review", icon: ShieldCheck, reviewOnly: true },
+  { href: "/shop/reports", label: "Reports", icon: ListTree, reviewOnly: true },
 ];
 
 function canReview(role: string) {
