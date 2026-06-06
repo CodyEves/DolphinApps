@@ -1,4 +1,5 @@
 import {
+  Clock,
   GraduationCap,
   Grid3X3,
   Home,
@@ -60,6 +61,13 @@ const apps: LauncherApp[] = [
     iconClassName: "bg-brand-orange text-white",
   },
   {
+    href: "/shop",
+    title: "Shop Attendance",
+    description: "Sign-ins, hours",
+    icon: Clock,
+    iconClassName: "bg-brand-aqua text-brand-navy",
+  },
+  {
     href: "/management",
     titleKey: "trainingTitle",
     title: "Management",
@@ -81,6 +89,10 @@ function isActiveApp(pathname: string, href: string) {
 
   if (href === "/parts") {
     return pathname.startsWith("/parts");
+  }
+
+  if (href === "/shop") {
+    return pathname.startsWith("/shop");
   }
 
   return pathname !== "/" && !pathname.startsWith("/parts") && !pathname.startsWith("/management") && !pathname.startsWith("/admin");

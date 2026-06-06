@@ -63,6 +63,16 @@ const ManagementPlaceholderPage = lazy(() =>
 const ReviewsPage = lazy(() =>
   import("@/pages/reviews").then((module) => ({ default: module.ReviewsPage })),
 );
+const ShopAttendancePage = lazy(() =>
+  import("@/pages/shop-attendance").then((module) => ({
+    default: module.ShopAttendancePage,
+  })),
+);
+const SlackLinkPage = lazy(() =>
+  import("@/pages/shop-attendance").then((module) => ({
+    default: module.SlackLinkPage,
+  })),
+);
 const PartsDashboardPage = lazy(() =>
   import("@/pages/parts-app").then((module) => ({ default: module.DashboardRoute })),
 );
@@ -126,6 +136,9 @@ const router = createBrowserRouter([
       { path: "parts/orders", element: <PartsOrdersPage /> },
       { path: "parts/admin", element: <PartsAdminPage /> },
       { path: "parts/:partId", element: <PartDetailPage /> },
+      { path: "shop", element: <ShopAttendancePage /> },
+      { path: "shop/display", element: <ShopAttendancePage /> },
+      { path: "shop/link-slack", element: <SlackLinkPage /> },
       { path: "equipment/:equipmentId", element: <EquipmentDetailPage /> },
       { path: "reviews", element: <ReviewsPage /> },
       { path: "badges", element: <BadgesPage /> },

@@ -41,6 +41,11 @@ export function AuthPage() {
     : location.pathname.endsWith("/reset")
       ? "reset"
       : "signIn";
+  const requestedReturnTo = searchParams.get("returnTo");
+  const returnTo =
+    mode === "signIn" && requestedReturnTo?.startsWith("/") && !requestedReturnTo.startsWith("//")
+      ? requestedReturnTo
+      : "/dashboard";
   const token = searchParams.get("token") ?? "";
   const [tokenHash, setTokenHash] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -120,7 +125,7 @@ export function AuthPage() {
     try {
       await signIn("password", formData);
       toast.success(mode === "signIn" ? "Signed in." : "Password saved.");
-      navigate("/dashboard", { replace: true });
+      navigate(mode === "signIn" ? returnTo : "/dashboard", { replace: true });
     } catch (caughtError) {
       const message =
         caughtError instanceof Error
@@ -134,7 +139,7 @@ export function AuthPage() {
   }
 
   if (!isLoading && isAuthenticated && viewer) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={returnTo} replace />;
   }
 
   const hasStaleSession = !isLoading && isAuthenticated && viewer === null;

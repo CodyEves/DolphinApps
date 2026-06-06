@@ -4,6 +4,7 @@ import {
   Award,
   BadgePlus,
   BookOpen,
+  Clock,
   ClipboardCheck,
   Factory,
   FileCheck,
@@ -80,6 +81,10 @@ const managementNavItems: NavItem[] = [
   { href: "/management/parts", label: "Parts Admin", icon: Settings, adminOnly: true },
 ];
 
+const shopNavItems: NavItem[] = [
+  { href: "/shop", label: "Attendance", icon: Clock },
+];
+
 function canReview(role: string) {
   return role === "admin" || role === "mentor" || role === "instructor";
 }
@@ -87,6 +92,10 @@ function canReview(role: string) {
 function navItemsForPath(pathname: string) {
   if (pathname.startsWith("/management") || pathname.startsWith("/admin")) {
     return managementNavItems;
+  }
+
+  if (pathname.startsWith("/shop")) {
+    return shopNavItems;
   }
 
   return pathname.startsWith("/parts") ? partsNavItems : trainingNavItems;
@@ -193,6 +202,8 @@ export function MobileNav() {
   const { activeProgramMeta } = useProgramView();
   const appLabel = location.pathname.startsWith("/management") || location.pathname.startsWith("/admin")
     ? "Management"
+    : location.pathname.startsWith("/shop")
+    ? "Shop Attendance"
     : location.pathname.startsWith("/parts")
     ? activeProgramMeta.partsTitle
     : activeProgramMeta.trainingTitle;

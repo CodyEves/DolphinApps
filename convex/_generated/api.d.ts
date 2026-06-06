@@ -26,6 +26,8 @@ import type * as orderRequests from "../orderRequests.js";
 import type * as parts from "../parts.js";
 import type * as profiles from "../profiles.js";
 import type * as setup from "../setup.js";
+import type * as shopAttendance from "../shopAttendance.js";
+import type * as shopSlack from "../shopSlack.js";
 import type * as subsystems from "../subsystems.js";
 import type * as training from "../training.js";
 import type * as transmissions from "../transmissions.js";
@@ -56,6 +58,8 @@ declare const fullApi: ApiFromModules<{
   parts: typeof parts;
   profiles: typeof profiles;
   setup: typeof setup;
+  shopAttendance: typeof shopAttendance;
+  shopSlack: typeof shopSlack;
   subsystems: typeof subsystems;
   training: typeof training;
   transmissions: typeof transmissions;

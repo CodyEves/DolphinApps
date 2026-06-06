@@ -121,6 +121,14 @@ const orderStatus = v.union(
   v.literal("delivered"),
   v.literal("canceled"),
 );
+const shopSessionStatus = v.union(v.literal("active"), v.literal("closed"));
+const attendanceStatus = v.union(
+  v.literal("open"),
+  v.literal("complete"),
+  v.literal("needs_review"),
+  v.literal("void"),
+);
+const attendanceSource = v.union(v.literal("slack"), v.literal("manual"));
 
 export default defineSchema({
   ...authTables,
@@ -535,6 +543,79 @@ export default defineSchema({
   })
     .index("by_page", ["pagePath"])
     .index("by_page_target_kind", ["pagePath", "targetKey", "kind"]),
+
+  shopSessions: defineTable({
+    title: v.optional(v.string()),
+    status: shopSessionStatus,
+    openedBy: v.id("users"),
+    openedAt: v.number(),
+    closedBy: v.optional(v.id("users")),
+    closedAt: v.optional(v.number()),
+    closingNote: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_opened_at", ["openedAt"]),
+
+  shopCodes: defineTable({
+    shopSessionId: v.id("shopSessions"),
+    codeHash: v.string(),
+    expiresAt: v.number(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_code_hash", ["codeHash"])
+    .index("by_session", ["shopSessionId"])
+    .index("by_expires_at", ["expiresAt"]),
+
+  attendanceSessions: defineTable({
+    shopSessionId: v.id("shopSessions"),
+    userId: v.id("users"),
+    profileId: v.optional(v.id("profiles")),
+    source: attendanceSource,
+    status: attendanceStatus,
+    signInAt: v.number(),
+    signOutAt: v.optional(v.number()),
+    signInCodeHash: v.optional(v.string()),
+    signOutCodeHash: v.optional(v.string()),
+    slackUserId: v.optional(v.string()),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    reviewNote: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_session", ["shopSessionId"])
+    .index("by_user", ["userId"])
+    .index("by_status", ["status"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_session_status", ["shopSessionId", "status"])
+    .index("by_sign_in_at", ["signInAt"]),
+
+  slackAccountLinks: defineTable({
+    slackUserId: v.string(),
+    slackTeamId: v.optional(v.string()),
+    slackUserName: v.optional(v.string()),
+    userId: v.id("users"),
+    profileId: v.id("profiles"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slack_user", ["slackUserId"])
+    .index("by_user", ["userId"]),
+
+  slackLinkTokens: defineTable({
+    tokenHash: v.string(),
+    slackUserId: v.string(),
+    slackTeamId: v.optional(v.string()),
+    slackUserName: v.optional(v.string()),
+    expiresAt: v.number(),
+    consumedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_slack_user", ["slackUserId"]),
 });
 
 

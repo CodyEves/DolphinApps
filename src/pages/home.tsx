@@ -2,6 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import {
   ArrowRight,
+  Clock,
   GraduationCap,
   Grid3X3,
   Package,
@@ -42,6 +43,14 @@ export function HomePage() {
       href: "/parts",
       icon: Package,
       label: "Build system",
+      enabled: true,
+    },
+    {
+      title: "Shop Attendance",
+      description: "Slack check-ins, rotating shop codes, live roster, hour reports, and mentor review.",
+      href: "/shop",
+      icon: Clock,
+      label: "Hours",
       enabled: true,
     },
     {

@@ -33,6 +33,13 @@ function currentAppCopy(pathname: string, program: Program = "frc_5199") {
     };
   }
 
+  if (pathname.startsWith("/shop")) {
+    return {
+      title: "Shop Attendance",
+      description: "Slack check-ins, shop hours, and review queue.",
+    };
+  }
+
   return {
     title: meta.trainingTitle,
     description: meta.trainingDescription,
