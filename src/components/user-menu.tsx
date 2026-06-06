@@ -4,13 +4,14 @@ import {
   LogIn,
   LogOut,
   ShieldCheck,
+  UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -110,15 +111,15 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-10 gap-2 px-2">
+        <Button variant="ghost" size="icon" className="size-10 rounded-full" aria-label="Open profile menu">
           <Avatar className="size-7">
+            {viewer.avatarUrl && (
+              <AvatarImage src={viewer.avatarUrl} alt="" />
+            )}
             <AvatarFallback>
               {initials(displayName)}
             </AvatarFallback>
           </Avatar>
-          <span className="hidden max-w-36 truncate text-sm md:inline">
-            {displayName}
-          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
@@ -154,6 +155,13 @@ export function UserMenu() {
             </DropdownMenuRadioGroup>
           </>
         )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link to="/profile">
+            <UserRound className="size-4" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} variant="destructive">
           <LogOut className="size-4" />

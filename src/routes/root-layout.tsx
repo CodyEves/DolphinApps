@@ -53,11 +53,7 @@ export function RootLayout() {
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
             <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
-              {isSuiteLanding ? (
-                <AppLauncher collapsed />
-              ) : (
-                <MobileNav />
-              )}
+              {!isSuiteLanding && <MobileNav />}
               <div className={isSuiteLanding ? "min-w-0" : "hidden min-w-0 lg:block"}>
                 <p className="text-sm font-semibold">{appCopy.title}</p>
                 <p className="text-xs text-muted-foreground">
@@ -66,6 +62,7 @@ export function RootLayout() {
               </div>
               <div className="ml-auto flex items-center gap-2">
                 <ThemeModeToggle />
+                <AppLauncher collapsed />
                 <UserMenu />
               </div>
             </div>

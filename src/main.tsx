@@ -90,6 +90,9 @@ const PartsOrdersPage = lazy(() =>
 const PartsAdminPage = lazy(() =>
   import("@/pages/parts-app").then((module) => ({ default: module.AdminRoute })),
 );
+const ProfilePage = lazy(() =>
+  import("@/pages/profile").then((module) => ({ default: module.ProfilePage })),
+);
 const TrainingPage = lazy(() =>
   import("@/pages/training").then((module) => ({ default: module.TrainingPage })),
 );
@@ -106,6 +109,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: "dashboard", element: <DashboardPage /> },
+      { path: "profile", element: <ProfilePage /> },
       { path: "training", element: <TrainingPage /> },
       { path: "training/tracks/new", element: <LearningTrackEditorPage /> },
       { path: "training/tracks/:trackId", element: <TrainingTrackPage /> },

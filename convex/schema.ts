@@ -130,6 +130,8 @@ export default defineSchema({
     role,
     displayName: v.optional(v.string()),
     email: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    avatarStorageId: v.optional(v.id("_storage")),
     primaryProgram: v.optional(program),
     graduationYear: v.optional(v.number()),
     studentGroup: v.optional(v.string()),

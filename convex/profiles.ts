@@ -23,7 +23,7 @@ const accountLabelValidator = v.union(
 );
 const archivedLegacyProfileGroup = "__archived_legacy_profile__";
 
-async function currentUser(ctx: QueryCtx) {
+async function currentUser(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx);
 
   if (!userId) {
@@ -107,6 +107,10 @@ export const viewer = query({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .first();
 
+    const avatarUrl = profile?.avatarStorageId
+      ? await ctx.storage.getUrl(profile.avatarStorageId)
+      : null;
+
     return {
       user,
       profile: profile ?? {
@@ -114,7 +118,73 @@ export const viewer = query({
         status: "inactive" as const,
         displayName: user.name,
       },
+      avatarUrl,
     };
+  },
+});
+
+export const generateProfileAvatarUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await currentUser(ctx);
+
+    if (!user) {
+      throw new Error("Sign in before uploading a profile picture.");
+    }
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const updateMyProfile = mutation({
+  args: {
+    displayName: v.string(),
+    bio: v.string(),
+    avatarStorageId: v.optional(v.id("_storage")),
+  },
+  handler: async (ctx, args) => {
+    const user = await currentUser(ctx);
+
+    if (!user) {
+      throw new Error("Sign in before updating your profile.");
+    }
+
+    const displayName = args.displayName.trim();
+    const bio = args.bio.trim();
+
+    if (!displayName) {
+      throw new Error("Display name is required.");
+    }
+
+    if (bio.length > 240) {
+      throw new Error("Bio must be 240 characters or fewer.");
+    }
+
+    const existing = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .first();
+    const now = Date.now();
+    const patch = {
+      displayName,
+      email: user.email,
+      bio: bio || undefined,
+      ...(args.avatarStorageId ? { avatarStorageId: args.avatarStorageId } : {}),
+      updatedAt: now,
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, patch);
+      return existing._id;
+    }
+
+    return await ctx.db.insert("profiles", {
+      userId: user._id,
+      role: "guest",
+      status: "inactive",
+      ...patch,
+      createdAt: now,
+    });
   },
 });
 
