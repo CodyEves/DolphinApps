@@ -11,6 +11,7 @@ import {
   Gauge,
   ListTree,
   Menu,
+  Monitor,
   Package,
   Settings,
   ShoppingCart,
@@ -82,10 +83,8 @@ const managementNavItems: NavItem[] = [
 ];
 
 const shopNavItems: NavItem[] = [
-  { href: "/shop/display", label: "Display", icon: Clock },
-  { href: "/shop/records", label: "Records", icon: ClipboardCheck, reviewOnly: true },
-  { href: "/shop/review", label: "Review", icon: ShieldCheck, reviewOnly: true },
-  { href: "/shop/reports", label: "Reports", icon: ListTree, reviewOnly: true },
+  { href: "/shop", label: "Overview", icon: Clock },
+  { href: "/shop/display", label: "Display", icon: Monitor },
 ];
 
 function canReview(role: string) {
@@ -128,7 +127,7 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
             <TooltipTrigger asChild>
               <NavLink
                 to={item.href}
-                end={item.href === "/" || item.href === "/parts"}
+                end={item.href === "/" || item.href === "/parts" || item.href === "/shop"}
                 onClick={() => setMobileNavOpen(false)}
                 className={({ isActive }) =>
                   cn(
@@ -213,7 +212,7 @@ export function MobileNav() {
   const visibleNavItems = visibleItems(navItemsForPath(location.pathname), effectiveRole);
 
   const current = visibleNavItems.find((item) =>
-    item.href === "/" || item.href === "/parts"
+    item.href === "/" || item.href === "/parts" || item.href === "/shop"
       ? location.pathname === item.href
       : location.pathname.startsWith(item.href),
   );

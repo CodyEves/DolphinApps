@@ -26,6 +26,7 @@ import {
   Trophy,
   Users,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
@@ -53,6 +54,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
+import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -192,6 +194,70 @@ function supportsPictureInPicture() {
     document.pictureInPictureEnabled &&
     typeof HTMLCanvasElement !== "undefined" &&
     "captureStream" in HTMLCanvasElement.prototype
+  );
+}
+
+function shopNavActive(pathname: string, href: string) {
+  return href === "/shop" ? pathname === href : pathname.startsWith(href);
+}
+
+function ShopSectionNav({
+  pathname,
+  canManage,
+  canDisplayRole,
+  reviewCount,
+}: {
+  pathname: string;
+  canManage: boolean;
+  canDisplayRole: boolean;
+  reviewCount: number;
+}) {
+  const items: Array<{
+    href: string;
+    label: string;
+    icon: LucideIcon;
+    badge?: number;
+  }> = [
+    { href: "/shop", label: "Overview", icon: Clock },
+    ...(canDisplayRole ? [{ href: "/shop/display", label: "Display", icon: Monitor }] : []),
+    ...(canManage
+      ? [
+          { href: "/shop/records", label: "Records", icon: ClipboardList },
+          { href: "/shop/review", label: "Review", icon: ShieldCheck, badge: reviewCount },
+          { href: "/shop/reports", label: "Reports", icon: Download },
+        ]
+      : []),
+  ];
+
+  return (
+    <nav className="mb-5 flex flex-wrap gap-2" aria-label="Shop Attendance navigation">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const isActive = shopNavActive(pathname, item.href);
+
+        return (
+          <Button
+            key={item.href}
+            asChild
+            variant={isActive ? "secondary" : "outline"}
+            className={cn(
+              "h-10 justify-start gap-2",
+              isActive && "border-primary/20 bg-primary/10 text-primary hover:bg-primary/15",
+            )}
+          >
+            <Link to={item.href}>
+              <Icon className="size-4" />
+              <span>{item.label}</span>
+              {item.badge ? (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[11px]">
+                  {item.badge}
+                </Badge>
+              ) : null}
+            </Link>
+          </Button>
+        );
+      })}
+    </nav>
   );
 }
 
@@ -1081,6 +1147,14 @@ export function ShopAttendancePage() {
       </Unauthenticated>
 
       <Authenticated>
+        {!showDisplayRoute && (
+          <ShopSectionNav
+            pathname={location.pathname}
+            canManage={canManage}
+            canDisplayRole={canDisplayRole}
+            reviewCount={reviewRows.length}
+          />
+        )}
         {showStudentRosterRoute ? (
           canManage ? (
             <div className="space-y-5">
@@ -1103,7 +1177,7 @@ export function ShopAttendancePage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_auto] lg:items-end">
+                  <div className="grid gap-3 lg:grid-cols-[minmax(260px,1fr)] lg:items-end">
                     <div className="relative space-y-2">
                       <Label htmlFor="studentSearch">Find student</Label>
                       <Input
@@ -1152,12 +1226,6 @@ export function ShopAttendancePage() {
                         </div>
                       )}
                     </div>
-                    <Button asChild variant="outline">
-                      <Link to="/shop">
-                        <ArrowLeftRight className="size-4" />
-                        Shop
-                      </Link>
-                    </Button>
                   </div>
                   {selectedStudentUserId && (showRecordsRoute || showReportsRoute) && (
                     <>
@@ -1534,18 +1602,6 @@ export function ShopAttendancePage() {
                 <TabsTrigger value="live">
                   <Users className="size-4" />
                   Live
-                </TabsTrigger>
-                <TabsTrigger value="review" asChild>
-                  <Link to="/shop/review">
-                    <ShieldCheck className="size-4" />
-                    Review
-                  </Link>
-                </TabsTrigger>
-                <TabsTrigger value="reports" asChild>
-                  <Link to="/shop/reports">
-                    <ClipboardList className="size-4" />
-                    Reports
-                  </Link>
                 </TabsTrigger>
               </>
             )}
