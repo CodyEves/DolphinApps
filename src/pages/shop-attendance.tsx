@@ -527,9 +527,11 @@ export function ShopAttendancePage() {
     try {
       if (action === "in") {
         await signInWithCode({ code });
+        setAttendanceCode("");
         toast.success("Signed in to the shop");
       } else {
         await signOutWithCode({ code });
+        setAttendanceCode("");
         toast.success("Signed out of the shop");
       }
     } catch (error) {

@@ -162,6 +162,19 @@ async function validCodeForActiveSession(
   return { session, codeHash };
 }
 
+async function validCodeGeneratedAfter(
+  ctx: QueryCtx | MutationCtx,
+  codeHash: string,
+  timestamp: number,
+) {
+  const code = await ctx.db
+    .query("shopCodes")
+    .withIndex("by_code_hash", (q) => q.eq("codeHash", codeHash))
+    .first();
+
+  return !!code && code.createdAt > timestamp;
+}
+
 async function activeProfileForUser(
   ctx: QueryCtx | MutationCtx,
   userId: Id<"users">,
@@ -232,6 +245,10 @@ async function signOutUser(
 
   if (!existing || existing.shopSessionId !== session._id) {
     throw new Error("You do not have an open shop sign-in.");
+  }
+
+  if (!(await validCodeGeneratedAfter(ctx, codeHash, existing.signInAt))) {
+    throw new Error("Use a fresh shop code to sign out.");
   }
 
   const now = Date.now();
