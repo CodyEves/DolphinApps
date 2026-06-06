@@ -73,7 +73,7 @@ const managementNavItems: NavItem[] = [
   { href: "/management", label: "Overview", icon: SlidersHorizontal, adminOnly: true },
   { href: "/management/reviews", label: "Reviews", icon: ClipboardCheck, adminOnly: true },
   { href: "/management/people", label: "People", icon: Users, adminOnly: true },
-  { href: "/management/lms", label: "Training Admin", icon: BookOpen, adminOnly: true },
+  { href: "/management/lms", label: "Learning Admin", icon: BookOpen, adminOnly: true },
   { href: "/management/badges", label: "Badge Admin", icon: Award, adminOnly: true },
   { href: "/management/team", label: "Team Info", icon: ShieldCheck, adminOnly: true },
   { href: "/management/paperwork", label: "Paperwork", icon: FileCheck, adminOnly: true },
@@ -160,9 +160,9 @@ export function Sidebar() {
               to="/"
               className="min-w-0 flex-1 rounded-md px-2 py-1 outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
             >
-              <p className="truncate text-sm font-semibold">Dolphin Apps</p>
+              <p className="truncate text-sm font-semibold">Apps</p>
               <p className="truncate text-xs text-muted-foreground">
-                Team workspace
+                Home
               </p>
             </Link>
           )}
@@ -192,7 +192,7 @@ export function MobileNav() {
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const { activeProgramMeta } = useProgramView();
   const appLabel = location.pathname.startsWith("/management") || location.pathname.startsWith("/admin")
-    ? "Dolphin Management"
+    ? "Management"
     : location.pathname.startsWith("/parts")
     ? activeProgramMeta.partsTitle
     : activeProgramMeta.trainingTitle;

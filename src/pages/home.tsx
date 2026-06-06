@@ -33,7 +33,7 @@ export function HomePage() {
       description: "Lessons, safety training, equipment sign-offs, badges, and mentor reviews.",
       href: "/dashboard",
       icon: GraduationCap,
-      label: `Team ${activeProgramMeta.teamNumber}`,
+      label: "Courses",
       enabled: true,
     },
     {
@@ -45,7 +45,7 @@ export function HomePage() {
       enabled: true,
     },
     {
-      title: "Dolphin Management",
+      title: "Management",
       description: "Accounts, rosters, access, LMS content, badges, team information, and future paperwork tools.",
       href: "/management",
       icon: Settings,
@@ -59,14 +59,14 @@ export function HomePage() {
       <section className="space-y-4">
         <Badge variant="secondary" className="w-fit">
           <Grid3X3 className="size-3.5" />
-          Dolphin Apps
+          Apps
         </Badge>
         <div className="space-y-3">
           <h1 className="max-w-3xl text-3xl font-semibold tracking-normal text-brand-navy dark:text-foreground sm:text-4xl">
-            Choose your Robot Dolphins workspace
+            Choose an app
           </h1>
           <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-            One place for team training, robot build tracking, and program management.
+            Open learning, parts, management, and other tools from one place.
           </p>
         </div>
       </section>

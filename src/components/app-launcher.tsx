@@ -62,7 +62,7 @@ const apps: LauncherApp[] = [
   {
     href: "/management",
     titleKey: "trainingTitle",
-    title: "Dolphin Management",
+    title: "Management",
     description: "Accounts, rosters, admin",
     icon: Settings,
     iconClassName: "bg-brand-navy text-white",
@@ -118,7 +118,7 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
                 {activeAppName}
               </span>
               <span className="block truncate text-xs font-normal text-muted-foreground">
-                Dolphin Apps
+                Apps
               </span>
             </span>
           )}
@@ -130,7 +130,7 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
         className="w-[calc(100vw-2rem)] max-w-80 p-3"
       >
         <DropdownMenuLabel className="px-1 pb-2 pt-0 text-xs text-muted-foreground">
-          Dolphin apps
+          Apps
         </DropdownMenuLabel>
         <div className="grid grid-cols-2 gap-2">
           {visibleApps.map((app) => {

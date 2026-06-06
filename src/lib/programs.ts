@@ -18,18 +18,18 @@ export const programMeta: Record<
   frc_5199: {
     teamNumber: "5199",
     studentLabel: "5199 Varsity",
-    trainingTitle: "5199 Training",
-    trainingDescription: "Team 5199 training, safety, badges, and sign-offs",
-    partsTitle: "5199 Parts",
-    partsDescription: "Team 5199 parts, BOM, manufacturing, transmissions, and orders",
+    trainingTitle: "Learning",
+    trainingDescription: "Lessons, safety, badges, and sign-offs",
+    partsTitle: "Parts",
+    partsDescription: "Parts, BOM, manufacturing, transmissions, and orders",
   },
   frc_9271: {
     teamNumber: "9271",
     studentLabel: "9271 Junior Varsity",
-    trainingTitle: "9271 Training",
-    trainingDescription: "Team 9271 training, safety, badges, and sign-offs",
-    partsTitle: "9271 Parts",
-    partsDescription: "Team 9271 parts, BOM, manufacturing, transmissions, and orders",
+    trainingTitle: "Learning",
+    trainingDescription: "Lessons, safety, badges, and sign-offs",
+    partsTitle: "Parts",
+    partsDescription: "Parts, BOM, manufacturing, transmissions, and orders",
   },
 };
 

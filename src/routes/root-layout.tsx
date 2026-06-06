@@ -14,14 +14,14 @@ function currentAppCopy(pathname: string, program: Program = "frc_5199") {
 
   if (pathname === "/") {
     return {
-      title: "Dolphin Apps",
-      description: "Choose a team workspace.",
+      title: "Apps",
+      description: "Choose an app.",
     };
   }
 
   if (pathname.startsWith("/management") || pathname.startsWith("/admin")) {
     return {
-      title: "Dolphin Management",
+      title: "Management",
       description: "Accounts, rosters, content, badges, and team operations.",
     };
   }

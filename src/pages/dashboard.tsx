@@ -13,7 +13,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { useProgramView } from "@/hooks/use-program-view";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
@@ -54,7 +53,6 @@ export function DashboardPage() {
     isAuthenticated ? {} : "skip",
   );
   const role = useEffectiveRole(viewer?.profile.role);
-  const { activeProgramMeta } = useProgramView();
   const canReview = role === "admin" || role === "mentor" || role === "instructor";
   const reviewQueue = useQuery(
     api.adminLms.listReviewQueue,
@@ -123,7 +121,7 @@ export function DashboardPage() {
     <div className="mx-auto max-w-6xl">
       <PageHeading
         eyebrow="Dashboard"
-        title={`${activeProgramMeta.teamNumber} training overview`}
+        title="Learning overview"
         description="Review your training, equipment approvals, and badge progress."
         actions={<Badge variant="outline">Current role: {role}</Badge>}
       />

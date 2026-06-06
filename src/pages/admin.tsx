@@ -34,7 +34,7 @@ export function AdminPage() {
     <div className="mx-auto max-w-6xl">
       <PageHeading
         eyebrow="Admin"
-        title="Dolphin Management"
+        title="Management"
         description="Manage accounts, rosters, training content, badges, reviews, and team operations."
         actions={
           <Badge variant={isAdmin ? "default" : "outline"}>
@@ -100,14 +100,14 @@ export function AdminPage() {
               <Card>
                 <CardHeader>
                   <Database className="size-5 text-primary" />
-                  <CardTitle>Dolphin Training</CardTitle>
+                  <CardTitle>Learning Admin</CardTitle>
                   <CardDescription>
                     Manage tracks, units, lessons, quizzes, badges, and equipment.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Button asChild variant="outline">
-                    <Link to="/management/lms">Open Dolphin Training</Link>
+                    <Link to="/management/lms">Open learning admin</Link>
                   </Button>
                 </CardContent>
               </Card>
