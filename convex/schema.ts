@@ -134,6 +134,11 @@ const attendanceSource = v.union(
   v.literal("web"),
   v.literal("manual"),
 );
+const shopScheduleEntry = v.object({
+  dayOfWeek: v.number(),
+  isActive: v.boolean(),
+  startMinutes: v.number(),
+});
 
 export default defineSchema({
   ...authTables,
@@ -553,7 +558,7 @@ export default defineSchema({
   shopSessions: defineTable({
     title: v.optional(v.string()),
     status: shopSessionStatus,
-    openedBy: v.id("users"),
+    openedBy: v.optional(v.id("users")),
     openedAt: v.number(),
     closedBy: v.optional(v.id("users")),
     closedAt: v.optional(v.number()),
@@ -563,6 +568,16 @@ export default defineSchema({
   })
     .index("by_status", ["status"])
     .index("by_opened_at", ["openedAt"]),
+
+  shopScheduleSettings: defineTable({
+    key: v.string(),
+    isEnabled: v.boolean(),
+    schedule: v.array(shopScheduleEntry),
+    lastAutoStartKey: v.optional(v.string()),
+    updatedBy: v.optional(v.id("users")),
+    updatedAt: v.number(),
+    createdAt: v.number(),
+  }).index("by_key", ["key"]),
 
   shopCodes: defineTable({
     shopSessionId: v.id("shopSessions"),

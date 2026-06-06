@@ -69,6 +69,29 @@ type CanvasCaptureTrack = MediaStreamTrack & {
 type PictureInPictureVideo = HTMLVideoElement & {
   requestPictureInPicture?: () => Promise<unknown>;
 };
+type ShopScheduleEntry = {
+  dayOfWeek: number;
+  isActive: boolean;
+  startMinutes: number;
+};
+
+const SHOP_DAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+function defaultWeeklySchedule(): ShopScheduleEntry[] {
+  return SHOP_DAYS.map((_, dayOfWeek) => ({
+    dayOfWeek,
+    isActive: false,
+    startMinutes: 15 * 60,
+  }));
+}
 
 function formatTime(value?: number) {
   return value ? new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "-";
@@ -101,6 +124,19 @@ function toDateTimeLocal(value?: number) {
 
 function fromDateTimeLocal(value: string) {
   return new Date(value).getTime();
+}
+
+function minutesToTimeInput(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+function timeInputToMinutes(value: string) {
+  const [hours = "0", minutes = "0"] = value.split(":");
+
+  return Number(hours) * 60 + Number(minutes);
 }
 
 async function sha256Hex(value: string) {
@@ -406,6 +442,10 @@ export function ShopAttendancePage() {
     api.shopAttendance.listPeopleForManualAttendance,
     isAuthenticated && canManage ? {} : "skip",
   );
+  const scheduleSettings = useQuery(
+    api.shopAttendance.getShopScheduleSettings,
+    isAuthenticated && canManage ? {} : "skip",
+  );
   const slackLink = useQuery(api.shopAttendance.mySlackLink, isAuthenticated ? {} : "skip");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -438,6 +478,7 @@ export function ShopAttendancePage() {
       : "skip",
   );
   const startShopSession = useMutation(api.shopAttendance.startShopSession);
+  const startShopSessionFromDisplay = useMutation(api.shopAttendance.startShopSessionFromDisplay);
   const endShopSession = useMutation(api.shopAttendance.endShopSession);
   const generateCode = useMutation(api.shopAttendance.generateOrReadCurrentCode);
   const signInWithCode = useMutation(api.shopAttendance.signInWithCode);
@@ -445,6 +486,7 @@ export function ShopAttendancePage() {
   const reviewAttendance = useMutation(api.shopAttendance.reviewAttendanceSession);
   const deleteAttendance = useMutation(api.shopAttendance.deleteAttendanceSession);
   const createManualAttendance = useMutation(api.shopAttendance.createManualAttendanceSession);
+  const updateScheduleSettings = useMutation(api.shopAttendance.updateShopScheduleSettings);
   const notifyClosed = useAction(api.shopSlack.notifyShopSessionClosed);
   const [shopTitle, setShopTitle] = useState("");
   const [closingNote, setClosingNote] = useState("");
@@ -457,6 +499,9 @@ export function ShopAttendancePage() {
   const [manualIn, setManualIn] = useState("");
   const [manualOut, setManualOut] = useState("");
   const [manualNote, setManualNote] = useState("");
+  const [scheduleEnabledDraft, setScheduleEnabledDraft] = useState<boolean | null>(null);
+  const [scheduleDraft, setScheduleDraft] = useState<ShopScheduleEntry[] | null>(null);
+  const [isSavingSchedule, setIsSavingSchedule] = useState(false);
   const [now, setNow] = useState(0);
   const [attendanceCode, setAttendanceCode] = useState(
     searchParams.get("code")?.trim().toUpperCase() ?? "",
@@ -480,6 +525,9 @@ export function ShopAttendancePage() {
   const showDisplayRoute = location.pathname.endsWith("/display") && canDisplayRole;
   const displayCurrentCount = displayStats?.currentCount ?? current?.openCount ?? 0;
   const displayPeakToday = displayStats?.peakToday ?? displayCurrentCount;
+  const scheduleForm = scheduleDraft ?? scheduleSettings?.schedule ?? defaultWeeklySchedule();
+  const scheduleEnabled = scheduleEnabledDraft ?? scheduleSettings?.isEnabled ?? false;
+  const scheduleHasChanges = scheduleDraft !== null || scheduleEnabledDraft !== null;
   pipFrameDataRef.current = {
     code: activeDisplayCode,
     secondsRemaining: codeSecondsRemaining,
@@ -669,6 +717,15 @@ export function ShopAttendancePage() {
     }
   }
 
+  async function handleDisplayStartSession() {
+    try {
+      await startShopSessionFromDisplay({});
+      toast.success("Shop session started");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not start shop session");
+    }
+  }
+
   async function handleEndSession() {
     try {
       const result = await endShopSession({ note: closingNote.trim() || undefined });
@@ -737,6 +794,36 @@ export function ShopAttendancePage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not add attendance");
     }
+  }
+
+  async function handleSaveSchedule() {
+    const schedule = scheduleDraft ?? scheduleSettings?.schedule ?? defaultWeeklySchedule();
+    const isEnabled = scheduleEnabledDraft ?? scheduleSettings?.isEnabled ?? false;
+
+    setIsSavingSchedule(true);
+
+    try {
+      await updateScheduleSettings({ isEnabled, schedule });
+      setScheduleDraft(null);
+      setScheduleEnabledDraft(null);
+      toast.success("Shop schedule saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save shop schedule");
+    } finally {
+      setIsSavingSchedule(false);
+    }
+  }
+
+  function updateScheduleDay(dayOfWeek: number, patch: Partial<ShopScheduleEntry>) {
+    const base = scheduleDraft ?? scheduleSettings?.schedule ?? defaultWeeklySchedule();
+
+    setScheduleDraft(
+      defaultWeeklySchedule().map((fallback) => {
+        const existing = base.find((entry) => entry.dayOfWeek === fallback.dayOfWeek) ?? fallback;
+
+        return existing.dayOfWeek === dayOfWeek ? { ...existing, ...patch } : existing;
+      }),
+    );
   }
 
   async function handleStudentAttendance(action: "in" | "out") {
@@ -1366,6 +1453,12 @@ export function ShopAttendancePage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-3">
+                  {!current?.session && canDisplayRole && (
+                    <Button type="button" onClick={() => void handleDisplayStartSession()}>
+                      <Clock className="size-4" />
+                      Start session
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     variant="outline"
@@ -1480,23 +1573,30 @@ export function ShopAttendancePage() {
                       <CardTitle>Shop session</CardTitle>
                       <CardDescription>
                         {current?.session
-                          ? `Opened ${formatDateTime(current.session.openedAt)}`
+                          ? `Opened ${formatDateTime(current.session.openedAt)}. Auto-closes ${formatDateTime(current.autoClosesAt)}.`
                           : "No active shop session."}
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {!current?.session && canManage ? (
-                        <form onSubmit={handleStartSession} className="flex flex-col gap-3 sm:flex-row">
-                          <Input
-                            value={shopTitle}
-                            onChange={(event) => setShopTitle(event.target.value)}
-                            placeholder="Optional session title"
-                          />
-                          <Button type="submit">
+                      {!current?.session ? (
+                        canManage ? (
+                          <form onSubmit={handleStartSession} className="flex flex-col gap-3 sm:flex-row">
+                            <Input
+                              value={shopTitle}
+                              onChange={(event) => setShopTitle(event.target.value)}
+                              placeholder="Optional session title"
+                            />
+                            <Button type="submit">
+                              <Clock className="size-4" />
+                              Start session
+                            </Button>
+                          </form>
+                        ) : (
+                          <Button type="button" onClick={() => void handleDisplayStartSession()}>
                             <Clock className="size-4" />
                             Start session
                           </Button>
-                        </form>
+                        )
                       ) : current?.session && canManage ? (
                         <div className="space-y-4">
                           <div className="grid gap-3 sm:grid-cols-3">
@@ -1525,13 +1625,83 @@ export function ShopAttendancePage() {
                         </div>
                       ) : (
                         <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                          {current?.session
-                            ? "This kiosk can display the code, but only mentors and admins can close or review sessions."
-                            : "No active shop session. Ask a mentor to start one from a manager account."}
+                          This kiosk can display the code, but only mentors and admins can close or review sessions.
                         </div>
                       )}
                     </CardContent>
                   </Card>
+
+                  {canManage && (
+                    <Card>
+                      <CardHeader>
+                        <Clock className="size-5 text-primary" />
+                        <CardTitle>Scheduled starts</CardTitle>
+                        <CardDescription>Automatically start shop sessions from a weekly schedule.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
+                          <input
+                            type="checkbox"
+                            className="size-4"
+                            checked={scheduleEnabled}
+                            onChange={(event) => setScheduleEnabledDraft(event.target.checked)}
+                          />
+                          <span className="font-medium">Enable scheduled starts</span>
+                        </label>
+                        <div className="grid gap-2">
+                          {scheduleForm.map((entry) => (
+                            <div
+                              key={entry.dayOfWeek}
+                              className="grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_130px] sm:items-center"
+                            >
+                              <label className="flex items-center gap-3 text-sm">
+                                <input
+                                  type="checkbox"
+                                  className="size-4"
+                                  checked={entry.isActive}
+                                  onChange={(event) =>
+                                    updateScheduleDay(entry.dayOfWeek, { isActive: event.target.checked })
+                                  }
+                                />
+                                <span className="font-medium">{SHOP_DAYS[entry.dayOfWeek]}</span>
+                              </label>
+                              <Input
+                                type="time"
+                                value={minutesToTimeInput(entry.startMinutes)}
+                                disabled={!entry.isActive}
+                                onChange={(event) =>
+                                  updateScheduleDay(entry.dayOfWeek, {
+                                    startMinutes: timeInputToMinutes(event.target.value),
+                                  })
+                                }
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            onClick={() => void handleSaveSchedule()}
+                            disabled={isSavingSchedule || !scheduleHasChanges}
+                          >
+                            {isSavingSchedule ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                            Save schedule
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            disabled={!scheduleHasChanges}
+                            onClick={() => {
+                              setScheduleDraft(null);
+                              setScheduleEnabledDraft(null);
+                            }}
+                          >
+                            Reset
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
                   <Card>
                     <CardHeader>

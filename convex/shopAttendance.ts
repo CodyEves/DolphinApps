@@ -11,8 +11,24 @@ const attendanceStatusValidator = v.union(
   v.literal("needs_review"),
   v.literal("void"),
 );
+const shopScheduleEntryValidator = v.object({
+  dayOfWeek: v.number(),
+  isActive: v.boolean(),
+  startMinutes: v.number(),
+});
 
 const SHOP_TIME_ZONE = "America/Los_Angeles";
+const SHOP_SCHEDULE_KEY = "main";
+const AUTO_CLOSE_HOUR = 5;
+const SCHEDULE_CHECK_WINDOW_MINUTES = 10;
+
+function defaultShopSchedule() {
+  return [0, 1, 2, 3, 4, 5, 6].map((dayOfWeek) => ({
+    dayOfWeek,
+    isActive: false,
+    startMinutes: 15 * 60,
+  }));
+}
 
 async function sha256Hex(value: string) {
   const bytes = new TextEncoder().encode(value.trim().toUpperCase());
@@ -122,6 +138,34 @@ function shopWeekBounds(timestamp = Date.now()) {
   };
 }
 
+function shopLocalDayKey(timestamp = Date.now()) {
+  const parts = zonedParts(timestamp);
+
+  return `${parts.year}-${String(parts.month).padStart(2, "0")}-${String(parts.day).padStart(2, "0")}`;
+}
+
+function shopLocalWeekday(timestamp = Date.now()) {
+  const weekdayText = new Intl.DateTimeFormat("en-US", {
+    timeZone: SHOP_TIME_ZONE,
+    weekday: "short",
+  }).format(new Date(timestamp));
+
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(weekdayText);
+}
+
+function shopLocalMinutes(timestamp = Date.now()) {
+  const parts = zonedParts(timestamp);
+
+  return parts.hour * 60 + parts.minute;
+}
+
+function shopAutoCloseAt(openedAt: number) {
+  const opened = zonedParts(openedAt);
+  const nextDay = addLocalDays(opened, 1);
+
+  return zonedDateTimeToUtcMs(nextDay.year, nextDay.month, nextDay.day, AUTO_CLOSE_HOUR);
+}
+
 function intervalMinutesWithin(
   item: Pick<Doc<"attendanceSessions">, "signInAt" | "signOutAt" | "status">,
   from: number,
@@ -207,6 +251,64 @@ async function activeShopSession(ctx: QueryCtx | MutationCtx) {
   return await ctx.db
     .query("shopSessions")
     .withIndex("by_status", (q) => q.eq("status", "active"))
+    .first();
+}
+
+async function closeShopSession(
+  ctx: MutationCtx,
+  args: {
+    session: Doc<"shopSessions">;
+    closedAt: number;
+    closedBy?: Id<"users">;
+    note?: string;
+    reviewNote: string;
+  },
+) {
+  const openAttendance = await ctx.db
+    .query("attendanceSessions")
+    .withIndex("by_session_status", (q) =>
+      q.eq("shopSessionId", args.session._id).eq("status", "open"),
+    )
+    .collect();
+
+  for (const item of openAttendance) {
+    await ctx.db.patch(item._id, {
+      status: "needs_review",
+      signOutAt: args.closedAt,
+      ...(args.closedBy ? { reviewedBy: args.closedBy } : {}),
+      reviewedAt: args.closedAt,
+      reviewNote: args.reviewNote,
+      updatedAt: args.closedAt,
+    });
+  }
+
+  await ctx.db.patch(args.session._id, {
+    status: "closed",
+    ...(args.closedBy ? { closedBy: args.closedBy } : {}),
+    closedAt: args.closedAt,
+    closingNote: args.note,
+    updatedAt: args.closedAt,
+  });
+
+  const completed = await ctx.db
+    .query("attendanceSessions")
+    .withIndex("by_session_status", (q) =>
+      q.eq("shopSessionId", args.session._id).eq("status", "complete"),
+    )
+    .collect();
+
+  return {
+    shopSessionId: args.session._id,
+    closedAt: args.closedAt,
+    completedCount: completed.length,
+    flaggedCount: openAttendance.length,
+  };
+}
+
+async function shopScheduleSettings(ctx: QueryCtx | MutationCtx) {
+  return await ctx.db
+    .query("shopScheduleSettings")
+    .withIndex("by_key", (q) => q.eq("key", SHOP_SCHEDULE_KEY))
     .first();
 }
 
@@ -409,6 +511,7 @@ export const currentShopSession = query({
 
     return {
       session,
+      autoClosesAt: shopAutoCloseAt(session.openedAt),
       openCount: open.length,
       needsReviewCount: needsReview.length,
       canManage: canManageShop(profile),
@@ -443,6 +546,29 @@ export const startShopSession = mutation({
   },
 });
 
+export const startShopSessionFromDisplay = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const displayAccount = await requireShopCodeDisplay(ctx);
+    const existing = await activeShopSession(ctx);
+
+    if (existing) {
+      throw new Error("A shop session is already active.");
+    }
+
+    const now = Date.now();
+
+    return await ctx.db.insert("shopSessions", {
+      title: "Shop session",
+      status: "active",
+      openedBy: displayAccount.userId,
+      openedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
 export const endShopSession = mutation({
   args: {
     note: v.optional(v.string()),
@@ -455,46 +581,13 @@ export const endShopSession = mutation({
       throw new Error("There is no active shop session.");
     }
 
-    const now = Date.now();
-    const openAttendance = await ctx.db
-      .query("attendanceSessions")
-      .withIndex("by_session_status", (q) =>
-        q.eq("shopSessionId", session._id).eq("status", "open"),
-      )
-      .collect();
-
-    for (const item of openAttendance) {
-      await ctx.db.patch(item._id, {
-        status: "needs_review",
-        signOutAt: now,
-        reviewedBy: manager.userId,
-        reviewedAt: now,
-        reviewNote: "Auto-closed when the shop session ended.",
-        updatedAt: now,
-      });
-    }
-
-    await ctx.db.patch(session._id, {
-      status: "closed",
+    return await closeShopSession(ctx, {
+      session,
+      closedAt: Date.now(),
       closedBy: manager.userId,
-      closedAt: now,
-      closingNote: args.note?.trim() || undefined,
-      updatedAt: now,
+      note: args.note?.trim() || undefined,
+      reviewNote: "Closed when the shop session ended.",
     });
-
-    const completed = await ctx.db
-      .query("attendanceSessions")
-      .withIndex("by_session_status", (q) =>
-        q.eq("shopSessionId", session._id).eq("status", "complete"),
-      )
-      .collect();
-
-    return {
-      shopSessionId: session._id,
-      closedAt: now,
-      completedCount: completed.length,
-      flaggedCount: openAttendance.length,
-    };
   },
 });
 
@@ -689,6 +782,65 @@ export const listHoursReport = query({
   },
 });
 
+export const getShopScheduleSettings = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireShopManager(ctx);
+    const settings = await shopScheduleSettings(ctx);
+
+    return {
+      isEnabled: settings?.isEnabled ?? false,
+      schedule: settings?.schedule ?? defaultShopSchedule(),
+      updatedAt: settings?.updatedAt,
+    };
+  },
+});
+
+export const updateShopScheduleSettings = mutation({
+  args: {
+    isEnabled: v.boolean(),
+    schedule: v.array(shopScheduleEntryValidator),
+  },
+  handler: async (ctx, args) => {
+    const manager = await requireShopManager(ctx);
+    const normalized = defaultShopSchedule().map((fallback) => {
+      const entry = args.schedule.find((item) => item.dayOfWeek === fallback.dayOfWeek);
+      const startMinutes = Math.max(
+        0,
+        Math.min(23 * 60 + 59, Math.round(entry?.startMinutes ?? fallback.startMinutes)),
+      );
+
+      return {
+        dayOfWeek: fallback.dayOfWeek,
+        isActive: entry?.isActive ?? fallback.isActive,
+        startMinutes,
+      };
+    });
+    const existing = await shopScheduleSettings(ctx);
+    const now = Date.now();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        isEnabled: args.isEnabled,
+        schedule: normalized,
+        updatedBy: manager.userId,
+        updatedAt: now,
+      });
+
+      return existing._id;
+    }
+
+    return await ctx.db.insert("shopScheduleSettings", {
+      key: SHOP_SCHEDULE_KEY,
+      isEnabled: args.isEnabled,
+      schedule: normalized,
+      updatedBy: manager.userId,
+      updatedAt: now,
+      createdAt: now,
+    });
+  },
+});
+
 export const shopDisplayStats = query({
   args: {},
   handler: async (ctx) => {
@@ -759,6 +911,60 @@ export const shopDisplayStats = query({
       weekStartsAt: week.start,
       weekEndsAt: week.end,
     };
+  },
+});
+
+export const runShopAutomation = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    let active = await activeShopSession(ctx);
+    let autoClosed = false;
+    let autoStarted = false;
+
+    if (active && now >= shopAutoCloseAt(active.openedAt)) {
+      await closeShopSession(ctx, {
+        session: active,
+        closedAt: now,
+        note: "Auto-closed at the 5:00 AM shop cutoff.",
+        reviewNote: "Auto-closed at the 5:00 AM shop cutoff.",
+      });
+      autoClosed = true;
+      active = null;
+    }
+
+    const settings = await shopScheduleSettings(ctx);
+
+    if (settings?.isEnabled && !active) {
+      const dayOfWeek = shopLocalWeekday(now);
+      const localMinutes = shopLocalMinutes(now);
+      const entry = settings.schedule.find((item) => item.dayOfWeek === dayOfWeek);
+
+      if (
+        entry?.isActive &&
+        localMinutes >= entry.startMinutes &&
+        localMinutes < entry.startMinutes + SCHEDULE_CHECK_WINDOW_MINUTES
+      ) {
+        const startKey = `${shopLocalDayKey(now)}-${entry.dayOfWeek}-${entry.startMinutes}`;
+
+        if (settings.lastAutoStartKey !== startKey) {
+          await ctx.db.insert("shopSessions", {
+            title: "Scheduled shop session",
+            status: "active",
+            openedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          });
+          await ctx.db.patch(settings._id, {
+            lastAutoStartKey: startKey,
+            updatedAt: now,
+          });
+          autoStarted = true;
+        }
+      }
+    }
+
+    return { autoClosed, autoStarted };
   },
 });
 

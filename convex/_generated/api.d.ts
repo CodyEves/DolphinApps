@@ -13,6 +13,7 @@ import type * as adminLms from "../adminLms.js";
 import type * as auth from "../auth.js";
 import type * as badges from "../badges.js";
 import type * as catalog from "../catalog.js";
+import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as demo from "../demo.js";
 import type * as equipment from "../equipment.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   badges: typeof badges;
   catalog: typeof catalog;
+  crons: typeof crons;
   dashboard: typeof dashboard;
   demo: typeof demo;
   equipment: typeof equipment;
