@@ -13,7 +13,6 @@ import {
   Loader2,
   LockKeyhole,
   Maximize2,
-  MessageSquare,
   Monitor,
   PictureInPicture,
   Plus,
@@ -512,7 +511,6 @@ export function ShopAttendancePage() {
     api.shopAttendance.getShopScheduleSettings,
     isAuthenticated && canManage ? {} : "skip",
   );
-  const slackLink = useQuery(api.shopAttendance.mySlackLink, isAuthenticated ? {} : "skip");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [studentSearch, setStudentSearch] = useState("");
@@ -1603,18 +1601,16 @@ export function ShopAttendancePage() {
                   <Users className="size-4" />
                   Live
                 </TabsTrigger>
+                <TabsTrigger value="schedule">
+                  <Clock className="size-4" />
+                  Schedule
+                </TabsTrigger>
               </>
             )}
             {canUseStudentCheckIn && (
               <TabsTrigger value="checkin">
                 <QrCode className="size-4" />
                 Check in/out
-              </TabsTrigger>
-            )}
-            {canUseStudentCheckIn && (
-              <TabsTrigger value="slack">
-                <MessageSquare className="size-4" />
-                Slack
               </TabsTrigger>
             )}
           </TabsList>
@@ -1687,91 +1683,6 @@ export function ShopAttendancePage() {
                     </CardContent>
                   </Card>
 
-                  {canManage && (
-                    <Card>
-                      <CardHeader>
-                        <Clock className="size-5 text-primary" />
-                        <CardTitle>Scheduled starts</CardTitle>
-                        <CardDescription>Automatically start shop sessions from a weekly schedule.</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
-                          <input
-                            type="checkbox"
-                            className="size-4"
-                            checked={scheduleEnabled}
-                            onChange={(event) => setScheduleEnabledDraft(event.target.checked)}
-                          />
-                          <span className="font-medium">Enable scheduled starts</span>
-                        </label>
-                        <div className="grid gap-2">
-                          {scheduleForm.map((entry) => (
-                            <div
-                              key={entry.dayOfWeek}
-                              className="grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_130px] sm:items-center"
-                            >
-                              <label className="flex items-center gap-3 text-sm">
-                                <input
-                                  type="checkbox"
-                                  className="size-4"
-                                  checked={entry.isActive}
-                                  onChange={(event) =>
-                                    updateScheduleDay(entry.dayOfWeek, { isActive: event.target.checked })
-                                  }
-                                />
-                                <span className="font-medium">{SHOP_DAYS[entry.dayOfWeek]}</span>
-                              </label>
-                              <Input
-                                type="time"
-                                value={minutesToTimeInput(entry.startMinutes)}
-                                disabled={!entry.isActive}
-                                onChange={(event) =>
-                                  updateScheduleDay(entry.dayOfWeek, {
-                                    startMinutes: timeInputToMinutes(event.target.value),
-                                  })
-                                }
-                              />
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            onClick={() => void handleSaveSchedule()}
-                            disabled={isSavingSchedule || !scheduleHasChanges}
-                          >
-                            {isSavingSchedule ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                            Save schedule
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={!scheduleHasChanges}
-                            onClick={() => {
-                              setScheduleDraft(null);
-                              setScheduleEnabledDraft(null);
-                            }}
-                          >
-                            Reset
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-
-                  <Card>
-                    <CardHeader>
-                      <MessageSquare className="size-5 text-primary" />
-                      <CardTitle>Slack command</CardTitle>
-                      <CardDescription>Students use the current code with the shop command.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-md border bg-muted/30 p-4 font-mono text-sm">/shop in {activeDisplayCode || "CODE"}</div>
-                        <div className="rounded-md border bg-muted/30 p-4 font-mono text-sm">/shop out {activeDisplayCode || "CODE"}</div>
-                      </div>
-                    </CardContent>
-                  </Card>
                 </section>
 
                 <Card>
@@ -1829,6 +1740,80 @@ export function ShopAttendancePage() {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+          )}
+
+          {canManage && (
+            <TabsContent value="schedule">
+              <Card>
+                <CardHeader>
+                  <Clock className="size-5 text-primary" />
+                  <CardTitle>Scheduled starts</CardTitle>
+                  <CardDescription>Automatically start shop sessions from a weekly schedule.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <label className="flex items-center gap-3 rounded-md border p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      className="size-4"
+                      checked={scheduleEnabled}
+                      onChange={(event) => setScheduleEnabledDraft(event.target.checked)}
+                    />
+                    <span className="font-medium">Enable scheduled starts</span>
+                  </label>
+                  <div className="grid gap-2">
+                    {scheduleForm.map((entry) => (
+                      <div
+                        key={entry.dayOfWeek}
+                        className="grid gap-3 rounded-md border p-3 sm:grid-cols-[1fr_130px] sm:items-center"
+                      >
+                        <label className="flex items-center gap-3 text-sm">
+                          <input
+                            type="checkbox"
+                            className="size-4"
+                            checked={entry.isActive}
+                            onChange={(event) =>
+                              updateScheduleDay(entry.dayOfWeek, { isActive: event.target.checked })
+                            }
+                          />
+                          <span className="font-medium">{SHOP_DAYS[entry.dayOfWeek]}</span>
+                        </label>
+                        <Input
+                          type="time"
+                          value={minutesToTimeInput(entry.startMinutes)}
+                          disabled={!entry.isActive}
+                          onChange={(event) =>
+                            updateScheduleDay(entry.dayOfWeek, {
+                              startMinutes: timeInputToMinutes(event.target.value),
+                            })
+                          }
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => void handleSaveSchedule()}
+                      disabled={isSavingSchedule || !scheduleHasChanges}
+                    >
+                      {isSavingSchedule ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+                      Save schedule
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!scheduleHasChanges}
+                      onClick={() => {
+                        setScheduleDraft(null);
+                        setScheduleEnabledDraft(null);
+                      }}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           )}
 
@@ -2066,30 +2051,6 @@ export function ShopAttendancePage() {
             </TabsContent>
           )}
 
-          {canUseStudentCheckIn && (
-            <TabsContent value="slack">
-              <Card>
-                <CardHeader>
-                  <MessageSquare className="size-5 text-primary" />
-                  <CardTitle>Slack attendance</CardTitle>
-                  <CardDescription>
-                    {slackLink
-                      ? `Linked as ${slackLink.slackUserName ?? slackLink.slackUserId}.`
-                      : "Link Slack from your first shop command."}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-md border bg-muted/30 p-4 font-mono text-sm">/shop in CODE</div>
-                    <div className="rounded-md border bg-muted/30 p-4 font-mono text-sm">/shop out CODE</div>
-                  </div>
-                  <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                    The code comes from the shop screen and expires quickly.
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
         </Tabs>
         )}
       </Authenticated>
