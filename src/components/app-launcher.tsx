@@ -1,6 +1,7 @@
 import {
   GraduationCap,
   Grid3X3,
+  Home,
   Package,
   Settings,
   type LucideIcon,
@@ -28,14 +29,22 @@ type AppLauncherProps = {
 
 type LauncherApp = {
   href: string;
-  titleKey: "trainingTitle" | "partsTitle";
+  titleKey?: "trainingTitle" | "partsTitle";
   title?: string;
   description: string;
   icon: LucideIcon;
   iconClassName: string;
+  adminOnly?: boolean;
 };
 
 const apps: LauncherApp[] = [
+  {
+    href: "/",
+    title: "All apps",
+    description: "Home screen",
+    icon: Home,
+    iconClassName: "bg-primary text-primary-foreground",
+  },
   {
     href: "/dashboard",
     titleKey: "trainingTitle",
@@ -57,10 +66,15 @@ const apps: LauncherApp[] = [
     description: "Accounts, rosters, admin",
     icon: Settings,
     iconClassName: "bg-brand-navy text-white",
+    adminOnly: true,
   },
 ];
 
 function isActiveApp(pathname: string, href: string) {
+  if (href === "/") {
+    return pathname === "/";
+  }
+
   if (href === "/management") {
     return pathname.startsWith("/management") || pathname.startsWith("/admin");
   }
@@ -78,10 +92,10 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const { activeProgramMeta } = useProgramView();
-  const visibleApps = apps.filter((app) => app.href !== "/management" || effectiveRole === "admin");
+  const visibleApps = apps.filter((app) => !app.adminOnly || effectiveRole === "admin");
   const activeApp =
     visibleApps.find((app) => isActiveApp(location.pathname, app.href)) ?? visibleApps[0];
-  const activeAppName = activeApp.title ?? activeProgramMeta[activeApp.titleKey];
+  const activeAppName = activeApp.title ?? activeProgramMeta[activeApp.titleKey ?? "trainingTitle"];
 
   return (
     <DropdownMenu>
@@ -122,7 +136,7 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
           {visibleApps.map((app) => {
             const Icon = app.icon;
             const isActive = isActiveApp(location.pathname, app.href);
-            const title = app.title ?? activeProgramMeta[app.titleKey];
+            const title = app.title ?? activeProgramMeta[app.titleKey ?? "trainingTitle"];
 
             return (
               <Link

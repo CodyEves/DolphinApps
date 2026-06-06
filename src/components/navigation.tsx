@@ -18,7 +18,7 @@ import {
   Users,
   Wrench,
 } from "lucide-react";
-import { NavLink, useLocation } from "react-router";
+import { Link, NavLink, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -156,12 +156,15 @@ export function Sidebar() {
       <div className="flex h-full flex-col">
         <div className="flex h-12 items-center justify-between gap-2">
           {!collapsed && (
-            <div className="min-w-0 flex-1">
+            <Link
+              to="/"
+              className="min-w-0 flex-1 rounded-md px-2 py-1 outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
               <p className="truncate text-sm font-semibold">Dolphin Apps</p>
               <p className="truncate text-xs text-muted-foreground">
                 Team workspace
               </p>
-            </div>
+            </Link>
           )}
           <Button
             variant="ghost"
