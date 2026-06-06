@@ -24,7 +24,7 @@ export const roles = ["student", "mentor", "admin"] as const;
 export type PartStatus = (typeof partStatuses)[number];
 export type OrderStatus = (typeof orderStatuses)[number];
 export type Priority = (typeof priorities)[number];
-export type Role = "student" | "instructor" | "mentor" | "guest" | "admin";
+export type Role = "student" | "instructor" | "mentor" | "guest" | "kiosk" | "admin";
 
 export function formatPartNumber(letter: string, sequenceNumber: number) {
   return `${letter.toUpperCase()}-${String(sequenceNumber).padStart(3, "0")}`;

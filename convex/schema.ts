@@ -8,6 +8,7 @@ const role = v.union(
   v.literal("instructor"),
   v.literal("mentor"),
   v.literal("guest"),
+  v.literal("kiosk"),
   v.literal("admin"),
 );
 const activeStatus = v.union(v.literal("active"), v.literal("inactive"));
@@ -128,7 +129,11 @@ const attendanceStatus = v.union(
   v.literal("needs_review"),
   v.literal("void"),
 );
-const attendanceSource = v.union(v.literal("slack"), v.literal("manual"));
+const attendanceSource = v.union(
+  v.literal("slack"),
+  v.literal("web"),
+  v.literal("manual"),
+);
 
 export default defineSchema({
   ...authTables,
@@ -159,6 +164,7 @@ export default defineSchema({
       v.literal("jv_9271"),
       v.literal("mentor"),
       v.literal("guest"),
+      v.literal("kiosk"),
       v.literal("admin"),
     ),
     userId: v.optional(v.id("users")),

@@ -10,6 +10,7 @@ const accountLabelValidator = v.union(
   v.literal("jv_9271"),
   v.literal("mentor"),
   v.literal("guest"),
+  v.literal("kiosk"),
   v.literal("admin"),
 );
 
@@ -82,6 +83,10 @@ function profilePatchForAccount(account: {
 
   if (account.accountLabel === "guest") {
     return { role: "guest" as const, studentGroup: undefined, primaryProgram: undefined };
+  }
+
+  if (account.accountLabel === "kiosk") {
+    return { role: "kiosk" as const, studentGroup: undefined, primaryProgram: undefined };
   }
 
   const is9271 = account.accountLabel === "jv_9271";

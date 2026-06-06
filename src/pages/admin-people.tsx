@@ -44,8 +44,8 @@ import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
-type AccountLabel = "varsity_5199" | "jv_9271" | "mentor" | "guest" | "admin";
-type AccountRole = "student" | "mentor" | "guest" | "admin";
+type AccountLabel = "varsity_5199" | "jv_9271" | "mentor" | "guest" | "kiosk" | "admin";
+type AccountRole = "student" | "mentor" | "guest" | "kiosk" | "admin";
 type Program = "frc_5199" | "frc_9271";
 type AccountStatusFilter = "all" | "pending_setup" | "active" | "inactive";
 type AccountSort = "displayName" | "username" | "program" | "graduationYear" | "status";
@@ -55,6 +55,7 @@ const accountLabelText: Record<AccountLabel, string> = {
   jv_9271: "9271 Student",
   mentor: "Mentor",
   guest: "Guest",
+  kiosk: "Shop Kiosk",
   admin: "Admin",
 };
 
@@ -64,7 +65,12 @@ const programText: Record<Program, string> = {
 };
 
 function roleForAccountLabel(accountLabel: AccountLabel): AccountRole {
-  if (accountLabel === "mentor" || accountLabel === "guest" || accountLabel === "admin") {
+  if (
+    accountLabel === "mentor" ||
+    accountLabel === "guest" ||
+    accountLabel === "kiosk" ||
+    accountLabel === "admin"
+  ) {
     return accountLabel;
   }
 
@@ -104,7 +110,7 @@ function normalizeProgram(value: string | undefined): Program {
 function normalizeRole(value: string | undefined, accountLabel: AccountLabel): AccountRole {
   const normalized = (value ?? "").trim().toLowerCase();
 
-  if (normalized === "mentor" || normalized === "guest" || normalized === "admin") {
+  if (normalized === "mentor" || normalized === "guest" || normalized === "kiosk" || normalized === "admin") {
     return normalized;
   }
 
@@ -692,6 +698,7 @@ export function AdminPeoplePage() {
                           <SelectItem value="student">Students</SelectItem>
                           <SelectItem value="mentor">Mentors</SelectItem>
                           <SelectItem value="guest">Guests</SelectItem>
+                          <SelectItem value="kiosk">Shop kiosks</SelectItem>
                           <SelectItem value="admin">Admins</SelectItem>
                         </SelectContent>
                       </Select>
@@ -840,6 +847,7 @@ export function AdminPeoplePage() {
                                 <SelectItem value="student">Student</SelectItem>
                                 <SelectItem value="mentor">Mentor</SelectItem>
                                 <SelectItem value="guest">Guest</SelectItem>
+                                <SelectItem value="kiosk">Shop Kiosk</SelectItem>
                                 <SelectItem value="admin">Admin</SelectItem>
                               </SelectContent>
                             </Select>
@@ -977,6 +985,7 @@ export function AdminPeoplePage() {
                               <SelectItem value="student">Student</SelectItem>
                               <SelectItem value="mentor">Mentor</SelectItem>
                               <SelectItem value="guest">Guest</SelectItem>
+                              <SelectItem value="kiosk">Shop Kiosk</SelectItem>
                               <SelectItem value="admin">Admin</SelectItem>
                             </SelectContent>
                           </Select>
@@ -1181,6 +1190,7 @@ export function AdminPeoplePage() {
                               <SelectItem value="jv_9271">9271 Student</SelectItem>
                               <SelectItem value="mentor">Mentor</SelectItem>
                               <SelectItem value="guest">Guest</SelectItem>
+                              <SelectItem value="kiosk">Shop Kiosk</SelectItem>
                               <SelectItem value="admin">Admin</SelectItem>
                             </SelectContent>
                           </Select>

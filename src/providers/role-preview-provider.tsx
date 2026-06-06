@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 
-type Role = "student" | "instructor" | "mentor" | "guest" | "admin";
+type Role = "student" | "instructor" | "mentor" | "guest" | "kiosk" | "admin";
 export type RoleView = "actual" | "student" | "mentor" | "admin";
 
 const visibleRoleViews = ["student", "mentor", "admin"] as const;

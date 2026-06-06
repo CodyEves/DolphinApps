@@ -75,6 +75,29 @@ async function requireShopManager(ctx: QueryCtx | MutationCtx) {
   return profile;
 }
 
+function canManageShop(profile: Doc<"profiles"> | null) {
+  return (
+    profile?.status === "active" &&
+    (profile.role === "admin" ||
+      profile.role === "mentor" ||
+      profile.role === "instructor")
+  );
+}
+
+function canDisplayShopCode(profile: Doc<"profiles"> | null) {
+  return canManageShop(profile) || (profile?.status === "active" && profile.role === "kiosk");
+}
+
+async function requireShopCodeDisplay(ctx: QueryCtx | MutationCtx) {
+  const profile = await requireActiveProfile(ctx);
+
+  if (!canDisplayShopCode(profile)) {
+    throw new Error("Only shop display and mentor accounts can show attendance codes.");
+  }
+
+  return profile;
+}
+
 async function activeShopSession(ctx: QueryCtx | MutationCtx) {
   return await ctx.db
     .query("shopSessions")
@@ -159,7 +182,7 @@ async function signInUser(
   ctx: MutationCtx,
   args: {
     userId: Id<"users">;
-    source: "slack" | "manual";
+    source: "slack" | "web" | "manual";
     code: string;
     slackUserId?: string;
   },
@@ -240,10 +263,8 @@ export const currentShopSession = query({
         session: null,
         openCount: 0,
         needsReviewCount: 0,
-        canManage: profile
-          ? ["admin", "mentor", "instructor"].includes(profile.role) &&
-            profile.status === "active"
-          : false,
+        canManage: canManageShop(profile),
+        canDisplay: canDisplayShopCode(profile),
       };
     }
 
@@ -264,10 +285,8 @@ export const currentShopSession = query({
       session,
       openCount: open.length,
       needsReviewCount: needsReview.length,
-      canManage: profile
-        ? ["admin", "mentor", "instructor"].includes(profile.role) &&
-          profile.status === "active"
-        : false,
+      canManage: canManageShop(profile),
+      canDisplay: canDisplayShopCode(profile),
     };
   },
 });
@@ -359,7 +378,7 @@ export const generateOrReadCurrentCode = mutation({
     expiresAt: v.number(),
   },
   handler: async (ctx, args) => {
-    const manager = await requireShopManager(ctx);
+    const displayAccount = await requireShopCodeDisplay(ctx);
     const session = await activeShopSession(ctx);
     const now = Date.now();
 
@@ -381,7 +400,7 @@ export const generateOrReadCurrentCode = mutation({
         shopSessionId: session._id,
         codeHash: args.codeHash,
         expiresAt: args.expiresAt,
-        createdBy: manager.userId,
+        createdBy: displayAccount.userId,
         createdAt: now,
       });
     }
@@ -402,7 +421,7 @@ export const signInWithCode = mutation({
 
     return await signInUser(ctx, {
       userId: profile.userId,
-      source: "manual",
+      source: "web",
       code: args.code,
     });
   },
@@ -419,6 +438,25 @@ export const signOutWithCode = mutation({
       userId: profile.userId,
       code: args.code,
     });
+  },
+});
+
+export const myCurrentAttendance = query({
+  args: {},
+  handler: async (ctx) => {
+    const profile = await requireActiveProfile(ctx);
+    const open = await ctx.db
+      .query("attendanceSessions")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", profile.userId).eq("status", "open"),
+      )
+      .first();
+
+    if (!open) {
+      return null;
+    }
+
+    return await attendanceDetails(ctx, open);
   },
 });
 

@@ -3,6 +3,7 @@ import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from
 import QRCode from "qrcode";
 import {
   ArrowLeftRight,
+  Camera,
   Check,
   ClipboardList,
   Clock,
@@ -11,6 +12,7 @@ import {
   Link as LinkIcon,
   Loader2,
   LockKeyhole,
+  Maximize2,
   MessageSquare,
   Monitor,
   Plus,
@@ -21,7 +23,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
@@ -51,6 +53,9 @@ import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
 type AttendanceStatus = "open" | "complete" | "needs_review" | "void";
+type BarcodeDetectorConstructor = new (options: { formats: string[] }) => {
+  detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>>;
+};
 
 function formatTime(value?: number) {
   return value ? new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "-";
@@ -100,6 +105,35 @@ function randomShopCode() {
   crypto.getRandomValues(bytes);
 
   return [...bytes].map((byte) => alphabet[byte % alphabet.length]).join("");
+}
+
+function shopCodeLink(code: string) {
+  return `${window.location.origin}/shop?code=${encodeURIComponent(code)}`;
+}
+
+function parseScannedShopCode(value: string) {
+  const trimmed = value.trim();
+
+  try {
+    const url = new URL(trimmed);
+    const code = url.searchParams.get("code");
+
+    if (code) {
+      return code.trim().toUpperCase();
+    }
+  } catch {
+    // Plain QR payloads are also valid.
+  }
+
+  return trimmed.toUpperCase();
+}
+
+function barcodeDetector() {
+  if (typeof window === "undefined" || !("BarcodeDetector" in window)) {
+    return null;
+  }
+
+  return (window as Window & { BarcodeDetector: BarcodeDetectorConstructor }).BarcodeDetector;
 }
 
 function downloadCsv(fileName: string, rows: string[][]) {
@@ -207,11 +241,19 @@ function ReviewRecord({
 
 export function ShopAttendancePage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const canManage =
     effectiveRole === "admin" || effectiveRole === "mentor" || effectiveRole === "instructor";
+  const canDisplayRole = canManage || effectiveRole === "kiosk";
+  const canUseStudentCheckIn = effectiveRole !== "kiosk";
   const current = useQuery(api.shopAttendance.currentShopSession, isAuthenticated ? {} : "skip");
+  const myAttendance = useQuery(
+    api.shopAttendance.myCurrentAttendance,
+    isAuthenticated && canUseStudentCheckIn ? {} : "skip",
+  );
   const liveAttendance = useQuery(
     api.shopAttendance.listCurrentAttendance,
     isAuthenticated && canManage ? {} : "skip",
@@ -239,6 +281,8 @@ export function ShopAttendancePage() {
   const startShopSession = useMutation(api.shopAttendance.startShopSession);
   const endShopSession = useMutation(api.shopAttendance.endShopSession);
   const generateCode = useMutation(api.shopAttendance.generateOrReadCurrentCode);
+  const signInWithCode = useMutation(api.shopAttendance.signInWithCode);
+  const signOutWithCode = useMutation(api.shopAttendance.signOutWithCode);
   const reviewAttendance = useMutation(api.shopAttendance.reviewAttendanceSession);
   const createManualAttendance = useMutation(api.shopAttendance.createManualAttendanceSession);
   const notifyClosed = useAction(api.shopSlack.notifyShopSessionClosed);
@@ -254,9 +298,16 @@ export function ShopAttendancePage() {
   const [manualOut, setManualOut] = useState("");
   const [manualNote, setManualNote] = useState("");
   const [now, setNow] = useState(0);
+  const [attendanceCode, setAttendanceCode] = useState(
+    searchParams.get("code")?.trim().toUpperCase() ?? "",
+  );
+  const [isAttendanceBusy, setIsAttendanceBusy] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scanStreamRef = useRef<MediaStream | null>(null);
 
   async function refreshCode() {
-    if (!current?.session || !current.canManage) {
+    if (!current?.session || !current.canDisplay) {
       return;
     }
 
@@ -271,7 +322,7 @@ export function ShopAttendancePage() {
       });
       setDisplayCode(code);
       setDisplayCodeExpiresAt(expiresAt);
-      setQrDataUrl(await QRCode.toDataURL(code, { margin: 2, width: 256 }));
+      setQrDataUrl(await QRCode.toDataURL(shopCodeLink(code), { margin: 2, width: 256 }));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not generate shop code");
     } finally {
@@ -280,7 +331,7 @@ export function ShopAttendancePage() {
   }
 
   useEffect(() => {
-    if (!current?.session || !current.canManage) {
+    if (!current?.session || !current.canDisplay) {
       return;
     }
 
@@ -299,7 +350,7 @@ export function ShopAttendancePage() {
         if (!isCancelled) {
           setDisplayCode(code);
           setDisplayCodeExpiresAt(expiresAt);
-          setQrDataUrl(await QRCode.toDataURL(code, { margin: 2, width: 256 }));
+          setQrDataUrl(await QRCode.toDataURL(shopCodeLink(code), { margin: 2, width: 256 }));
         }
       } catch (error) {
         if (!isCancelled) {
@@ -320,6 +371,77 @@ export function ShopAttendancePage() {
       window.clearInterval(interval);
     };
   }, [current, generateCode]);
+
+  useEffect(() => {
+    if (!isScanning) {
+      return;
+    }
+
+    let isCancelled = false;
+    let animationId = 0;
+
+    async function startScanner() {
+      const Detector = barcodeDetector();
+
+      if (!Detector || !navigator.mediaDevices?.getUserMedia) {
+        toast.error("Camera QR scanning is not supported in this browser.");
+        window.setTimeout(() => setIsScanning(false), 0);
+        return;
+      }
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false,
+        });
+        const detector = new Detector({ formats: ["qr_code"] });
+        scanStreamRef.current = stream;
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+
+        const scanFrame = async () => {
+          if (isCancelled || !videoRef.current) {
+            return;
+          }
+
+          try {
+            const results = await detector.detect(videoRef.current);
+            const rawValue = results[0]?.rawValue;
+
+            if (rawValue) {
+              setAttendanceCode(parseScannedShopCode(rawValue));
+              setIsScanning(false);
+              toast.success("Shop code scanned");
+              return;
+            }
+          } catch {
+            // Keep scanning; some frames are not readable.
+          }
+
+          animationId = window.requestAnimationFrame(() => void scanFrame());
+        };
+
+        animationId = window.requestAnimationFrame(() => void scanFrame());
+      } catch (error) {
+        if (!isCancelled) {
+          toast.error(error instanceof Error ? error.message : "Could not start the camera.");
+          setIsScanning(false);
+        }
+      }
+    }
+
+    void startScanner();
+
+    return () => {
+      isCancelled = true;
+      window.cancelAnimationFrame(animationId);
+      scanStreamRef.current?.getTracks().forEach((track) => track.stop());
+      scanStreamRef.current = null;
+    };
+  }, [isScanning]);
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(Date.now()), 1000);
@@ -392,6 +514,41 @@ export function ShopAttendancePage() {
     }
   }
 
+  async function handleStudentAttendance(action: "in" | "out") {
+    const code = attendanceCode.trim().toUpperCase();
+
+    if (!code) {
+      toast.error("Enter or scan the current shop code.");
+      return;
+    }
+
+    setIsAttendanceBusy(true);
+
+    try {
+      if (action === "in") {
+        await signInWithCode({ code });
+        toast.success("Signed in to the shop");
+      } else {
+        await signOutWithCode({ code });
+        toast.success("Signed out of the shop");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update attendance");
+    } finally {
+      setIsAttendanceBusy(false);
+    }
+  }
+
+  async function handleBrowserFullscreen() {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not enter full screen");
+    }
+  }
+
   const reportRows = useMemo(() => report?.rows ?? [], [report?.rows]);
   const reportTotals = useMemo(() => report?.totals ?? [], [report?.totals]);
   const openRows = useMemo(() => liveAttendance ?? [], [liveAttendance]);
@@ -399,6 +556,7 @@ export function ShopAttendancePage() {
   const activeDisplayCode = current?.session ? displayCode : "";
   const activeQrDataUrl = current?.session ? qrDataUrl : "";
   const codeSecondsRemaining = Math.max(0, Math.ceil((displayCodeExpiresAt - now) / 1000));
+  const showDisplayRoute = location.pathname.endsWith("/display") && canDisplayRole;
   const totalReportMinutes = useMemo(
     () => reportTotals.reduce((total, row) => total + row.minutes, 0),
     [reportTotals],
@@ -429,7 +587,7 @@ export function ShopAttendancePage() {
           </CardHeader>
           <CardContent>
             <Button asChild>
-              <Link to="/auth">
+              <Link to={`/auth?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`}>
                 <KeyRound className="size-4" />
                 Sign in
               </Link>
@@ -439,14 +597,78 @@ export function ShopAttendancePage() {
       </Unauthenticated>
 
       <Authenticated>
-        <Tabs defaultValue={canManage ? "display" : "slack"} className="space-y-5">
+        {showDisplayRoute ? (
+          <div className="fixed inset-0 z-[100] grid bg-background p-4 text-foreground sm:p-8">
+            <div className="grid min-h-0 gap-6 lg:grid-cols-[1fr_42vw] lg:items-center">
+              <section className="grid content-center gap-6">
+                <div>
+                  <Badge variant="secondary" className="mb-4 w-fit">
+                    Shop Attendance
+                  </Badge>
+                  <h1 className="text-4xl font-semibold tracking-normal sm:text-6xl">
+                    {current?.session ? "Scan or enter the shop code" : "No active shop session"}
+                  </h1>
+                  <p className="mt-4 max-w-2xl text-lg text-muted-foreground sm:text-2xl">
+                    {current?.session
+                      ? `Code rotates automatically. ${codeSecondsRemaining}s remaining.`
+                      : "A mentor needs to start a shop session before students can sign in."}
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-md border bg-card p-5 font-mono text-xl">/shop in {activeDisplayCode || "CODE"}</div>
+                  <div className="rounded-md border bg-card p-5 font-mono text-xl">/shop out {activeDisplayCode || "CODE"}</div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Button type="button" onClick={() => void handleBrowserFullscreen()}>
+                    <Maximize2 className="size-4" />
+                    Browser full screen
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void refreshCode()}
+                    disabled={!current?.session || isGeneratingCode}
+                  >
+                    {isGeneratingCode ? <Loader2 className="size-4 animate-spin" /> : <TimerReset className="size-4" />}
+                    Rotate now
+                  </Button>
+                  {canManage && (
+                    <Button asChild variant="outline">
+                      <Link to="/shop">
+                        <ClipboardList className="size-4" />
+                        Manage
+                      </Link>
+                    </Button>
+                  )}
+                </div>
+              </section>
+              <section className="grid min-h-0 place-items-center gap-6">
+                <div className="grid aspect-square w-full max-w-[min(72vh,42vw)] place-items-center rounded-md border bg-white p-6">
+                  {current?.session && activeQrDataUrl ? (
+                    <img src={activeQrDataUrl} alt="Current shop attendance QR code" className="h-full w-full" />
+                  ) : (
+                    <QrCode className="size-32 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="w-full rounded-md border bg-card p-6 text-center">
+                  <p className="font-mono text-6xl font-semibold tracking-normal sm:text-8xl">
+                    {activeDisplayCode || "------"}
+                  </p>
+                </div>
+              </section>
+            </div>
+          </div>
+        ) : (
+        <Tabs defaultValue={canDisplayRole ? "display" : "checkin"} className="space-y-5">
           <TabsList className="flex h-auto w-full flex-wrap justify-start">
+            {canDisplayRole && (
+              <TabsTrigger value="display">
+                <Monitor className="size-4" />
+                Display
+              </TabsTrigger>
+            )}
             {canManage && (
               <>
-                <TabsTrigger value="display">
-                  <Monitor className="size-4" />
-                  Display
-                </TabsTrigger>
                 <TabsTrigger value="live">
                   <Users className="size-4" />
                   Live
@@ -461,13 +683,21 @@ export function ShopAttendancePage() {
                 </TabsTrigger>
               </>
             )}
-            <TabsTrigger value="slack">
-              <MessageSquare className="size-4" />
-              Slack
-            </TabsTrigger>
+            {canUseStudentCheckIn && (
+              <TabsTrigger value="checkin">
+                <QrCode className="size-4" />
+                Check in/out
+              </TabsTrigger>
+            )}
+            {canUseStudentCheckIn && (
+              <TabsTrigger value="slack">
+                <MessageSquare className="size-4" />
+                Slack
+              </TabsTrigger>
+            )}
           </TabsList>
 
-          {canManage && (
+          {canDisplayRole && (
             <TabsContent value="display" className="space-y-5">
               <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
                 <section className="space-y-5">
@@ -482,7 +712,7 @@ export function ShopAttendancePage() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                      {!current?.session ? (
+                      {!current?.session && canManage ? (
                         <form onSubmit={handleStartSession} className="flex flex-col gap-3 sm:flex-row">
                           <Input
                             value={shopTitle}
@@ -494,7 +724,7 @@ export function ShopAttendancePage() {
                             Start session
                           </Button>
                         </form>
-                      ) : (
+                      ) : current?.session && canManage ? (
                         <div className="space-y-4">
                           <div className="grid gap-3 sm:grid-cols-3">
                             <div className="rounded-md border p-4">
@@ -519,6 +749,12 @@ export function ShopAttendancePage() {
                             <Square className="size-4" />
                             End session
                           </Button>
+                        </div>
+                      ) : (
+                        <div className="rounded-md border p-4 text-sm text-muted-foreground">
+                          {current?.session
+                            ? "This kiosk can display the code, but only mentors and admins can close or review sessions."
+                            : "No active shop session. Ask a mentor to start one from a manager account."}
                         </div>
                       )}
                     </CardContent>
@@ -560,18 +796,91 @@ export function ShopAttendancePage() {
                     <div className="w-full rounded-md border bg-muted/40 p-5">
                       <p className="font-mono text-5xl font-semibold tracking-normal">{activeDisplayCode || "------"}</p>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => void refreshCode()}
-                      disabled={!current?.session || isGeneratingCode}
-                    >
-                      {isGeneratingCode ? <Loader2 className="size-4 animate-spin" /> : <TimerReset className="size-4" />}
-                      Rotate now
-                    </Button>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void refreshCode()}
+                        disabled={!current?.session || isGeneratingCode || !current.canDisplay}
+                      >
+                        {isGeneratingCode ? <Loader2 className="size-4 animate-spin" /> : <TimerReset className="size-4" />}
+                        Rotate now
+                      </Button>
+                      <Button asChild variant="outline">
+                        <Link to="/shop/display">
+                          <Maximize2 className="size-4" />
+                          Full screen
+                        </Link>
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+          )}
+
+          {canUseStudentCheckIn && (
+            <TabsContent value="checkin">
+              <Card>
+                <CardHeader>
+                  <QrCode className="size-5 text-primary" />
+                  <CardTitle>Website check-in</CardTitle>
+                  <CardDescription>
+                    {myAttendance
+                      ? `Signed in since ${formatTime(myAttendance.signInAt)}.`
+                      : "Scan the shop QR with your camera or type the current code."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-end">
+                    <div className="space-y-2">
+                      <Label htmlFor="attendanceCode">Shop code</Label>
+                      <Input
+                        id="attendanceCode"
+                        value={attendanceCode}
+                        onChange={(event) => setAttendanceCode(event.target.value.toUpperCase())}
+                        placeholder="ABC123"
+                        className="font-mono text-lg"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsScanning((value) => !value)}
+                    >
+                      <Camera className="size-4" />
+                      {isScanning ? "Stop scanning" : "Scan QR"}
+                    </Button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        type="button"
+                        onClick={() => void handleStudentAttendance("in")}
+                        disabled={isAttendanceBusy || !!myAttendance}
+                      >
+                        {isAttendanceBusy ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
+                        Sign in
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handleStudentAttendance("out")}
+                        disabled={isAttendanceBusy || !myAttendance}
+                      >
+                        <Square className="size-4" />
+                        Sign out
+                      </Button>
+                    </div>
+                  </div>
+                  {isScanning && (
+                    <div className="overflow-hidden rounded-md border bg-black">
+                      <video ref={videoRef} className="aspect-video w-full object-cover" muted playsInline />
+                    </div>
+                  )}
+                  <div className="rounded-md border p-4 text-sm text-muted-foreground">
+                    Phone camera apps can also open the QR link directly. The code still expires quickly.
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           )}
 
@@ -744,29 +1053,32 @@ export function ShopAttendancePage() {
             </TabsContent>
           )}
 
-          <TabsContent value="slack">
-            <Card>
-              <CardHeader>
-                <MessageSquare className="size-5 text-primary" />
-                <CardTitle>Slack attendance</CardTitle>
-                <CardDescription>
-                  {slackLink
-                    ? `Linked as ${slackLink.slackUserName ?? slackLink.slackUserId}.`
-                    : "Link Slack from your first shop command."}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-md border bg-muted/30 p-4 font-mono text-sm">/shop in CODE</div>
-                  <div className="rounded-md border bg-muted/30 p-4 font-mono text-sm">/shop out CODE</div>
-                </div>
-                <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                  The code comes from the shop screen and expires quickly.
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          {canUseStudentCheckIn && (
+            <TabsContent value="slack">
+              <Card>
+                <CardHeader>
+                  <MessageSquare className="size-5 text-primary" />
+                  <CardTitle>Slack attendance</CardTitle>
+                  <CardDescription>
+                    {slackLink
+                      ? `Linked as ${slackLink.slackUserName ?? slackLink.slackUserId}.`
+                      : "Link Slack from your first shop command."}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-md border bg-muted/30 p-4 font-mono text-sm">/shop in CODE</div>
+                    <div className="rounded-md border bg-muted/30 p-4 font-mono text-sm">/shop out CODE</div>
+                  </div>
+                  <div className="rounded-md border p-4 text-sm text-muted-foreground">
+                    The code comes from the shop screen and expires quickly.
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
+        )}
       </Authenticated>
     </div>
   );

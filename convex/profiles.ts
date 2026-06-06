@@ -12,6 +12,7 @@ const roleValidator = v.union(
   v.literal("instructor"),
   v.literal("mentor"),
   v.literal("guest"),
+  v.literal("kiosk"),
   v.literal("admin"),
 );
 
@@ -20,6 +21,7 @@ const accountLabelValidator = v.union(
   v.literal("jv_9271"),
   v.literal("mentor"),
   v.literal("guest"),
+  v.literal("kiosk"),
   v.literal("admin"),
 );
 const archivedLegacyProfileGroup = "__archived_legacy_profile__";
@@ -71,7 +73,7 @@ function userProfileFields(user: Doc<"users"> | null) {
 }
 
 function accountLabelForProfile(profile: {
-  role: "student" | "instructor" | "mentor" | "guest" | "admin";
+  role: "student" | "instructor" | "mentor" | "guest" | "kiosk" | "admin";
   primaryProgram?: "frc_5199" | "frc_9271";
   studentGroup?: string;
 }) {
@@ -85,6 +87,10 @@ function accountLabelForProfile(profile: {
 
   if (profile.role === "guest") {
     return "guest" as const;
+  }
+
+  if (profile.role === "kiosk") {
+    return "kiosk" as const;
   }
 
   if (programForProfile(profile) === "frc_9271") {
@@ -318,13 +324,15 @@ export const setAccountLabel = mutation({
           ? { role: "mentor" as const, studentGroup: undefined }
           : args.accountLabel === "guest"
             ? { role: "guest" as const, studentGroup: undefined }
-            : {
-                role: "student" as const,
-                primaryProgram:
-                  args.accountLabel === "jv_9271" ? "frc_9271" as const : "frc_5199" as const,
-                studentGroup:
-                  args.accountLabel === "jv_9271" ? "9271 Student" : "5199 Student",
-              };
+            : args.accountLabel === "kiosk"
+              ? { role: "kiosk" as const, studentGroup: undefined, primaryProgram: undefined }
+              : {
+                  role: "student" as const,
+                  primaryProgram:
+                    args.accountLabel === "jv_9271" ? "frc_9271" as const : "frc_5199" as const,
+                  studentGroup:
+                    args.accountLabel === "jv_9271" ? "9271 Student" : "5199 Student",
+                };
 
     if (existing) {
       await ctx.db.patch(existing._id, {
