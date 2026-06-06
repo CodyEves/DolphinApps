@@ -82,7 +82,7 @@ const managementNavItems: NavItem[] = [
 ];
 
 const shopNavItems: NavItem[] = [
-  { href: "/shop", label: "Attendance", icon: Clock },
+  { href: "/shop/display", label: "Display", icon: Clock },
 ];
 
 function canReview(role: string) {

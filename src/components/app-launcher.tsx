@@ -104,7 +104,16 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const { activeProgramMeta } = useProgramView();
-  const visibleApps = apps.filter((app) => !app.adminOnly || effectiveRole === "admin");
+  const visibleApps =
+    effectiveRole === "kiosk"
+      ? apps
+          .filter((app) => app.href === "/shop")
+          .map((app) => ({
+            ...app,
+            href: "/shop/display",
+            description: "Display code",
+          }))
+      : apps.filter((app) => !app.adminOnly || effectiveRole === "admin");
   const activeApp =
     visibleApps.find((app) => isActiveApp(location.pathname, app.href)) ?? visibleApps[0];
   const activeAppName = activeApp.title ?? activeProgramMeta[activeApp.titleKey ?? "trainingTitle"];

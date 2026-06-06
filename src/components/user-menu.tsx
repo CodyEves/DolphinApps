@@ -88,6 +88,7 @@ export function UserMenu() {
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const roleOptions = allowedRoleViews(viewer?.profile.role);
   const selectedView = selectedRoleView(roleView, viewer?.profile.role);
+  const isKiosk = viewer?.profile.role === "kiosk";
 
   async function handleSignOut() {
     setRoleView("actual");
@@ -155,13 +156,17 @@ export function UserMenu() {
             </DropdownMenuRadioGroup>
           </>
         )}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/profile">
-            <UserRound className="size-4" />
-            Profile
-          </Link>
-        </DropdownMenuItem>
+        {!isKiosk && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to="/profile">
+                <UserRound className="size-4" />
+                Profile
+              </Link>
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} variant="destructive">
           <LogOut className="size-4" />

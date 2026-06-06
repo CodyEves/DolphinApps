@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { Outlet, useLocation } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router";
 
 import { AppLauncher } from "@/components/app-launcher";
 import { MobileNav, Sidebar } from "@/components/navigation";
@@ -48,9 +48,15 @@ function currentAppCopy(pathname: string, program: Program = "frc_5199") {
 
 export function RootLayout() {
   const location = useLocation();
-  const { selectedProgram } = useProgramView();
+  const { selectedProgram, viewer } = useProgramView();
+  const isKiosk = viewer?.profile.role === "kiosk";
+  const isKioskPath = location.pathname.startsWith("/shop");
   const appCopy = currentAppCopy(location.pathname, selectedProgram);
   const isSuiteLanding = location.pathname === "/";
+
+  if (isKiosk && !isKioskPath) {
+    return <Navigate to="/shop/display" replace />;
+  }
 
   return (
     <div className="min-h-screen bg-background">

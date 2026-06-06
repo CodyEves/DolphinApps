@@ -139,7 +139,7 @@ export function AuthPage() {
   }
 
   if (!isLoading && isAuthenticated && viewer) {
-    return <Navigate to={returnTo} replace />;
+    return <Navigate to={viewer.profile.role === "kiosk" ? "/shop/display" : returnTo} replace />;
   }
 
   const hasStaleSession = !isLoading && isAuthenticated && viewer === null;
