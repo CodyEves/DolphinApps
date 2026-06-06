@@ -59,6 +59,12 @@ type AttendanceStatus = "open" | "complete" | "needs_review" | "void";
 type BarcodeDetectorConstructor = new (options: { formats: string[] }) => {
   detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>>;
 };
+type CanvasWithCaptureStream = HTMLCanvasElement & {
+  captureStream?: (frameRate?: number) => MediaStream;
+};
+type PictureInPictureVideo = HTMLVideoElement & {
+  requestPictureInPicture?: () => Promise<unknown>;
+};
 
 function formatTime(value?: number) {
   return value ? new Date(value).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "-";
@@ -137,6 +143,26 @@ function barcodeDetector() {
   }
 
   return (window as Window & { BarcodeDetector: BarcodeDetectorConstructor }).BarcodeDetector;
+}
+
+function supportsPictureInPicture() {
+  return (
+    typeof document !== "undefined" &&
+    "pictureInPictureEnabled" in document &&
+    document.pictureInPictureEnabled &&
+    typeof HTMLCanvasElement !== "undefined" &&
+    "captureStream" in HTMLCanvasElement.prototype
+  );
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not load QR image."));
+    image.src = src;
+  });
 }
 
 function downloadCsv(fileName: string, rows: string[][]) {
@@ -443,8 +469,13 @@ export function ShopAttendancePage() {
   );
   const [isAttendanceBusy, setIsAttendanceBusy] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isPipActive, setIsPipActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scanStreamRef = useRef<MediaStream | null>(null);
+  const pipCanvasRef = useRef<CanvasWithCaptureStream | null>(null);
+  const pipVideoRef = useRef<PictureInPictureVideo | null>(null);
+  const pipStreamRef = useRef<MediaStream | null>(null);
+  const pipIntervalRef = useRef<number | null>(null);
 
   async function refreshCode() {
     if (!current?.session || !current.canDisplay) {
@@ -589,6 +620,18 @@ export function ShopAttendancePage() {
     return () => window.clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (isPipActive) {
+      void drawPictureInPictureFrame();
+    }
+  });
+
+  useEffect(() => {
+    return () => {
+      stopPictureInPictureStream();
+    };
+  }, []);
+
   async function handleStartSession(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -705,6 +748,126 @@ export function ShopAttendancePage() {
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not enter full screen");
+    }
+  }
+
+  function stopPictureInPictureStream() {
+    if (pipIntervalRef.current !== null) {
+      window.clearInterval(pipIntervalRef.current);
+      pipIntervalRef.current = null;
+    }
+
+    pipStreamRef.current?.getTracks().forEach((track) => track.stop());
+    pipStreamRef.current = null;
+
+    if (pipVideoRef.current) {
+      pipVideoRef.current.pause();
+      pipVideoRef.current.srcObject = null;
+      pipVideoRef.current = null;
+    }
+
+    setIsPipActive(false);
+  }
+
+  async function drawPictureInPictureFrame() {
+    const canvas = pipCanvasRef.current ?? document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    canvas.width = 640;
+    canvas.height = 360;
+    pipCanvasRef.current = canvas;
+
+    if (!context) {
+      return;
+    }
+
+    context.fillStyle = "#0f172a";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#ffffff";
+    context.fillRect(28, 28, 304, 304);
+
+    if (activeQrDataUrl) {
+      try {
+        const qrImage = await loadImage(activeQrDataUrl);
+        context.drawImage(qrImage, 44, 44, 272, 272);
+      } catch {
+        context.fillStyle = "#475569";
+        context.font = "28px sans-serif";
+        context.textAlign = "center";
+        context.fillText("QR", 180, 190);
+      }
+    } else {
+      context.fillStyle = "#475569";
+      context.font = "28px sans-serif";
+      context.textAlign = "center";
+      context.fillText("QR", 180, 190);
+    }
+
+    context.textAlign = "left";
+    context.fillStyle = "#94a3b8";
+    context.font = "24px sans-serif";
+    context.fillText("Shop code", 364, 74);
+    context.fillStyle = "#ffffff";
+    context.font = "700 56px monospace";
+    context.fillText(activeDisplayCode || "------", 364, 142);
+    context.fillStyle = "#cbd5e1";
+    context.font = "24px sans-serif";
+    context.fillText(
+      current?.session ? `${codeSecondsRemaining}s remaining` : "No active session",
+      364,
+      200,
+    );
+    context.fillStyle = "#38bdf8";
+    context.fillRect(364, 236, 206, 4);
+    context.fillStyle = "#cbd5e1";
+    context.font = "20px sans-serif";
+    context.fillText("/shop in CODE", 364, 282);
+    context.fillText("/shop out CODE", 364, 316);
+  }
+
+  async function handlePictureInPicture() {
+    if (document.pictureInPictureElement) {
+      await document.exitPictureInPicture();
+      stopPictureInPictureStream();
+      return;
+    }
+
+    if (!current?.session || !activeDisplayCode || !activeQrDataUrl) {
+      toast.error("Start a shop session and wait for a code before opening picture in picture.");
+      return;
+    }
+
+    if (!supportsPictureInPicture()) {
+      toast.error("Picture in picture is not supported in this browser.");
+      return;
+    }
+
+    try {
+      await drawPictureInPictureFrame();
+
+      const canvas = pipCanvasRef.current;
+      const stream = canvas?.captureStream?.(1);
+
+      if (!canvas || !stream) {
+        throw new Error("Could not create picture in picture stream.");
+      }
+
+      const video = document.createElement("video") as PictureInPictureVideo;
+      video.muted = true;
+      video.playsInline = true;
+      video.srcObject = stream;
+      video.addEventListener("leavepictureinpicture", stopPictureInPictureStream);
+
+      pipStreamRef.current = stream;
+      pipVideoRef.current = video;
+
+      await video.play();
+      await video.requestPictureInPicture?.();
+      setIsPipActive(true);
+      pipIntervalRef.current = window.setInterval(() => void drawPictureInPictureFrame(), 1000);
+    } catch (error) {
+      stopPictureInPictureStream();
+      toast.error(error instanceof Error ? error.message : "Could not open picture in picture.");
     }
   }
 
@@ -1184,6 +1347,15 @@ export function ShopAttendancePage() {
                     {isGeneratingCode ? <Loader2 className="size-4 animate-spin" /> : <TimerReset className="size-4" />}
                     Rotate now
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void handlePictureInPicture()}
+                    disabled={!isPipActive && (!current?.session || !activeDisplayCode || !activeQrDataUrl)}
+                  >
+                    <Monitor className="size-4" />
+                    {isPipActive ? "Close PiP" : "PiP code"}
+                  </Button>
                   {canManage && (
                     <Button asChild variant="outline">
                       <Link to="/shop">
@@ -1361,6 +1533,15 @@ export function ShopAttendancePage() {
                       >
                         {isGeneratingCode ? <Loader2 className="size-4 animate-spin" /> : <TimerReset className="size-4" />}
                         Rotate now
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handlePictureInPicture()}
+                        disabled={!isPipActive && (!current?.session || !activeDisplayCode || !activeQrDataUrl)}
+                      >
+                        <Monitor className="size-4" />
+                        {isPipActive ? "Close PiP" : "PiP code"}
                       </Button>
                       <Button asChild variant="outline">
                         <Link to="/shop/display">
