@@ -1,5 +1,5 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
   CheckCircle2,
   Clock,
@@ -7,8 +7,11 @@ import {
   Pencil,
   Plus,
   Sparkles,
+  Trash2,
 } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
+import { toast } from "sonner";
 
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
@@ -23,12 +26,15 @@ import { Progress } from "@/components/ui/progress";
 import { useProgramView } from "@/hooks/use-program-view";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
 
 export function TrainingPage() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
+  const deleteLearningTrack = useMutation(api.training.deleteLearningTrack);
+  const [deletingTrackId, setDeletingTrackId] = useState<Id<"trainingTracks"> | null>(null);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const { activeProgramMeta } = useProgramView();
   const isAdmin = effectiveRole === "admin";
@@ -45,6 +51,27 @@ export function TrainingPage() {
         track.lessons.filter((lesson) => completedLessonIds.has(lesson._id)).length,
       0,
     ) ?? 0;
+
+  async function handleDeleteTrack(trackId: Id<"trainingTracks">, title: string) {
+    const confirmed = window.confirm(
+      `Delete "${title}"? This removes its units, lessons, quizzes, submissions, and student progress.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingTrackId(trackId);
+
+    try {
+      await deleteLearningTrack({ trackId });
+      toast.success("Learning track deleted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to delete track");
+    } finally {
+      setDeletingTrackId(null);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -181,11 +208,23 @@ export function TrainingPage() {
                       <Link to={`/training/tracks/${track._id}`}>Open track</Link>
                     </Button>
                     {isAdmin && (
-                      <Button asChild variant="ghost" size="icon" aria-label="Edit track">
-                        <Link to={`/training/tracks/${track._id}/edit`}>
-                          <Pencil className="size-4" />
-                        </Link>
-                      </Button>
+                      <>
+                        <Button asChild variant="ghost" size="icon" aria-label="Edit track">
+                          <Link to={`/training/tracks/${track._id}/edit`}>
+                            <Pencil className="size-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => void handleDeleteTrack(track._id, track.title)}
+                          disabled={deletingTrackId === track._id}
+                          aria-label={`Delete ${track.title}`}
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </article>

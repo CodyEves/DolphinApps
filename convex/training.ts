@@ -206,6 +206,28 @@ async function collectLessonContent(ctx: QueryCtx | MutationCtx, lessonId: Id<"l
   };
 }
 
+async function deleteQuiz(ctx: MutationCtx, quizId: Id<"quizzes">) {
+  const questions = await ctx.db
+    .query("questions")
+    .withIndex("by_quiz", (q) => q.eq("quizId", quizId))
+    .collect();
+
+  for (const question of questions) {
+    await ctx.db.delete(question._id);
+  }
+
+  const attempts = await ctx.db
+    .query("quizAttempts")
+    .withIndex("by_quiz", (q) => q.eq("quizId", quizId))
+    .collect();
+
+  for (const attempt of attempts) {
+    await ctx.db.delete(attempt._id);
+  }
+
+  await ctx.db.delete(quizId);
+}
+
 async function deleteLessonQuiz(ctx: MutationCtx, lessonId: Id<"lessons">) {
   const quiz = await getLessonQuiz(ctx, lessonId);
 
@@ -213,16 +235,7 @@ async function deleteLessonQuiz(ctx: MutationCtx, lessonId: Id<"lessons">) {
     return;
   }
 
-  const questions = await ctx.db
-    .query("questions")
-    .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
-    .collect();
-
-  for (const question of questions) {
-    await ctx.db.delete(question._id);
-  }
-
-  await ctx.db.delete(quiz._id);
+  await deleteQuiz(ctx, quiz._id);
 }
 
 async function deleteLesson(ctx: MutationCtx, lessonId: Id<"lessons">) {
@@ -246,7 +259,128 @@ async function deleteLesson(ctx: MutationCtx, lessonId: Id<"lessons">) {
     await ctx.db.delete(item._id);
   }
 
+  const submissions = await ctx.db
+    .query("exerciseSubmissions")
+    .withIndex("by_lesson", (q) => q.eq("lessonId", lessonId))
+    .collect();
+
+  for (const submission of submissions) {
+    await ctx.db.delete(submission._id);
+  }
+
   await ctx.db.delete(lessonId);
+}
+
+async function collectTrackQuizIds(ctx: QueryCtx | MutationCtx, trackId: Id<"trainingTracks">) {
+  const units = await ctx.db
+    .query("units")
+    .withIndex("by_track", (q) => q.eq("trackId", trackId))
+    .collect();
+  const quizIds: Id<"quizzes">[] = [];
+
+  for (const unit of units) {
+    const lessons = await ctx.db
+      .query("lessons")
+      .withIndex("by_unit", (q) => q.eq("unitId", unit._id))
+      .collect();
+
+    for (const lesson of lessons) {
+      const quiz = await getLessonQuiz(ctx, lesson._id);
+
+      if (quiz) {
+        quizIds.push(quiz._id);
+      }
+    }
+  }
+
+  return quizIds;
+}
+
+async function clearTrackReferences(ctx: MutationCtx, trackId: Id<"trainingTracks">) {
+  const quizIds = new Set(await collectTrackQuizIds(ctx, trackId));
+  const badges = await ctx.db.query("badges").collect();
+  const equipment = await ctx.db.query("equipment").collect();
+  const now = Date.now();
+
+  for (const badge of badges) {
+    const nextRequiredTrackIds = (badge.requiredTrackIds ?? []).filter(
+      (requiredTrackId) => requiredTrackId !== trackId,
+    );
+    const nextLinkedTrackId = badge.linkedTrackId === trackId ? undefined : badge.linkedTrackId;
+
+    if (
+      badge.linkedTrackId !== nextLinkedTrackId ||
+      nextRequiredTrackIds.length !== (badge.requiredTrackIds ?? []).length
+    ) {
+      await ctx.db.patch(badge._id, {
+        linkedTrackId: nextLinkedTrackId,
+        requiredTrackIds: nextRequiredTrackIds,
+        isActive:
+          nextRequiredTrackIds.length > 0 || (badge.requiredEquipmentIds ?? []).length > 0,
+        updatedAt: now,
+      });
+    }
+  }
+
+  for (const item of equipment) {
+    const nextRequiredTrainingTrackId =
+      item.requiredTrainingTrackId === trackId ? undefined : item.requiredTrainingTrackId;
+    const nextRequiredQuizId =
+      item.requiredQuizId && quizIds.has(item.requiredQuizId) ? undefined : item.requiredQuizId;
+
+    if (
+      item.requiredTrainingTrackId !== nextRequiredTrainingTrackId ||
+      item.requiredQuizId !== nextRequiredQuizId
+    ) {
+      await ctx.db.patch(item._id, {
+        requiredTrainingTrackId: nextRequiredTrainingTrackId,
+        requiredQuizId: nextRequiredQuizId,
+        updatedAt: now,
+      });
+    }
+  }
+}
+
+async function deleteLearningTrackRecords(ctx: MutationCtx, trackId: Id<"trainingTracks">) {
+  const track = await ctx.db.get(trackId);
+
+  if (!track) {
+    return {
+      deletedTrack: false,
+      deletedUnits: 0,
+      deletedLessons: 0,
+    };
+  }
+
+  await clearTrackReferences(ctx, trackId);
+
+  const units = await ctx.db
+    .query("units")
+    .withIndex("by_track", (q) => q.eq("trackId", trackId))
+    .collect();
+  let deletedLessons = 0;
+
+  for (const unit of units) {
+    const lessons = await ctx.db
+      .query("lessons")
+      .withIndex("by_unit", (q) => q.eq("unitId", unit._id))
+      .collect();
+
+    for (const lesson of lessons) {
+      await deleteLesson(ctx, lesson._id);
+      deletedLessons += 1;
+    }
+
+    await ctx.db.delete(unit._id);
+  }
+
+  await ctx.db.delete(trackId);
+
+  return {
+    deletedTrack: true,
+    deletedUnits: units.length,
+    deletedLessons,
+  };
 }
 
 function normalizeAnswer(value: string | undefined) {
@@ -1102,33 +1236,26 @@ export const deleteLessonFromUnit = mutation({
   },
 });
 
+export const deleteLearningTrack = mutation({
+  args: {
+    trackId: v.id("trainingTracks"),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+
+    return await deleteLearningTrackRecords(ctx, args.trackId);
+  },
+});
+
 async function deleteAllTrainingContentRecords(ctx: MutationCtx) {
   const tracks = await ctx.db.query("trainingTracks").collect();
   let deletedLessons = 0;
   let deletedUnits = 0;
 
   for (const track of tracks) {
-    const units = await ctx.db
-      .query("units")
-      .withIndex("by_track", (q) => q.eq("trackId", track._id))
-      .collect();
-
-    for (const unit of units) {
-      const lessons = await ctx.db
-        .query("lessons")
-        .withIndex("by_unit", (q) => q.eq("unitId", unit._id))
-        .collect();
-
-      for (const lesson of lessons) {
-        await deleteLesson(ctx, lesson._id);
-        deletedLessons += 1;
-      }
-
-      await ctx.db.delete(unit._id);
-      deletedUnits += 1;
-    }
-
-    await ctx.db.delete(track._id);
+    const result = await deleteLearningTrackRecords(ctx, track._id);
+    deletedLessons += result.deletedLessons;
+    deletedUnits += result.deletedUnits;
   }
 
   return {

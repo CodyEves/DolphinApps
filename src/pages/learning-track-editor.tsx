@@ -130,12 +130,14 @@ export function LearningTrackEditorPage() {
   const deleteUnit = useMutation(api.training.deleteUnit);
   const createLesson = useMutation(api.training.createLesson);
   const deleteLessonFromUnit = useMutation(api.training.deleteLessonFromUnit);
+  const deleteLearningTrack = useMutation(api.training.deleteLearningTrack);
   const publishLearningTrack = useMutation(api.training.publishLearningTrack);
   const [trackForm, setTrackForm] = useState<TrackForm>(emptyTrackForm);
   const [unitForms, setUnitForms] = useState<Record<string, UnitForm>>({});
   const [isSavingTrack, setIsSavingTrack] = useState(false);
   const [savingUnitId, setSavingUnitId] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isDeletingTrack, setIsDeletingTrack] = useState(false);
   const [orderedUnitIds, setOrderedUnitIds] = useState<Id<"units">[]>([]);
   const [draggingUnitId, setDraggingUnitId] = useState<Id<"units"> | null>(null);
 
@@ -315,6 +317,32 @@ export function LearningTrackEditorPage() {
     }
   }
 
+  async function handleDeleteTrack() {
+    if (!currentTrackId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Delete "${trackForm.title || existingTrack?.title || "this learning track"}"? This removes its units, lessons, quizzes, submissions, and student progress.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsDeletingTrack(true);
+
+    try {
+      await deleteLearningTrack({ trackId: currentTrackId });
+      toast.success("Learning track deleted");
+      navigate("/training");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to delete track");
+    } finally {
+      setIsDeletingTrack(false);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="mx-auto max-w-6xl">
@@ -413,11 +441,22 @@ export function LearningTrackEditorPage() {
             <Button
               type="button"
               onClick={handlePublish}
-              disabled={isPublishing}
+              disabled={isPublishing || isDeletingTrack}
             >
               <CheckCircle2 className="size-4" />
               {isPublishing ? "Publishing..." : "Publish"}
             </Button>
+            {currentTrackId && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDeleteTrack}
+                disabled={isDeletingTrack || isPublishing}
+              >
+                <Trash2 className="size-4" />
+                {isDeletingTrack ? "Deleting..." : "Delete track"}
+              </Button>
+            )}
             <Button asChild variant="outline">
               <Link to="/training">
                 <ArrowLeft className="size-4" />
