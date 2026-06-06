@@ -62,6 +62,9 @@ type BarcodeDetectorConstructor = new (options: { formats: string[] }) => {
 type CanvasWithCaptureStream = HTMLCanvasElement & {
   captureStream?: (frameRate?: number) => MediaStream;
 };
+type CanvasCaptureTrack = MediaStreamTrack & {
+  requestFrame?: () => void;
+};
 type PictureInPictureVideo = HTMLVideoElement & {
   requestPictureInPicture?: () => Promise<unknown>;
 };
@@ -153,16 +156,6 @@ function supportsPictureInPicture() {
     typeof HTMLCanvasElement !== "undefined" &&
     "captureStream" in HTMLCanvasElement.prototype
   );
-}
-
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Could not load QR image."));
-    image.src = src;
-  });
 }
 
 function downloadCsv(fileName: string, rows: string[][]) {
@@ -475,7 +468,21 @@ export function ShopAttendancePage() {
   const pipCanvasRef = useRef<CanvasWithCaptureStream | null>(null);
   const pipVideoRef = useRef<PictureInPictureVideo | null>(null);
   const pipStreamRef = useRef<MediaStream | null>(null);
+  const pipQrImageRef = useRef<HTMLImageElement | null>(null);
+  const pipQrSrcRef = useRef("");
   const pipIntervalRef = useRef<number | null>(null);
+  const pipFrameDataRef = useRef({ code: "", secondsRemaining: 0, hasSession: false });
+  const activeDisplayCode = current?.session ? displayCode : "";
+  const activeQrDataUrl = current?.session ? qrDataUrl : "";
+  const codeSecondsRemaining = Math.max(0, Math.ceil((displayCodeExpiresAt - now) / 1000));
+  const showDisplayRoute = location.pathname.endsWith("/display") && canDisplayRole;
+  const displayCurrentCount = displayStats?.currentCount ?? current?.openCount ?? 0;
+  const displayPeakToday = displayStats?.peakToday ?? displayCurrentCount;
+  pipFrameDataRef.current = {
+    code: activeDisplayCode,
+    secondsRemaining: codeSecondsRemaining,
+    hasSession: !!current?.session,
+  };
 
   async function refreshCode() {
     if (!current?.session || !current.canDisplay) {
@@ -621,10 +628,26 @@ export function ShopAttendancePage() {
   }, []);
 
   useEffect(() => {
-    if (isPipActive) {
-      void drawPictureInPictureFrame();
+    if (!activeQrDataUrl) {
+      pipQrImageRef.current = null;
+      pipQrSrcRef.current = "";
+      return;
     }
-  });
+
+    if (pipQrSrcRef.current === activeQrDataUrl) {
+      return;
+    }
+
+    const image = new Image();
+    pipQrSrcRef.current = activeQrDataUrl;
+    image.onload = () => {
+      pipQrImageRef.current = image;
+    };
+    image.onerror = () => {
+      pipQrImageRef.current = null;
+    };
+    image.src = activeQrDataUrl;
+  }, [activeQrDataUrl]);
 
   useEffect(() => {
     return () => {
@@ -763,19 +786,30 @@ export function ShopAttendancePage() {
     if (pipVideoRef.current) {
       pipVideoRef.current.pause();
       pipVideoRef.current.srcObject = null;
+      pipVideoRef.current.remove();
       pipVideoRef.current = null;
     }
 
     setIsPipActive(false);
   }
 
-  async function drawPictureInPictureFrame() {
+  function pictureInPictureCanvas() {
     const canvas = pipCanvasRef.current ?? document.createElement("canvas");
-    const context = canvas.getContext("2d");
 
-    canvas.width = 640;
-    canvas.height = 360;
+    if (!pipCanvasRef.current) {
+      canvas.width = 640;
+      canvas.height = 360;
+    }
+
     pipCanvasRef.current = canvas;
+
+    return canvas;
+  }
+
+  function drawPictureInPictureFrame() {
+    const canvas = pictureInPictureCanvas();
+    const context = canvas.getContext("2d");
+    const frame = pipFrameDataRef.current;
 
     if (!context) {
       return;
@@ -786,16 +820,8 @@ export function ShopAttendancePage() {
     context.fillStyle = "#ffffff";
     context.fillRect(28, 28, 304, 304);
 
-    if (activeQrDataUrl) {
-      try {
-        const qrImage = await loadImage(activeQrDataUrl);
-        context.drawImage(qrImage, 44, 44, 272, 272);
-      } catch {
-        context.fillStyle = "#475569";
-        context.font = "28px sans-serif";
-        context.textAlign = "center";
-        context.fillText("QR", 180, 190);
-      }
+    if (pipQrImageRef.current) {
+      context.drawImage(pipQrImageRef.current, 44, 44, 272, 272);
     } else {
       context.fillStyle = "#475569";
       context.font = "28px sans-serif";
@@ -809,11 +835,11 @@ export function ShopAttendancePage() {
     context.fillText("Shop code", 364, 74);
     context.fillStyle = "#ffffff";
     context.font = "700 56px monospace";
-    context.fillText(activeDisplayCode || "------", 364, 142);
+    context.fillText(frame.code || "------", 364, 142);
     context.fillStyle = "#cbd5e1";
     context.font = "24px sans-serif";
     context.fillText(
-      current?.session ? `${codeSecondsRemaining}s remaining` : "No active session",
+      frame.hasSession ? `${frame.secondsRemaining}s remaining` : "No active session",
       364,
       200,
     );
@@ -823,6 +849,9 @@ export function ShopAttendancePage() {
     context.font = "20px sans-serif";
     context.fillText("/shop in CODE", 364, 282);
     context.fillText("/shop out CODE", 364, 316);
+
+    const [track] = pipStreamRef.current?.getVideoTracks() ?? [];
+    (track as CanvasCaptureTrack | undefined)?.requestFrame?.();
   }
 
   async function handlePictureInPicture() {
@@ -843,10 +872,10 @@ export function ShopAttendancePage() {
     }
 
     try {
-      await drawPictureInPictureFrame();
+      drawPictureInPictureFrame();
 
-      const canvas = pipCanvasRef.current;
-      const stream = canvas?.captureStream?.(1);
+      const canvas = pictureInPictureCanvas();
+      const stream = canvas.captureStream?.(0);
 
       if (!canvas || !stream) {
         throw new Error("Could not create picture in picture stream.");
@@ -856,7 +885,13 @@ export function ShopAttendancePage() {
       video.muted = true;
       video.playsInline = true;
       video.srcObject = stream;
+      video.style.position = "fixed";
+      video.style.left = "-10000px";
+      video.style.top = "0";
+      video.style.width = "1px";
+      video.style.height = "1px";
       video.addEventListener("leavepictureinpicture", stopPictureInPictureStream);
+      document.body.appendChild(video);
 
       pipStreamRef.current = stream;
       pipVideoRef.current = video;
@@ -864,7 +899,8 @@ export function ShopAttendancePage() {
       await video.play();
       await video.requestPictureInPicture?.();
       setIsPipActive(true);
-      pipIntervalRef.current = window.setInterval(() => void drawPictureInPictureFrame(), 1000);
+      drawPictureInPictureFrame();
+      pipIntervalRef.current = window.setInterval(drawPictureInPictureFrame, 1000);
     } catch (error) {
       stopPictureInPictureStream();
       toast.error(error instanceof Error ? error.message : "Could not open picture in picture.");
@@ -916,12 +952,6 @@ export function ShopAttendancePage() {
   }, [reviewRows]);
   const routeBase = showReportsRoute ? "/shop/reports" : showReviewRoute ? "/shop/review" : "/shop/records";
   const routeLabel = showReportsRoute ? "reports" : showReviewRoute ? "review queue" : "attendance records";
-  const activeDisplayCode = current?.session ? displayCode : "";
-  const activeQrDataUrl = current?.session ? qrDataUrl : "";
-  const codeSecondsRemaining = Math.max(0, Math.ceil((displayCodeExpiresAt - now) / 1000));
-  const showDisplayRoute = location.pathname.endsWith("/display") && canDisplayRole;
-  const displayCurrentCount = displayStats?.currentCount ?? current?.openCount ?? 0;
-  const displayPeakToday = displayStats?.peakToday ?? displayCurrentCount;
   const totalReportMinutes = useMemo(
     () => reportTotals.reduce((total, row) => total + row.minutes, 0),
     [reportTotals],
