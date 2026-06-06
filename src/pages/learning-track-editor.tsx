@@ -18,6 +18,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -138,6 +139,7 @@ export function LearningTrackEditorPage() {
   const [savingUnitId, setSavingUnitId] = useState<string | null>(null);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isDeletingTrack, setIsDeletingTrack] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [orderedUnitIds, setOrderedUnitIds] = useState<Id<"units">[]>([]);
   const [draggingUnitId, setDraggingUnitId] = useState<Id<"units"> | null>(null);
 
@@ -322,14 +324,6 @@ export function LearningTrackEditorPage() {
       return;
     }
 
-    const confirmed = window.confirm(
-      `Delete "${trackForm.title || existingTrack?.title || "this learning track"}"? This removes its units, lessons, quizzes, submissions, and student progress.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     setIsDeletingTrack(true);
 
     try {
@@ -450,7 +444,7 @@ export function LearningTrackEditorPage() {
               <Button
                 type="button"
                 variant="destructive"
-                onClick={handleDeleteTrack}
+                onClick={() => setIsDeleteDialogOpen(true)}
                 disabled={isDeletingTrack || isPublishing}
               >
                 <Trash2 className="size-4" />
@@ -833,6 +827,17 @@ export function LearningTrackEditorPage() {
           </Button>
         </div>
       </div>
+      <ConfirmDeleteDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+        title="Are you sure?"
+        itemName={existingTrack?.title ?? trackForm.title}
+        itemType="learning track"
+        description="This permanently removes the track, its units, lessons, quizzes, submissions, and student progress. This cannot be undone."
+        confirmLabel="Delete track"
+        isDeleting={isDeletingTrack}
+        onConfirm={handleDeleteTrack}
+      />
     </div>
   );
 }

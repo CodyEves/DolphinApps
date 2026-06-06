@@ -13,6 +13,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,10 @@ export function TrainingPage() {
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
   const deleteLearningTrack = useMutation(api.training.deleteLearningTrack);
   const [deletingTrackId, setDeletingTrackId] = useState<Id<"trainingTracks"> | null>(null);
+  const [trackPendingDelete, setTrackPendingDelete] = useState<{
+    id: Id<"trainingTracks">;
+    title: string;
+  } | null>(null);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const { activeProgramMeta } = useProgramView();
   const isAdmin = effectiveRole === "admin";
@@ -52,20 +57,17 @@ export function TrainingPage() {
       0,
     ) ?? 0;
 
-  async function handleDeleteTrack(trackId: Id<"trainingTracks">, title: string) {
-    const confirmed = window.confirm(
-      `Delete "${title}"? This removes its units, lessons, quizzes, submissions, and student progress.`,
-    );
-
-    if (!confirmed) {
+  async function handleDeleteTrack() {
+    if (!trackPendingDelete) {
       return;
     }
 
-    setDeletingTrackId(trackId);
+    setDeletingTrackId(trackPendingDelete.id);
 
     try {
-      await deleteLearningTrack({ trackId });
+      await deleteLearningTrack({ trackId: trackPendingDelete.id });
       toast.success("Learning track deleted");
+      setTrackPendingDelete(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to delete track");
     } finally {
@@ -218,7 +220,12 @@ export function TrainingPage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          onClick={() => void handleDeleteTrack(track._id, track.title)}
+                          onClick={() =>
+                            setTrackPendingDelete({
+                              id: track._id,
+                              title: track.title,
+                            })
+                          }
                           disabled={deletingTrackId === track._id}
                           aria-label={`Delete ${track.title}`}
                         >
@@ -233,6 +240,21 @@ export function TrainingPage() {
           </div>
         </div>
       </Authenticated>
+      <ConfirmDeleteDialog
+        open={trackPendingDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTrackPendingDelete(null);
+          }
+        }}
+        title="Are you sure?"
+        itemName={trackPendingDelete?.title ?? ""}
+        itemType="learning track"
+        description="This permanently removes the track, its units, lessons, quizzes, submissions, and student progress. This cannot be undone."
+        confirmLabel="Delete track"
+        isDeleting={trackPendingDelete ? deletingTrackId === trackPendingDelete.id : false}
+        onConfirm={handleDeleteTrack}
+      />
     </div>
   );
 }
