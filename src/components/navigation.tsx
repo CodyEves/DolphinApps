@@ -21,7 +21,6 @@ import {
 import { NavLink, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
-import { AppLauncher } from "@/components/app-launcher";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -156,38 +155,26 @@ export function Sidebar() {
     >
       <div className="flex h-full flex-col">
         <div className="flex h-12 items-center justify-between gap-2">
-          <div
-            className={cn(
-              "flex min-w-0 flex-1",
-              collapsed ? "justify-center" : "justify-start",
-            )}
-          >
-            <AppLauncher collapsed={collapsed} />
-          </div>
           {!collapsed && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleSidebar}
-              aria-label="Collapse sidebar"
-            >
-              <Menu className="size-4" />
-            </Button>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">Dolphin Apps</p>
+              <p className="truncate text-xs text-muted-foreground">
+                Team workspace
+              </p>
+            </div>
           )}
-        </div>
-        <Separator className="my-3" />
-        <NavList collapsed={collapsed} />
-        {collapsed && (
           <Button
             variant="ghost"
             size="icon"
-            className="mx-auto mt-3"
+            className={collapsed ? "mx-auto" : undefined}
             onClick={toggleSidebar}
-            aria-label="Expand sidebar"
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <Menu className="size-4" />
           </Button>
-        )}
+        </div>
+        <Separator className="my-3" />
+        <NavList collapsed={collapsed} />
       </div>
     </aside>
   );
@@ -216,7 +203,6 @@ export function MobileNav() {
 
   return (
     <div className="flex items-center gap-3 lg:hidden">
-      <AppLauncher collapsed onSelect={() => setOpen(false)} />
       <Sheet open={isOpen} onOpenChange={setOpen}>
         <SheetTrigger asChild>
           <Button variant="outline" size="icon" aria-label="Open navigation">
