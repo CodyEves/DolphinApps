@@ -130,13 +130,13 @@ async function createLinkMessage(
     slackUserId: params.get("user_id") ?? "",
     slackTeamId: params.get("team_id") ?? undefined,
     slackUserName: params.get("user_name") ?? undefined,
-    expiresAt: Date.now() + 15 * 60 * 1000,
+    expiresAt: Date.now() + 2 * 60 * 60 * 1000,
   });
 
   return [
     "Link your Slack account to Dolphin Apps first:",
     linkUrl(token),
-    "After linking, run `/shop in CODE` or `/shop out CODE` again.",
+    "This link expires in 2 hours. After linking, run `/shop in CODE` or `/shop out CODE` again.",
   ].join("\n");
 }
 

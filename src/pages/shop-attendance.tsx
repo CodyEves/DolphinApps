@@ -1147,7 +1147,13 @@ export function SlackLinkPage() {
             <div className="rounded-md border p-4 text-sm text-muted-foreground">Checking Slack link...</div>
           )}
           {token && preview === null && (
-            <div className="rounded-md border p-4 text-sm text-muted-foreground">This Slack link is expired or already used.</div>
+            <div className="space-y-3 rounded-md border p-4 text-sm text-muted-foreground">
+              <p>This Slack link is expired or already used.</p>
+              <p>
+                Go back to Slack and run <span className="font-mono text-foreground">/shop in CODE</span> or{" "}
+                <span className="font-mono text-foreground">/shop out CODE</span> again to get a fresh link.
+              </p>
+            </div>
           )}
           {!isLoading && !isAuthenticated && (
             <Button asChild>
