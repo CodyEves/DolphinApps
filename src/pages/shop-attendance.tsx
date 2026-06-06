@@ -1366,10 +1366,6 @@ export function ShopAttendancePage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  <Button type="button" onClick={() => void handleBrowserFullscreen()}>
-                    <Maximize2 className="size-4" />
-                    Browser full screen
-                  </Button>
                   <Button
                     type="button"
                     variant="outline"
@@ -1377,7 +1373,7 @@ export function ShopAttendancePage() {
                     disabled={!current?.session || isGeneratingCode}
                   >
                     {isGeneratingCode ? <Loader2 className="size-4 animate-spin" /> : <TimerReset className="size-4" />}
-                    Rotate now
+                    Refresh
                   </Button>
                   {canManage && (
                     <Button asChild variant="outline">
@@ -1391,19 +1387,32 @@ export function ShopAttendancePage() {
               </section>
               <section className="grid min-h-0 place-items-center gap-6">
                 <div className="group relative grid aspect-square w-full max-w-[min(72vh,42vw)] place-items-center rounded-md border bg-white p-6">
-                  {canUsePictureInPicture && (isPipActive || (current?.session && activeDisplayCode && activeQrDataUrl)) && (
+                  <div className="absolute right-3 top-3 z-10 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                     <Button
                       type="button"
                       size="icon"
                       variant="secondary"
-                      className="absolute right-3 top-3 z-10 opacity-0 shadow-md transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                      onClick={() => void handlePictureInPicture()}
-                      aria-label={isPipActive ? "Close picture in picture code display" : "Open picture in picture code display"}
-                      title={isPipActive ? "Close picture in picture" : "Open picture in picture"}
+                      className="shadow-md"
+                      onClick={() => void handleBrowserFullscreen()}
+                      aria-label="Open browser full screen"
+                      title="Open browser full screen"
                     >
-                      <PictureInPicture className="size-4" />
+                      <Maximize2 className="size-4" />
                     </Button>
-                  )}
+                    {canUsePictureInPicture && (isPipActive || (current?.session && activeDisplayCode && activeQrDataUrl)) && (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="secondary"
+                        className="shadow-md"
+                        onClick={() => void handlePictureInPicture()}
+                        aria-label={isPipActive ? "Close picture in picture code display" : "Open picture in picture code display"}
+                        title={isPipActive ? "Close picture in picture" : "Open picture in picture"}
+                      >
+                        <PictureInPicture className="size-4" />
+                      </Button>
+                    )}
+                  </div>
                   {current?.session && activeQrDataUrl ? (
                     <img src={activeQrDataUrl} alt="Current shop attendance QR code" className="h-full w-full" />
                   ) : (
@@ -1551,19 +1560,26 @@ export function ShopAttendancePage() {
                   </CardHeader>
                   <CardContent className="grid place-items-center gap-5 text-center">
                     <div className="group relative grid size-72 place-items-center rounded-md border bg-white p-4">
-                      {canUsePictureInPicture && (isPipActive || (current?.session && activeDisplayCode && activeQrDataUrl)) && (
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="secondary"
-                          className="absolute right-2 top-2 z-10 opacity-0 shadow-md transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                          onClick={() => void handlePictureInPicture()}
-                          aria-label={isPipActive ? "Close picture in picture code display" : "Open picture in picture code display"}
-                          title={isPipActive ? "Close picture in picture" : "Open picture in picture"}
-                        >
-                          <PictureInPicture className="size-4" />
+                      <div className="absolute right-2 top-2 z-10 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                        <Button asChild size="icon" variant="secondary" className="shadow-md">
+                          <Link to="/shop/display" aria-label="Open full screen display" title="Open full screen display">
+                            <Maximize2 className="size-4" />
+                          </Link>
                         </Button>
-                      )}
+                        {canUsePictureInPicture && (isPipActive || (current?.session && activeDisplayCode && activeQrDataUrl)) && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="secondary"
+                            className="shadow-md"
+                            onClick={() => void handlePictureInPicture()}
+                            aria-label={isPipActive ? "Close picture in picture code display" : "Open picture in picture code display"}
+                            title={isPipActive ? "Close picture in picture" : "Open picture in picture"}
+                          >
+                            <PictureInPicture className="size-4" />
+                          </Button>
+                        )}
+                      </div>
                       {current?.session && activeQrDataUrl ? (
                         <img src={activeQrDataUrl} alt="Current shop attendance QR code" className="size-60" />
                       ) : (
@@ -1581,13 +1597,7 @@ export function ShopAttendancePage() {
                         disabled={!current?.session || isGeneratingCode || !current.canDisplay}
                       >
                         {isGeneratingCode ? <Loader2 className="size-4 animate-spin" /> : <TimerReset className="size-4" />}
-                        Rotate now
-                      </Button>
-                      <Button asChild variant="outline">
-                        <Link to="/shop/display">
-                          <Maximize2 className="size-4" />
-                          Full screen
-                        </Link>
+                        Refresh
                       </Button>
                     </div>
                   </CardContent>
