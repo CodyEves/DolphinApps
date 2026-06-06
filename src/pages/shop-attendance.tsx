@@ -15,6 +15,7 @@ import {
   Maximize2,
   MessageSquare,
   Monitor,
+  PictureInPicture,
   Plus,
   QrCode,
   ShieldCheck,
@@ -462,6 +463,7 @@ export function ShopAttendancePage() {
   );
   const [isAttendanceBusy, setIsAttendanceBusy] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [canUsePictureInPicture] = useState(() => supportsPictureInPicture());
   const [isPipActive, setIsPipActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const scanStreamRef = useRef<MediaStream | null>(null);
@@ -1377,15 +1379,6 @@ export function ShopAttendancePage() {
                     {isGeneratingCode ? <Loader2 className="size-4 animate-spin" /> : <TimerReset className="size-4" />}
                     Rotate now
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void handlePictureInPicture()}
-                    disabled={!isPipActive && (!current?.session || !activeDisplayCode || !activeQrDataUrl)}
-                  >
-                    <Monitor className="size-4" />
-                    {isPipActive ? "Close PiP" : "PiP code"}
-                  </Button>
                   {canManage && (
                     <Button asChild variant="outline">
                       <Link to="/shop">
@@ -1397,7 +1390,20 @@ export function ShopAttendancePage() {
                 </div>
               </section>
               <section className="grid min-h-0 place-items-center gap-6">
-                <div className="grid aspect-square w-full max-w-[min(72vh,42vw)] place-items-center rounded-md border bg-white p-6">
+                <div className="group relative grid aspect-square w-full max-w-[min(72vh,42vw)] place-items-center rounded-md border bg-white p-6">
+                  {canUsePictureInPicture && (isPipActive || (current?.session && activeDisplayCode && activeQrDataUrl)) && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      className="absolute right-3 top-3 z-10 opacity-0 shadow-md transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                      onClick={() => void handlePictureInPicture()}
+                      aria-label={isPipActive ? "Close picture in picture code display" : "Open picture in picture code display"}
+                      title={isPipActive ? "Close picture in picture" : "Open picture in picture"}
+                    >
+                      <PictureInPicture className="size-4" />
+                    </Button>
+                  )}
                   {current?.session && activeQrDataUrl ? (
                     <img src={activeQrDataUrl} alt="Current shop attendance QR code" className="h-full w-full" />
                   ) : (
@@ -1544,7 +1550,20 @@ export function ShopAttendancePage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="grid place-items-center gap-5 text-center">
-                    <div className="grid size-72 place-items-center rounded-md border bg-white p-4">
+                    <div className="group relative grid size-72 place-items-center rounded-md border bg-white p-4">
+                      {canUsePictureInPicture && (isPipActive || (current?.session && activeDisplayCode && activeQrDataUrl)) && (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="secondary"
+                          className="absolute right-2 top-2 z-10 opacity-0 shadow-md transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                          onClick={() => void handlePictureInPicture()}
+                          aria-label={isPipActive ? "Close picture in picture code display" : "Open picture in picture code display"}
+                          title={isPipActive ? "Close picture in picture" : "Open picture in picture"}
+                        >
+                          <PictureInPicture className="size-4" />
+                        </Button>
+                      )}
                       {current?.session && activeQrDataUrl ? (
                         <img src={activeQrDataUrl} alt="Current shop attendance QR code" className="size-60" />
                       ) : (
@@ -1563,15 +1582,6 @@ export function ShopAttendancePage() {
                       >
                         {isGeneratingCode ? <Loader2 className="size-4 animate-spin" /> : <TimerReset className="size-4" />}
                         Rotate now
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => void handlePictureInPicture()}
-                        disabled={!isPipActive && (!current?.session || !activeDisplayCode || !activeQrDataUrl)}
-                      >
-                        <Monitor className="size-4" />
-                        {isPipActive ? "Close PiP" : "PiP code"}
                       </Button>
                       <Button asChild variant="outline">
                         <Link to="/shop/display">
