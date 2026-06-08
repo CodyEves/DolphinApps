@@ -1,4 +1,4 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
+import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
   Award,
@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Clock,
   GraduationCap,
+  KeyRound,
   Save,
   ShieldCheck,
 } from "lucide-react";
@@ -27,6 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -53,7 +55,14 @@ function formatDate(timestamp: number) {
   }).format(new Date(timestamp));
 }
 
+const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,30}[a-z0-9])$/;
+
+function normalizeUsername(value: string) {
+  return value.trim().toLowerCase();
+}
+
 export function ProfilePage() {
+  const { signIn } = useAuthActions();
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
@@ -69,6 +78,11 @@ export function ProfilePage() {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | undefined>();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [securityUsername, setSecurityUsername] = useState("");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSavingSecurity, setIsSavingSecurity] = useState(false);
 
   useEffect(() => {
     if (!viewer) {
@@ -82,6 +96,7 @@ export function ProfilePage() {
     );
     setBio("bio" in viewer.profile ? viewer.profile.bio ?? "" : "");
     setAvatarStorageId(undefined);
+    setSecurityUsername(viewer.provisionedAccount?.username ?? "");
   }, [viewer]);
 
   useEffect(() => {
@@ -134,6 +149,15 @@ export function ProfilePage() {
     () => validateProfileContent({ displayName, bio }),
     [bio, displayName],
   );
+  const currentProvisionedUsername = viewer?.provisionedAccount?.username ?? "";
+  const normalizedSecurityUsername = normalizeUsername(securityUsername);
+  const usernameHasChanged =
+    !!currentProvisionedUsername &&
+    normalizedSecurityUsername !== currentProvisionedUsername;
+  const usernameIssue =
+    normalizedSecurityUsername && !usernamePattern.test(normalizedSecurityUsername)
+      ? "Use 3-32 characters: lowercase letters, numbers, periods, underscores, or hyphens."
+      : null;
 
   async function handleAvatarUpload(file: File | undefined) {
     if (!file) {
@@ -199,6 +223,69 @@ export function ProfilePage() {
     }
   }
 
+  async function handleSaveSecurity(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!currentProvisionedUsername) {
+      toast.error("Your provisioned account was not found.");
+      return;
+    }
+
+    if (!normalizedSecurityUsername) {
+      toast.error("Enter a username.");
+      return;
+    }
+
+    if (usernameIssue) {
+      toast.error(usernameIssue);
+      return;
+    }
+
+    if (!currentPassword) {
+      toast.error("Enter your current password.");
+      return;
+    }
+
+    if (newPassword && newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("New passwords do not match.");
+      return;
+    }
+
+    if (!usernameHasChanged && !newPassword) {
+      toast.error("Change your username or enter a new password.");
+      return;
+    }
+
+    setIsSavingSecurity(true);
+
+    try {
+      const formData = new FormData();
+      formData.set("flow", "profileSecurity");
+      formData.set("currentUsername", currentProvisionedUsername);
+      formData.set("username", normalizedSecurityUsername);
+      formData.set("currentPassword", currentPassword);
+
+      if (newPassword) {
+        formData.set("password", newPassword);
+      }
+
+      await signIn("password", formData);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      toast.success("Security settings saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save security settings");
+    } finally {
+      setIsSavingSecurity(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
@@ -225,8 +312,25 @@ export function ProfilePage() {
 
       <Authenticated>
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
-          <form onSubmit={handleSaveProfile} className="space-y-5">
-            <Card className="overflow-hidden py-0">
+          <Tabs defaultValue="profile" className="space-y-5">
+            <TabsList className="h-auto w-full flex-wrap justify-start">
+              <TabsTrigger value="profile">
+                <Camera className="size-4" />
+                Profile
+              </TabsTrigger>
+              <TabsTrigger value="security">
+                <KeyRound className="size-4" />
+                Security
+              </TabsTrigger>
+              <TabsTrigger value="training">
+                <GraduationCap className="size-4" />
+                Training
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="profile">
+              <form onSubmit={handleSaveProfile}>
+                <Card className="overflow-hidden py-0">
               <CardHeader className="border-b bg-muted/25 px-5 py-4">
                 <CardTitle>Profile details</CardTitle>
                 <CardDescription>
@@ -313,9 +417,112 @@ export function ProfilePage() {
                   {isSavingProfile ? "Saving..." : "Save profile"}
                 </Button>
               </CardContent>
-            </Card>
+                </Card>
+              </form>
+            </TabsContent>
 
-            <Card className="overflow-hidden py-0">
+            <TabsContent value="security">
+              <Card className="overflow-hidden py-0">
+                <CardHeader className="border-b bg-muted/25 px-5 py-4">
+                  <CardTitle>Security</CardTitle>
+                  <CardDescription>
+                    Choose the username and password you use to sign in.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-5 py-5">
+                  {currentProvisionedUsername ? (
+                    <form onSubmit={handleSaveSecurity} className="space-y-5">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="current-username">Current username</Label>
+                          <Input
+                            id="current-username"
+                            value={currentProvisionedUsername}
+                            readOnly
+                            className="font-mono"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="security-username">New username</Label>
+                          <Input
+                            id="security-username"
+                            value={securityUsername}
+                            onChange={(event) =>
+                              setSecurityUsername(normalizeUsername(event.target.value))
+                            }
+                            autoComplete="username"
+                            className="font-mono"
+                            aria-invalid={!!usernameIssue}
+                            required
+                          />
+                          {usernameIssue ? (
+                            <p className="text-sm text-destructive">{usernameIssue}</p>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              Lowercase letters, numbers, periods, underscores, or hyphens.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="current-password">Current password</Label>
+                        <Input
+                          id="current-password"
+                          value={currentPassword}
+                          onChange={(event) => setCurrentPassword(event.target.value)}
+                          type="password"
+                          autoComplete="current-password"
+                          required
+                        />
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="new-password">New password</Label>
+                          <Input
+                            id="new-password"
+                            value={newPassword}
+                            onChange={(event) => setNewPassword(event.target.value)}
+                            type="password"
+                            autoComplete="new-password"
+                            minLength={8}
+                            placeholder="Leave blank to keep current"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="confirm-password">Confirm new password</Label>
+                          <Input
+                            id="confirm-password"
+                            value={confirmPassword}
+                            onChange={(event) => setConfirmPassword(event.target.value)}
+                            type="password"
+                            autoComplete="new-password"
+                            minLength={8}
+                            placeholder="Leave blank to keep current"
+                          />
+                        </div>
+                      </div>
+
+                      <Button
+                        type="submit"
+                        disabled={isSavingSecurity || !!usernameIssue}
+                      >
+                        <KeyRound className="size-4" />
+                        {isSavingSecurity ? "Saving..." : "Save security"}
+                      </Button>
+                    </form>
+                  ) : (
+                    <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                      This profile is not linked to a provisioned username account.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="training">
+              <Card className="overflow-hidden py-0">
               <CardHeader className="border-b bg-muted/25 px-5 py-4">
                 <CardTitle>Training progress</CardTitle>
                 <CardDescription>
@@ -382,8 +589,9 @@ export function ProfilePage() {
                   )}
                 </div>
               </CardContent>
-            </Card>
-          </form>
+              </Card>
+            </TabsContent>
+          </Tabs>
 
           <aside className="space-y-5 lg:sticky lg:top-20">
             <Card className="py-0">

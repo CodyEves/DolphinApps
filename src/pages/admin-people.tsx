@@ -49,6 +49,12 @@ type AccountRole = "student" | "mentor" | "guest" | "kiosk" | "admin";
 type Program = "frc_5199" | "frc_9271";
 type AccountStatusFilter = "all" | "pending_setup" | "active" | "inactive";
 type AccountSort = "displayName" | "username" | "program" | "graduationYear" | "status";
+type GeneratedCredentialLink = {
+  link: string;
+  username: string;
+  displayName: string;
+  purpose: "initial_setup" | "password_reset";
+};
 
 const accountLabelText: Record<AccountLabel, string> = {
   varsity_5199: "5199 Student",
@@ -183,7 +189,21 @@ function parseCsvRows(csv: string) {
 
 async function copyText(text: string) {
   await navigator.clipboard.writeText(text);
-  toast.success("Copied link");
+  toast.success("Copied account details");
+}
+
+function credentialShareText(details: GeneratedCredentialLink) {
+  const action =
+    details.purpose === "initial_setup"
+      ? "Use this one-time setup link to create your password."
+      : "Use this one-time reset link to choose a new password.";
+
+  return [
+    `Dolphin Apps account for ${details.displayName}`,
+    `Username: ${details.username}`,
+    action,
+    details.link,
+  ].join("\n");
 }
 
 export function AdminPeoplePage() {
@@ -218,7 +238,7 @@ export function AdminPeoplePage() {
   const [graduatingYear, setGraduatingYear] = useState("");
   const [graduatingProgram, setGraduatingProgram] = useState<Program | "all">("all");
   const [csv, setCsv] = useState("displayName,role,program,graduationYear\n");
-  const [generatedLinks, setGeneratedLinks] = useState<Record<string, string>>({});
+  const [generatedLinks, setGeneratedLinks] = useState<Record<string, GeneratedCredentialLink>>({});
   const [busyAccountId, setBusyAccountId] = useState<string | null>(null);
   const [isGraduating, setIsGraduating] = useState(false);
   const [clearingProfileId, setClearingProfileId] = useState<string | null>(null);
@@ -341,10 +361,16 @@ export function AdminPeoplePage() {
         setupExpiresAt: expiresAtFromNow(setupDurationMs),
       });
       const link = setupLink(token);
-      setGeneratedLinks((current) => ({ ...current, [result.credentialLinkId]: link }));
+      const details: GeneratedCredentialLink = {
+        link,
+        username: result.username,
+        displayName: result.displayName,
+        purpose: "initial_setup",
+      };
+      setGeneratedLinks((current) => ({ ...current, [result.credentialLinkId]: details }));
       setDisplayName("");
       setGraduationYear("");
-      await copyText(link);
+      await copyText(credentialShareText(details));
       toast.success(`Created ${result.username}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create account");
@@ -429,7 +455,12 @@ export function AdminPeoplePage() {
       const links = Object.fromEntries(
         result.map((created, index) => [
           created.credentialLinkId,
-          setupLink(prepared[index].token),
+          {
+            link: setupLink(prepared[index].token),
+            username: created.username,
+            displayName: created.displayName,
+            purpose: "initial_setup" as const,
+          },
         ]),
       );
       setGeneratedLinks((current) => ({ ...current, ...links }));
@@ -457,8 +488,15 @@ export function AdminPeoplePage() {
         ),
       });
       const link = purpose === "initial_setup" ? setupLink(token) : resetLink(token);
-      setGeneratedLinks((current) => ({ ...current, [result.credentialLinkId]: link }));
-      await copyText(link);
+      const account = accounts?.find((item) => item._id === provisionedAccountId);
+      const details: GeneratedCredentialLink = {
+        link,
+        username: result.username,
+        displayName: account?.displayName ?? result.username,
+        purpose,
+      };
+      setGeneratedLinks((current) => ({ ...current, [result.credentialLinkId]: details }));
+      await copyText(credentialShareText(details));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create link");
     } finally {
@@ -619,17 +657,27 @@ export function AdminPeoplePage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  {createdLinks.map(([id, link]) => (
+                  {createdLinks.map(([id, details]) => (
                     <div key={id} className="flex items-center gap-2 rounded-md border p-2">
-                      <code className="min-w-0 flex-1 truncate text-xs">{link}</code>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">{details.displayName}</p>
+                          <Badge variant="outline" className="font-mono">
+                            {details.username}
+                          </Badge>
+                        </div>
+                        <code className="block truncate text-xs text-muted-foreground">
+                          {details.link}
+                        </code>
+                      </div>
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        onClick={() => void copyText(link)}
+                        onClick={() => void copyText(credentialShareText(details))}
                       >
                         <Copy className="size-4" />
-                        Copy
+                        Copy details
                       </Button>
                     </div>
                   ))}

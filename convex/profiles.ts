@@ -117,6 +117,9 @@ export const viewer = query({
     const avatarUrl = profile?.avatarStorageId
       ? await ctx.storage.getUrl(profile.avatarStorageId)
       : null;
+    const provisionedAccount = profile
+      ? await provisionedAccountForProfile(ctx, profile)
+      : null;
 
     return {
       user,
@@ -125,6 +128,7 @@ export const viewer = query({
         status: "inactive" as const,
         displayName: user.name,
       },
+      provisionedAccount,
       avatarUrl,
     };
   },

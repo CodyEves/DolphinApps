@@ -117,6 +117,41 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           return { userId: account.userId };
         }
 
+        if (flow === "profileSecurity") {
+          const currentUsername = normalizeUsername(params.currentUsername);
+          const nextUsername = normalizeUsername(params.username);
+          const currentPassword = String(params.currentPassword ?? "");
+          const nextPasswordValue = String(params.password ?? "");
+          const nextPassword = nextPasswordValue ? readPassword(nextPasswordValue) : null;
+
+          if (!currentUsername || !nextUsername || !currentPassword) {
+            throw new Error("Enter your current username, new username, and current password.");
+          }
+
+          const retrieved = await retrieveAccount(ctx, {
+            provider,
+            account: { id: currentUsername, secret: currentPassword },
+          });
+          const updated = await ctx.runMutation(
+            internal.access.updateProvisionedAccountCredentials,
+            {
+              userId: retrieved.user._id,
+              provider,
+              currentUsername,
+              nextUsername,
+            },
+          );
+
+          if (nextPassword) {
+            await modifyAccountCredentials(ctx, {
+              provider,
+              account: { id: updated.username, secret: nextPassword },
+            });
+          }
+
+          return { userId: retrieved.user._id };
+        }
+
         throw new Error("Unsupported authentication flow.");
       },
       crypto: {

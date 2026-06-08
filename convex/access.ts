@@ -22,6 +22,7 @@ const credentialLinkPurposeValidator = v.union(
 type AccountLabel = Doc<"provisionedAccounts">["accountLabel"];
 
 const programValidator = v.union(v.literal("frc_5199"), v.literal("frc_9271"));
+const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,30}[a-z0-9])$/;
 
 function normalizeUsernamePart(value: string) {
   return value
@@ -97,6 +98,18 @@ function profilePatchForAccount(account: {
     studentGroup: is9271 ? "9271 Student" : "5199 Student",
     graduationYear: account.graduationYear,
   };
+}
+
+function normalizeChosenUsername(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function validateChosenUsername(username: string) {
+  if (!usernamePattern.test(username)) {
+    throw new Error(
+      "Username must be 3-32 characters and use lowercase letters, numbers, periods, underscores, or hyphens.",
+    );
+  }
 }
 
 function isStudentLabel(accountLabel: AccountLabel) {
@@ -598,6 +611,77 @@ export const consumeCredentialLink = internalMutation({
       userId: account.userId,
       graduationYear: account.graduationYear,
     };
+  },
+});
+
+export const updateProvisionedAccountCredentials = internalMutation({
+  args: {
+    userId: v.id("users"),
+    provider: v.string(),
+    currentUsername: v.string(),
+    nextUsername: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const currentUsername = normalizeChosenUsername(args.currentUsername);
+    const nextUsername = normalizeChosenUsername(args.nextUsername);
+
+    validateChosenUsername(nextUsername);
+
+    const account = await ctx.db
+      .query("provisionedAccounts")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .first();
+
+    if (!account || account.status !== "active") {
+      throw new Error("Your provisioned team account was not found.");
+    }
+
+    if (account.username !== currentUsername) {
+      throw new Error("Your current username no longer matches this account.");
+    }
+
+    const authAccount = await ctx.db
+      .query("authAccounts")
+      .withIndex("providerAndAccountId", (q) =>
+        q.eq("provider", args.provider).eq("providerAccountId", currentUsername),
+      )
+      .unique();
+
+    if (!authAccount || authAccount.userId !== args.userId) {
+      throw new Error("Your sign-in account was not found.");
+    }
+
+    if (nextUsername !== currentUsername) {
+      const existingProvisionedAccount = await ctx.db
+        .query("provisionedAccounts")
+        .withIndex("by_username", (q) => q.eq("username", nextUsername))
+        .first();
+
+      if (existingProvisionedAccount && existingProvisionedAccount._id !== account._id) {
+        throw new Error("That username is already taken.");
+      }
+
+      const existingAuthAccount = await ctx.db
+        .query("authAccounts")
+        .withIndex("providerAndAccountId", (q) =>
+          q.eq("provider", args.provider).eq("providerAccountId", nextUsername),
+        )
+        .first();
+
+      if (existingAuthAccount && existingAuthAccount._id !== authAccount._id) {
+        throw new Error("That username is already taken.");
+      }
+
+      await ctx.db.patch(account._id, {
+        username: nextUsername,
+        updatedAt: Date.now(),
+      });
+      await ctx.db.patch(authAccount._id, {
+        providerAccountId: nextUsername,
+      });
+    }
+
+    return { username: nextUsername };
   },
 });
 

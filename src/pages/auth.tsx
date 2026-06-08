@@ -1,6 +1,6 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { KeyRound, Loader2, LogIn, LogOut } from "lucide-react";
+import { Copy, KeyRound, Loader2, LogIn, LogOut } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -142,6 +142,11 @@ export function AuthPage() {
     return <Navigate to={viewer.profile.role === "kiosk" ? "/shop/display" : returnTo} replace />;
   }
 
+  async function handleCopyUsername(username: string) {
+    await navigator.clipboard.writeText(username);
+    toast.success("Copied username.");
+  }
+
   const hasStaleSession = !isLoading && isAuthenticated && viewer === null;
 
   return (
@@ -194,9 +199,32 @@ export function AuthPage() {
                     {token && preview === undefined && "Checking link..."}
                     {preview === null && "This link is invalid, expired, or already used."}
                     {preview && (
-                      <div>
-                        <p className="font-medium">{preview.displayName}</p>
-                        <p className="text-muted-foreground">Username: {preview.username}</p>
+                      <div className="space-y-3">
+                        <div>
+                          <p className="font-medium">{preview.displayName}</p>
+                          <p className="text-muted-foreground">
+                            Save this username. You will use it every time you sign in.
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="generatedUsername">Your username</Label>
+                          <div className="flex gap-2">
+                            <Input
+                              id="generatedUsername"
+                              value={preview.username}
+                              readOnly
+                              className="font-mono text-base font-semibold"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => void handleCopyUsername(preview.username)}
+                              aria-label="Copy username"
+                            >
+                              <Copy className="size-4" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
