@@ -6,6 +6,7 @@ import {
   ExternalLinkIcon,
   FactoryIcon,
   GaugeIcon,
+  LockKeyholeIcon,
   PackageIcon,
   PlayIcon,
   PlusIcon,
@@ -867,7 +868,7 @@ export function PartsRoute() {
                             Approve
                           </Button>
                         )}
-                        {part.status === "readyForFab" && (
+                        {part.status === "readyForFab" && canApprove && (
                           <Button size="sm" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
                             <PlayIcon data-icon="inline-start" aria-hidden="true" />
                             Start
@@ -1386,7 +1387,7 @@ export function ManufacturingRoute() {
             return false;
           }
 
-          if (targetStatus === "readyForFab") {
+          if (targetStatus === "readyForFab" || draggedPart.status === "readyForFab") {
             return canApprove;
           }
 
@@ -1480,7 +1481,7 @@ export function ManufacturingRoute() {
                     )}
                   </>
                 )}
-                {part.status === "readyForFab" && (
+                {part.status === "readyForFab" && canApprove && (
                   <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
                     <PlayIcon data-icon="inline-start" aria-hidden="true" />
                     Start
@@ -1546,6 +1547,7 @@ export function ManufacturingRoute() {
                         const columnParts = groupParts.filter((part) => part.status === status);
                         const isActiveDrop = dragTarget === status && canDropOnStatus(status);
                         const tone = statusTone(status);
+                        const isLockedReadyColumn = status === "readyForFab" && !canApprove;
 
                         return (
                           <div
@@ -1576,7 +1578,10 @@ export function ManufacturingRoute() {
                           >
                             <div className={cn("h-1.5", tone.bar)} />
                             <div className="flex items-center justify-between gap-2 border-b bg-background/80 px-3 py-2 backdrop-blur">
-                              <h3 className="text-sm font-semibold leading-tight">{partStatusLabel(status)}</h3>
+                              <h3 className="flex items-center gap-1.5 text-sm font-semibold leading-tight">
+                                {isLockedReadyColumn && <LockKeyholeIcon className="size-3.5 text-muted-foreground" aria-hidden="true" />}
+                                {partStatusLabel(status)}
+                              </h3>
                               <span className={cn("rounded-md border px-2 py-0.5 text-xs font-medium", tone.count)}>
                                 {columnParts.length}
                               </span>

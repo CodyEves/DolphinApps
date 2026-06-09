@@ -481,6 +481,7 @@ export const updateStatus = mutation({
 
     if (
       args.status === "readyForFab" ||
+      part.status === "readyForFab" ||
       args.status === "deprecated" ||
       args.status === "stored" ||
       args.status === "onRobot"
