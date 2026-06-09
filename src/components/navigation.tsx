@@ -5,6 +5,7 @@ import {
   BookOpen,
   Clock,
   ClipboardCheck,
+  Factory,
   FileCheck,
   Gauge,
   Menu,
@@ -58,6 +59,7 @@ const trainingNavItems: NavItem[] = [
 
 const partsNavItems: NavItem[] = [
   { href: "/parts", label: "Workspace", icon: Package },
+  { href: "/parts/manufacturing", label: "Manufacturing", icon: Factory },
   { href: "/parts/admin", label: "Parts Admin", icon: Settings, adminOnly: true },
 ];
 

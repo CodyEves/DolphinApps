@@ -481,10 +481,16 @@ export const updateStatus = mutation({
 
     if (
       args.status === "readyForFab" ||
-      args.status === "inManufacturing" ||
       args.status === "deprecated"
     ) {
       requireRole(profile, ["mentor", "admin"]);
+    }
+
+    if (
+      ["inManufacturing", "manufactured", "stored", "onRobot"].includes(args.status) &&
+      !["readyForFab", "inManufacturing", "manufactured", "stored", "onRobot"].includes(part.status)
+    ) {
+      throw new Error("A mentor must approve this part before manufacturing can start.");
     }
 
     const now = Date.now();

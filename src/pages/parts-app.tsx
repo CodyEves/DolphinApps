@@ -623,7 +623,7 @@ export function PartsRoute() {
               </div>
               <div className="rounded-md border bg-card p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="font-semibold">Review / fab</h2>
+                  <h2 className="font-semibold">Manufacturing board</h2>
                   <Button asChild size="sm" variant="outline">
                     <Link to="/parts/manufacturing">
                       <FactoryIcon data-icon="inline-start" aria-hidden="true" />
@@ -631,37 +631,19 @@ export function PartsRoute() {
                     </Link>
                   </Button>
                 </div>
-                <div className="grid gap-2">
-                  {[...submittedParts, ...overview.manufacturing].slice(0, 5).map((part) => (
-                    <div key={part._id} className="rounded-md border p-2 text-sm">
-                      <div className="flex items-start justify-between gap-2">
-                        <Link to={`/parts/${part._id}`} className="font-medium hover:underline">
-                          {part.partNumber ?? "Draft"} - {part.name}
-                        </Link>
-                        <StatusPill status={part.status} />
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {part.status === "submittedForReview" && canApprove && (
-                          <Button size="sm" variant="outline" onClick={() => move(part._id, "readyForFab")}>
-                            <CheckCircle2Icon data-icon="inline-start" aria-hidden="true" />
-                            Approve
-                          </Button>
-                        )}
-                        {part.status === "readyForFab" && (
-                          <Button size="sm" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
-                            <PlayIcon data-icon="inline-start" aria-hidden="true" />
-                            Start
-                          </Button>
-                        )}
-                        {part.status !== "submittedForReview" && (
-                          <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>
-                            Manufactured
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {submittedParts.length + overview.manufacturing.length === 0 && <EmptyState>No parts are waiting on review or fab.</EmptyState>}
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="rounded-md bg-muted p-2">
+                    <p className="text-lg font-semibold">{submittedParts.length}</p>
+                    <p className="text-muted-foreground">review</p>
+                  </div>
+                  <div className="rounded-md bg-muted p-2">
+                    <p className="text-lg font-semibold">{readyParts.length}</p>
+                    <p className="text-muted-foreground">ready</p>
+                  </div>
+                  <div className="rounded-md bg-muted p-2">
+                    <p className="text-lg font-semibold">{manufacturingParts.length}</p>
+                    <p className="text-muted-foreground">active</p>
+                  </div>
                 </div>
               </div>
               <div className="rounded-md border bg-card p-4">
@@ -950,7 +932,7 @@ export function PartsRoute() {
                             Approve
                           </Button>
                         )}
-                        {part.status === "readyForFab" && canApprove && (
+                        {part.status === "readyForFab" && (
                           <Button size="sm" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
                             <PlayIcon data-icon="inline-start" aria-hidden="true" />
                             Start
@@ -1395,15 +1377,65 @@ export function SystemListRoute() {
 }
 
 export function ManufacturingRoute() {
-  const { effectiveRoleView, manufacturingStatusFilter, setManufacturingStatusFilter } = useUiStore();
+  const { effectiveRoleView } = useUiStore();
   const updateStatus = useMutation(api.parts.updateStatus);
+  const [groupBy, setGroupBy] = useState<"none" | "subsystem" | "machine">("none");
+  const [sortBy, setSortBy] = useState<"priority" | "subsystem" | "machine" | "newest">("priority");
 
   return (
     <RequireSeason>
       {(overview, active, catalog) => {
-        const parts = overview.parts.filter((part) => part.status === manufacturingStatusFilter);
         const effectiveRole = resolveEffectiveRole(active.profile.role, effectiveRoleView);
         const canApprove = canApproveParts(effectiveRole);
+        const boardStatuses = [
+          "inDesign",
+          "submittedForReview",
+          "readyForFab",
+          "inManufacturing",
+          "manufactured",
+          "stored",
+          "onRobot",
+        ] as const;
+        const priorityRank: Record<Priority, number> = {
+          critical: 0,
+          high: 1,
+          normal: 2,
+          low: 3,
+        };
+        const boardParts = overview.parts.filter((part) =>
+          boardStatuses.includes(part.status as (typeof boardStatuses)[number]),
+        );
+        const groupLabel = (part: Doc<"parts">) => {
+          if (groupBy === "subsystem") {
+            return subsystemName(overview.subsystems, part.subsystemId);
+          }
+
+          if (groupBy === "machine") {
+            return catalogLabel(catalog, part.toolOptionId) === "None"
+              ? "Unassigned machine"
+              : catalogLabel(catalog, part.toolOptionId);
+          }
+
+          return "All manufacturing work";
+        };
+        const sortedParts = [...boardParts].sort((a, b) => {
+          if (sortBy === "priority") {
+            return priorityRank[a.priority] - priorityRank[b.priority];
+          }
+
+          if (sortBy === "subsystem") {
+            return subsystemName(overview.subsystems, a.subsystemId).localeCompare(
+              subsystemName(overview.subsystems, b.subsystemId),
+            );
+          }
+
+          if (sortBy === "machine") {
+            return catalogLabel(catalog, a.toolOptionId).localeCompare(catalogLabel(catalog, b.toolOptionId));
+          }
+
+          return b._creationTime - a._creationTime;
+        });
+        const groupNames = [...new Set(sortedParts.map(groupLabel))];
 
         async function move(partId: Id<"parts">, status: PartStatus) {
           try {
@@ -1414,65 +1446,135 @@ export function ManufacturingRoute() {
           }
         }
 
+        function PartKanbanCard({ part }: { part: Doc<"parts"> }) {
+          return (
+            <div className="rounded-md border bg-card p-3 text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <Link to={`/parts/${part._id}`} className="font-semibold hover:underline">
+                    {part.partNumber ?? "Draft"}
+                  </Link>
+                  <p className="line-clamp-2 text-muted-foreground">{part.name}</p>
+                </div>
+                <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                  {part.priority}
+                </span>
+              </div>
+              <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
+                <span>{subsystemName(overview.subsystems, part.subsystemId)}</span>
+                <span>{catalogLabel(catalog, part.toolOptionId) === "None" ? "No machine" : catalogLabel(catalog, part.toolOptionId)}</span>
+                <span>{catalogLabel(catalog, part.materialOptionId)}{part.sizeProfile ? ` / ${part.sizeProfile}` : ""}</span>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {part.status === "inDesign" && (
+                  <Button size="sm" variant="outline" onClick={() => move(part._id, "submittedForReview")}>
+                    Submit for review
+                  </Button>
+                )}
+                {part.status === "submittedForReview" && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => move(part._id, "inDesign")}>
+                      Pull back to design
+                    </Button>
+                    {canApprove && (
+                      <Button size="sm" variant="outline" onClick={() => move(part._id, "readyForFab")}>
+                        <CheckCircle2Icon data-icon="inline-start" aria-hidden="true" />
+                        Approve for manufacturing
+                      </Button>
+                    )}
+                  </>
+                )}
+                {part.status === "readyForFab" && (
+                  <Button size="sm" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
+                    <PlayIcon data-icon="inline-start" aria-hidden="true" />
+                    Start manufacturing
+                  </Button>
+                )}
+                {part.status === "inManufacturing" && (
+                  <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>
+                    Mark manufactured
+                  </Button>
+                )}
+                {part.status === "manufactured" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button size="sm" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
+                    <Button size="sm" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
+                  </div>
+                )}
+                {part.status === "stored" && (
+                  <Button size="sm" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
+                )}
+              </div>
+            </div>
+          );
+        }
+
         return (
           <>
             <PageHeader
               title="Manufacturing"
-              description="Parts marked ready for fab automatically appear here."
+              description="Review, approval, and manufacturing status by subsystem or machine."
             />
-            <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-              {partStatuses.filter((status) => status !== "draft").map((status) => (
-                <Button
-                  key={status}
-                  size="sm"
-                  variant={manufacturingStatusFilter === status ? "default" : "outline"}
-                  onClick={() => setManufacturingStatusFilter(status)}
+            <div className="mb-4 grid gap-3 rounded-md border bg-card p-3 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="manufacturing-group">View</Label>
+                <select
+                  id="manufacturing-group"
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={groupBy}
+                  onChange={(event) => setGroupBy(event.currentTarget.value as typeof groupBy)}
                 >
-                  {partStatusLabel(status)}
-                </Button>
-              ))}
+                  <option value="none">All work</option>
+                  <option value="subsystem">By subsystem</option>
+                  <option value="machine">By machine</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="manufacturing-sort">Sort cards</Label>
+                <select
+                  id="manufacturing-sort"
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  value={sortBy}
+                  onChange={(event) => setSortBy(event.currentTarget.value as typeof sortBy)}
+                >
+                  <option value="priority">Priority</option>
+                  <option value="subsystem">Subsystem</option>
+                  <option value="machine">Machine</option>
+                  <option value="newest">Newest</option>
+                </select>
+              </div>
             </div>
             <div className="grid gap-3">
-              {parts.map((part) => (
-                <div key={part._id} className="rounded-md border bg-card p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <Link to={`/parts/${part._id}`} className="font-semibold hover:underline">
-                        {part.partNumber ?? "Draft"} - {part.name}
-                      </Link>
-                      <p className="text-sm text-muted-foreground">
-                        {catalogLabel(catalog, part.materialOptionId)} / {catalogLabel(catalog, part.toolOptionId)} / {catalogLabel(catalog, part.bitSizeOptionId)}
-                      </p>
+              {groupNames.map((groupName) => {
+                const groupParts = sortedParts.filter((part) => groupLabel(part) === groupName);
+
+                return (
+                  <section key={groupName} className="rounded-md border bg-muted/40 p-3">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <h2 className="font-semibold">{groupName}</h2>
+                      <span className="text-sm text-muted-foreground">{groupParts.length} parts</span>
                     </div>
-                    <StatusPill status={part.status} />
-                  </div>
-                  <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
-                    {part.status === "inDesign" && (
-                      <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "submittedForReview")}>
-                        Submit for review
-                      </Button>
-                    )}
-                    {part.status === "submittedForReview" && canApprove && (
-                      <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "readyForFab")}>
-                        <CheckCircle2Icon data-icon="inline-start" aria-hidden="true" />
-                        Approve
-                      </Button>
-                    )}
-                    {part.status === "readyForFab" && canApprove && (
-                      <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
-                        <PlayIcon data-icon="inline-start" aria-hidden="true" />
-                        Start
-                      </Button>
-                    )}
-                    {part.status !== "submittedForReview" && (
-                      <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "manufactured")}>Manufactured</Button>
-                    )}
-                    <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
-                    <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
-                  </div>
-                </div>
-              ))}
-              {parts.length === 0 && <EmptyState>No parts in this status.</EmptyState>}
+                    <div className="grid gap-3 xl:grid-cols-7">
+                      {boardStatuses.map((status) => {
+                        const columnParts = groupParts.filter((part) => part.status === status);
+
+                        return (
+                          <div key={status} className="grid min-h-32 content-start gap-2 rounded-md border bg-background p-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <h3 className="text-sm font-semibold">{partStatusLabel(status)}</h3>
+                              <span className="text-xs text-muted-foreground">{columnParts.length}</span>
+                            </div>
+                            {columnParts.map((part) => (
+                              <PartKanbanCard key={part._id} part={part} />
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                );
+              })}
+              {boardParts.length === 0 && <EmptyState>No manufacturing work is active.</EmptyState>}
             </div>
           </>
         );
@@ -1969,8 +2071,19 @@ export function PartDetailRoute() {
           <div className="rounded-md border bg-card p-4">
             <h2 className="mb-3 font-semibold">Lifecycle</h2>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-              {partStatuses.map((status) => (
-                (!canApprove && (status === "readyForFab" || status === "inManufacturing" || status === "deprecated")) ? null : (
+              {partStatuses.map((status) => {
+                const isManufacturingProgress = ["inManufacturing", "manufactured", "stored", "onRobot"].includes(status);
+                const isApprovedForStudentControl = ["readyForFab", "inManufacturing", "manufactured", "stored", "onRobot"].includes(part.status);
+
+                if (!canApprove && (status === "readyForFab" || status === "deprecated")) {
+                  return null;
+                }
+
+                if (!canApprove && isManufacturingProgress && !isApprovedForStudentControl) {
+                  return null;
+                }
+
+                return (
                 <Button
                   key={status}
                   size="sm"
@@ -1984,8 +2097,8 @@ export function PartDetailRoute() {
                       ? "Approve for fab"
                       : partStatusLabel(status)}
                 </Button>
-                )
-              ))}
+                );
+              })}
             </div>
           </div>
           <div className="rounded-md border bg-card p-4">
