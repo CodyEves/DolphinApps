@@ -20,13 +20,13 @@ const partInput = {
   materialOptionId: v.union(v.id("catalogOptions"), v.null()),
   toolOptionId: v.union(v.id("catalogOptions"), v.null()),
   bitSizeOptionId: v.union(v.id("catalogOptions"), v.null()),
-  sizeProfile: v.string(),
+  sizeProfile: v.optional(v.string()),
   storageLocationOptionId: v.union(v.id("catalogOptions"), v.null()),
   onshapeDocumentUrl: v.string(),
   onshapePartStudioUrl: v.string(),
   onshapeDrawingUrl: v.string(),
   notes: v.string(),
-  supersedesPartId: v.union(v.id("parts"), v.null()),
+  supersedesPartId: v.optional(v.union(v.id("parts"), v.null())),
 };
 
 async function insertEvent(
@@ -88,6 +88,33 @@ async function requireSupersededPartInSeason(
   }
 
   return supersededPart;
+}
+
+async function nextAvailablePartNumber(
+  ctx: MutationCtx,
+  seasonId: Id<"seasons">,
+  letter: string,
+  startingSequenceNumber: number,
+) {
+  let sequenceNumber = Math.max(1, startingSequenceNumber);
+
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    const partNumber = formatPartNumber(letter, sequenceNumber);
+    const duplicate = await ctx.db
+      .query("parts")
+      .withIndex("by_seasonId_and_partNumber", (q) =>
+        q.eq("seasonId", seasonId).eq("partNumber", partNumber),
+      )
+      .unique();
+
+    if (!duplicate) {
+      return { partNumber, sequenceNumber };
+    }
+
+    sequenceNumber += 1;
+  }
+
+  throw new Error("No available part number found for this subsystem.");
 }
 
 export const list = query({
@@ -192,12 +219,15 @@ export const saveDraft = mutation({
     const profile = await requireActiveProfile(ctx);
     await requireSeasonAccess(ctx, profile, args.seasonId);
     await requireSubsystemInSeason(ctx, args.subsystemId, args.seasonId);
-    await requireSupersededPartInSeason(ctx, args.supersedesPartId, args.seasonId);
+    const supersedesPartId = args.supersedesPartId ?? null;
+    await requireSupersededPartInSeason(ctx, supersedesPartId, args.seasonId);
     const now = Date.now();
 
     const partId = await ctx.db.insert("parts", {
       ...args,
       name: args.name.trim(),
+      sizeProfile: args.sizeProfile ?? "",
+      supersedesPartId,
       partNumber: null,
       sequenceNumber: null,
       status: "draft",
@@ -220,20 +250,15 @@ export const generate = mutation({
     const profile = await requireActiveProfile(ctx);
     await requireSeasonAccess(ctx, profile, args.seasonId);
     const subsystem = await requireSubsystemInSeason(ctx, args.subsystemId, args.seasonId);
-    await requireSupersededPartInSeason(ctx, args.supersedesPartId, args.seasonId);
+    const supersedesPartId = args.supersedesPartId ?? null;
+    await requireSupersededPartInSeason(ctx, supersedesPartId, args.seasonId);
 
-    const sequenceNumber = subsystem.nextPartNumber;
-    const partNumber = formatPartNumber(subsystem.letter, sequenceNumber);
-    const duplicate = await ctx.db
-      .query("parts")
-      .withIndex("by_seasonId_and_partNumber", (q) =>
-        q.eq("seasonId", args.seasonId).eq("partNumber", partNumber),
-      )
-      .unique();
-
-    if (duplicate) {
-      throw new Error("Part number collision detected. Try again.");
-    }
+    const { partNumber, sequenceNumber } = await nextAvailablePartNumber(
+      ctx,
+      args.seasonId,
+      subsystem.letter,
+      subsystem.nextPartNumber,
+    );
 
     await ctx.db.patch(args.subsystemId, {
       nextPartNumber: sequenceNumber + 1,
@@ -243,6 +268,8 @@ export const generate = mutation({
     const partId = await ctx.db.insert("parts", {
       ...args,
       name: args.name.trim(),
+      sizeProfile: args.sizeProfile ?? "",
+      supersedesPartId,
       partNumber,
       sequenceNumber,
       status: "readyForFab",
@@ -264,6 +291,71 @@ export const generate = mutation({
       `Generated ${partNumber} and added to the manufacturing queue.`,
     );
     return partId;
+  },
+});
+
+export const generateNumber = mutation({
+  args: {
+    seasonId: v.id("seasons"),
+    subsystemId: v.id("subsystems"),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const profile = await requireActiveProfile(ctx);
+    await requireSeasonAccess(ctx, profile, args.seasonId);
+    const subsystem = await requireSubsystemInSeason(ctx, args.subsystemId, args.seasonId);
+
+    const { partNumber, sequenceNumber } = await nextAvailablePartNumber(
+      ctx,
+      args.seasonId,
+      subsystem.letter,
+      subsystem.nextPartNumber,
+    );
+
+    await ctx.db.patch(args.subsystemId, {
+      nextPartNumber: sequenceNumber + 1,
+    });
+
+    const now = Date.now();
+    const partId = await ctx.db.insert("parts", {
+      seasonId: args.seasonId,
+      subsystemId: args.subsystemId,
+      name: args.name.trim(),
+      kind: "part",
+      quantity: 1,
+      priority: "normal",
+      materialOptionId: null,
+      toolOptionId: null,
+      bitSizeOptionId: null,
+      sizeProfile: "",
+      storageLocationOptionId: null,
+      onshapeDocumentUrl: "",
+      onshapePartStudioUrl: "",
+      onshapeDrawingUrl: "",
+      notes: "",
+      supersedesPartId: null,
+      partNumber,
+      sequenceNumber,
+      status: "readyForFab",
+      designedByProfileId: profile._id,
+      manufacturedByProfileId: null,
+      designedAt: now,
+      manufacturedAt: null,
+      installedAt: null,
+      deprecatedAt: null,
+    });
+
+    await insertEvent(
+      ctx,
+      partId,
+      profile._id,
+      "generated",
+      null,
+      "readyForFab",
+      `Generated ${partNumber} and added to the manufacturing queue.`,
+    );
+
+    return { partId, partNumber };
   },
 });
 

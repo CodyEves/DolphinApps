@@ -328,6 +328,15 @@ function catalogLabel(catalog: Doc<"catalogOptions">[], optionId: Id<"catalogOpt
   return optionId ? catalog.find((option) => option._id === optionId)?.label ?? "Unknown" : "None";
 }
 
+async function copyToClipboard(value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function designerLabel(designers: Doc<"profiles">[] | undefined, profileId: Id<"profiles"> | null) {
   if (!profileId) {
     return "Unassigned";
@@ -442,7 +451,7 @@ export function DashboardRoute() {
 
 export function PartsRoute() {
   const { partsSubsystemFilter, setPartsSubsystemFilter } = useUiStore();
-  const generatePart = useMutation(api.parts.generate);
+  const generateNumber = useMutation(api.parts.generateNumber);
   const updatePart = useMutation(api.parts.update);
   const updateStatus = useMutation(api.parts.updateStatus);
   const [newSubsystemId, setNewSubsystemId] = useState<Id<"subsystems"> | null>(null);
@@ -481,30 +490,23 @@ export function PartsRoute() {
             return;
           }
 
-          const formData = new FormData(event.currentTarget);
+          const form = event.currentTarget;
+          const formData = new FormData(form);
 
           try {
-            await generatePart({
+            const result = await generateNumber({
               seasonId: active.season!._id,
               subsystemId: activeNewSubsystemId,
               name: String(formData.get("name") ?? ""),
-              kind: "part",
-              quantity: 1,
-              priority: "normal",
-              materialOptionId: null,
-              toolOptionId: null,
-              bitSizeOptionId: null,
-              sizeProfile: "",
-              storageLocationOptionId: null,
-              onshapeDocumentUrl: "",
-              onshapePartStudioUrl: "",
-              onshapeDrawingUrl: "",
-              notes: "",
-              supersedesPartId: null,
             });
-            event.currentTarget.reset();
+            const copied = await copyToClipboard(result.partNumber);
+            form.reset();
             setPartsSubsystemFilter(activeNewSubsystemId);
-            toast.success("Part number generated");
+            toast.success(
+              copied
+                ? `Generated and copied ${result.partNumber}`
+                : `Generated ${result.partNumber}`,
+            );
           } catch (error) {
             toast.error(error instanceof Error ? error.message : "Could not generate part number");
           }
@@ -1048,7 +1050,7 @@ function OptionButtons({
 
 export function GeneratePartRoute() {
   const navigate = useNavigate();
-  const generatePart = useMutation(api.parts.generate);
+  const generateNumber = useMutation(api.parts.generateNumber);
   const saveDraft = useMutation(api.parts.saveDraft);
   const [subsystemId, setSubsystemId] = useState<Id<"subsystems"> | null>(null);
   const [kind, setKind] = useState<"part" | "assembly">("part");
@@ -1095,7 +1097,13 @@ export function GeneratePartRoute() {
           };
 
           try {
-            const partId = mode === "generate" ? await generatePart(payload) : await saveDraft(payload);
+            const partId = mode === "generate"
+              ? (await generateNumber({
+                  seasonId: active.season!._id,
+                  subsystemId: activeSubsystemId,
+                  name: payload.name,
+                })).partId
+              : await saveDraft(payload);
             toast.success(mode === "generate" ? "Part number generated" : "Draft saved");
             navigate(`/parts/${partId}`);
           } catch (error) {
