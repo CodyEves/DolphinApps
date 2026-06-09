@@ -554,15 +554,7 @@ export function PartsRoute() {
           <>
             <PageHeader
               title="Parts workspace"
-              description="Part numbers, system reference, manufacturing, orders, and calculator links."
-              action={
-                <Button asChild variant="outline">
-                  <Link to="/parts/transmissions">
-                    <GaugeIcon data-icon="inline-start" aria-hidden="true" />
-                    Calculator
-                  </Link>
-                </Button>
-              }
+              description="Generate part numbers, edit part details, and browse the robot system list."
             />
             <section className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {([
@@ -581,7 +573,7 @@ export function PartsRoute() {
                 </div>
               ))}
             </section>
-            <section className="mb-4 grid gap-3 xl:grid-cols-[1fr_1fr_1.2fr]">
+            <section className="mb-4 max-w-xl">
               <div className="rounded-md border bg-card p-4">
                 <h2 className="font-semibold">Generate a part number</h2>
                 <form className="mt-3 grid gap-3" onSubmit={createPartNumber}>
@@ -621,69 +613,12 @@ export function PartsRoute() {
                   </Button>
                 </form>
               </div>
-              <div className="rounded-md border bg-card p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="font-semibold">Manufacturing board</h2>
-                  <Button asChild size="sm" variant="outline">
-                    <Link to="/parts/manufacturing">
-                      <FactoryIcon data-icon="inline-start" aria-hidden="true" />
-                      Open
-                    </Link>
-                  </Button>
-                </div>
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="rounded-md bg-muted p-2">
-                    <p className="text-lg font-semibold">{submittedParts.length}</p>
-                    <p className="text-muted-foreground">review</p>
-                  </div>
-                  <div className="rounded-md bg-muted p-2">
-                    <p className="text-lg font-semibold">{readyParts.length}</p>
-                    <p className="text-muted-foreground">ready</p>
-                  </div>
-                  <div className="rounded-md bg-muted p-2">
-                    <p className="text-lg font-semibold">{manufacturingParts.length}</p>
-                    <p className="text-muted-foreground">active</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-md border bg-card p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="font-semibold">Transmission cheatsheet</h2>
-                  <Button asChild size="sm" variant="outline">
-                    <Link to="/parts/transmissions">
-                      <ExternalLinkIcon data-icon="inline-start" aria-hidden="true" />
-                      Add
-                    </Link>
-                  </Button>
-                </div>
-                <div className="grid gap-2">
-                  {overview.transmissions.slice(0, 5).map((transmission) => (
-                    <div key={transmission._id} className="rounded-md border p-2 text-sm">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-medium">{transmission.name}</p>
-                        {transmission.calculatorUrl && (
-                          <Button size="icon" variant="ghost" asChild>
-                            <a href={transmission.calculatorUrl} target="_blank" rel="noreferrer">
-                              <ExternalLinkIcon aria-hidden="true" />
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {subsystemName(overview.subsystems, transmission.subsystemId)} / {transmission.ratio || calculatedRatio(transmission.driverTeeth, transmission.drivenTeeth) || "ratio TBD"}
-                      </p>
-                    </div>
-                  ))}
-                  {overview.transmissions.length === 0 && <EmptyState>No transmissions have been added.</EmptyState>}
-                </div>
-              </div>
             </section>
             <Tabs defaultValue="parts" className="grid gap-4">
               <TabsList className="max-w-full overflow-x-auto">
                 <TabsTrigger value="parts">Parts</TabsTrigger>
                 <TabsTrigger value="systems">Systems</TabsTrigger>
                 <TabsTrigger value="fab">Fab</TabsTrigger>
-                <TabsTrigger value="transmissions">Transmissions</TabsTrigger>
                 <TabsTrigger value="orders">Orders</TabsTrigger>
               </TabsList>
               <TabsContent value="parts" className="grid gap-4">
@@ -947,42 +882,6 @@ export function PartsRoute() {
                     </div>
                   ))}
                   {overview.manufacturing.length === 0 && <EmptyState>No parts are ready for fab.</EmptyState>}
-                </div>
-              </TabsContent>
-              <TabsContent value="transmissions">
-                <div className="grid gap-3">
-                  {overview.transmissions.map((transmission) => (
-                    <div key={transmission._id} className="rounded-md border bg-card p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <h2 className="font-semibold">{transmission.name}</h2>
-                          <p className="text-sm text-muted-foreground">
-                            {subsystemName(overview.subsystems, transmission.subsystemId)} / {transmission.ratio || calculatedRatio(transmission.driverTeeth, transmission.drivenTeeth) || "ratio TBD"}
-                          </p>
-                        </div>
-                        {transmission.calculatorUrl && (
-                          <Button size="icon" variant="outline" asChild>
-                            <a href={transmission.calculatorUrl} target="_blank" rel="noreferrer">
-                              <ExternalLinkIcon aria-hidden="true" />
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-                      <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-4">
-                        <span>Driver {transmission.driverTeeth ?? "TBD"}</span>
-                        <span>Driven {transmission.drivenTeeth ?? "TBD"}</span>
-                        <span>Belt {transmission.beltTeeth ?? "TBD"}</span>
-                        <span>Center {transmission.centerDistance || "TBD"}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {overview.transmissions.length === 0 && <EmptyState>No transmissions have been added.</EmptyState>}
-                  <Button asChild className="w-full sm:w-fit">
-                    <Link to="/parts/transmissions">
-                      <PlusIcon data-icon="inline-start" aria-hidden="true" />
-                      Add transmission
-                    </Link>
-                  </Button>
                 </div>
               </TabsContent>
               <TabsContent value="orders">
@@ -1737,6 +1636,7 @@ export function ManufacturingRoute() {
 }
 
 type TransmissionImport = {
+  mechanism?: string;
   name?: string;
   ratio?: string;
   driverTeeth?: string;
@@ -1771,9 +1671,11 @@ function parseTransmissionUrl(value: string): TransmissionImport {
     const driverTeeth = first("driverTeeth", "driver", "smallPulleyTeeth", "smallTeeth", "inputTeeth", "motorTeeth");
     const drivenTeeth = first("drivenTeeth", "driven", "largePulleyTeeth", "largeTeeth", "outputTeeth");
     const ratio = first("ratio");
+    const mechanism = first("mechanism", "title");
 
     return {
-      name: first("name", "title", "mechanism"),
+      mechanism,
+      name: first("name", "label", "title"),
       ratio: ratio ?? calculatedRatio(driverTeeth, drivenTeeth),
       driverTeeth,
       drivenTeeth,
@@ -1817,6 +1719,16 @@ export function TransmissionsRoute() {
         const selectedSubsystem =
           overview.subsystems.find((subsystem) => subsystem._id === subsystemId) ??
           overview.subsystems[0];
+        const transmissionsBySubsystem = overview.subsystems
+          .map((subsystem) => ({
+            subsystem,
+            transmissions: overview.transmissions
+              .filter((transmission) => transmission.subsystemId === subsystem._id)
+              .sort((a, b) =>
+                `${a.mechanism ?? ""} ${a.name}`.localeCompare(`${b.mechanism ?? ""} ${b.name}`),
+              ),
+          }))
+          .filter((group) => group.transmissions.length > 0);
 
         async function handleSubmit(event: FormEvent<HTMLFormElement>) {
           event.preventDefault();
@@ -1836,6 +1748,7 @@ export function TransmissionsRoute() {
             await upsert({
               seasonId: active.season!._id,
               subsystemId: subsystem._id,
+              mechanism: String(formData.get("mechanism") ?? ""),
               name: String(formData.get("name") ?? ""),
               ratio,
               driverTeeth,
@@ -1854,14 +1767,8 @@ export function TransmissionsRoute() {
 
         return (
           <>
-            <PageHeader title="Transmissions" description="Power transmission summary with ReCalc and design calculator links." />
+            <PageHeader title="Transmissions" description="Subsystem and mechanism reference for belts, chains, gears, and pivots." />
             <form className="mb-4 grid gap-3 rounded-md border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={handleSubmit}>
-              <Input name="name" placeholder="Shooter belt" required />
-              <Input name="ratio" placeholder="1.5:1" />
-              <Input name="driverTeeth" type="number" placeholder="Driver teeth" />
-              <Input name="drivenTeeth" type="number" placeholder="Driven teeth" />
-              <Input name="beltTeeth" type="number" placeholder="Belt teeth" />
-              <Input name="centerDistance" placeholder="5 in" />
               <div className="grid gap-2 sm:col-span-2 lg:col-span-4">
                 <Label>Subsystem</Label>
                 <div className="flex gap-2 overflow-x-auto pb-1">
@@ -1878,6 +1785,19 @@ export function TransmissionsRoute() {
                   ))}
                 </div>
               </div>
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="transmission-mechanism">Mechanism</Label>
+                <Input id="transmission-mechanism" name="mechanism" placeholder="Intake pivot" required />
+              </div>
+              <div className="grid gap-2 sm:col-span-2">
+                <Label htmlFor="transmission-name">Transmission</Label>
+                <Input id="transmission-name" name="name" placeholder="15T motor pulley to 42T arm pulley" required />
+              </div>
+              <Input name="ratio" placeholder="1.5:1" />
+              <Input name="driverTeeth" type="number" placeholder="Driver teeth" />
+              <Input name="drivenTeeth" type="number" placeholder="Driven teeth" />
+              <Input name="beltTeeth" type="number" placeholder="Belt teeth" />
+              <Input name="centerDistance" placeholder="5 in" />
               <Input
                 name="calculatorUrl"
                 type="url"
@@ -1885,6 +1805,7 @@ export function TransmissionsRoute() {
                 className="lg:col-span-2"
                 onBlur={(event) => {
                   const imported = parseTransmissionUrl(event.currentTarget.value);
+                  setFormValue(event.currentTarget.form, "mechanism", imported.mechanism);
                   setFormValue(event.currentTarget.form, "name", imported.name);
                   setFormValue(event.currentTarget.form, "ratio", imported.ratio);
                   setFormValue(event.currentTarget.form, "driverTeeth", imported.driverTeeth);
@@ -1900,27 +1821,44 @@ export function TransmissionsRoute() {
               </Button>
             </form>
             <div className="grid gap-3">
-              {overview.transmissions.map((transmission) => (
-                <div key={transmission._id} className="rounded-md border bg-card p-3">
-                  <div className="flex items-start justify-between gap-3">
+              {transmissionsBySubsystem.map(({ subsystem, transmissions }) => (
+                <section key={subsystem._id} className="rounded-md border bg-card p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
-                      <h2 className="font-semibold">{transmission.name}</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {subsystemName(overview.subsystems, transmission.subsystemId)} / {transmission.ratio || "ratio TBD"}
-                      </p>
+                      <h2 className="font-semibold">{subsystem.letter} - {subsystem.name}</h2>
+                      <p className="text-sm text-muted-foreground">{transmissions.length} transmission references</p>
                     </div>
-                    {transmission.calculatorUrl && (
-                      <Button size="icon" variant="outline" asChild><a href={transmission.calculatorUrl} target="_blank" rel="noreferrer"><ExternalLinkIcon aria-hidden="true" /></a></Button>
-                    )}
                   </div>
-                  <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-4">
-                    <span>Driver {transmission.driverTeeth ?? "TBD"}</span>
-                    <span>Driven {transmission.drivenTeeth ?? "TBD"}</span>
-                    <span>Belt {transmission.beltTeeth ?? "TBD"}</span>
-                    <span>Center {transmission.centerDistance || "TBD"}</span>
+                  <div className="grid gap-2 lg:grid-cols-2">
+                    {transmissions.map((transmission) => (
+                      <div key={transmission._id} className="rounded-md border p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold">{transmission.mechanism || "Unassigned mechanism"}</p>
+                            <h3 className="mt-1 text-sm text-muted-foreground">{transmission.name}</h3>
+                            <p className="mt-1 text-sm">
+                              {transmission.ratio || calculatedRatio(transmission.driverTeeth, transmission.drivenTeeth) || "ratio TBD"}
+                            </p>
+                          </div>
+                          {transmission.calculatorUrl && (
+                            <Button size="icon" variant="outline" asChild>
+                              <a href={transmission.calculatorUrl} target="_blank" rel="noreferrer">
+                                <ExternalLinkIcon aria-hidden="true" />
+                              </a>
+                            </Button>
+                          )}
+                        </div>
+                        <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-4">
+                          <span>Driver {transmission.driverTeeth ?? "TBD"}</span>
+                          <span>Driven {transmission.drivenTeeth ?? "TBD"}</span>
+                          <span>Belt {transmission.beltTeeth ?? "TBD"}</span>
+                          <span>Center {transmission.centerDistance || "TBD"}</span>
+                        </div>
+                        <p className="mt-2 text-sm text-muted-foreground">{transmission.notes || "No notes yet."}</p>
+                      </div>
+                    ))}
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{transmission.notes || "No notes yet."}</p>
-                </div>
+                </section>
               ))}
               {overview.transmissions.length === 0 && <EmptyState>No transmissions have been added.</EmptyState>}
             </div>

@@ -48,6 +48,7 @@ export const upsert = mutation({
     transmissionId: v.optional(v.id("transmissions")),
     seasonId: v.id("seasons"),
     subsystemId: v.id("subsystems"),
+    mechanism: v.optional(v.string()),
     name: v.string(),
     ratio: v.string(),
     driverTeeth: v.union(v.number(), v.null()),
@@ -69,6 +70,7 @@ export const upsert = mutation({
     const transmission = {
       seasonId: args.seasonId,
       subsystemId: args.subsystemId,
+      mechanism: (args.mechanism ?? "").trim(),
       name: args.name.trim(),
       ratio: args.ratio.trim(),
       driverTeeth: normalizeOptionalPositiveInteger(args.driverTeeth, "Driver teeth"),

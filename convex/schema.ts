@@ -403,6 +403,7 @@ export default defineSchema({
   transmissions: defineTable({
     seasonId: v.id("seasons"),
     subsystemId: v.id("subsystems"),
+    mechanism: v.optional(v.string()),
     name: v.string(),
     ratio: v.string(),
     driverTeeth: v.union(v.number(), v.null()),
