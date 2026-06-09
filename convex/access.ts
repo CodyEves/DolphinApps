@@ -4,24 +4,13 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-
-const accountLabelValidator = v.union(
-  v.literal("varsity_5199"),
-  v.literal("jv_9271"),
-  v.literal("mentor"),
-  v.literal("guest"),
-  v.literal("kiosk"),
-  v.literal("admin"),
-);
-
-const credentialLinkPurposeValidator = v.union(
-  v.literal("initial_setup"),
-  v.literal("password_reset"),
-);
+import {
+  accountLabelValidator,
+  credentialLinkPurposeValidator,
+  programValidator,
+} from "./lib/validators";
 
 type AccountLabel = Doc<"provisionedAccounts">["accountLabel"];
-
-const programValidator = v.union(v.literal("frc_5199"), v.literal("frc_9271"));
 const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,30}[a-z0-9])$/;
 
 function normalizeUsernamePart(value: string) {
@@ -143,7 +132,10 @@ async function requireAdminOrFirstAdminBootstrap(
   ctx: MutationCtx,
   accountLabel: AccountLabel,
 ) {
-  const provisionedAdmins = await ctx.db.query("provisionedAccounts").collect();
+  const provisionedAdmins = await ctx.db
+    .query("provisionedAccounts")
+    .withIndex("by_account_label", (q) => q.eq("accountLabel", "admin"))
+    .collect();
 
   if (
     accountLabel === "admin" &&
@@ -192,23 +184,18 @@ export const listProvisionedAccountsForAdmin = query({
     await currentAdmin(ctx);
 
     const accounts = await ctx.db.query("provisionedAccounts").collect();
-    const links = await ctx.db.query("credentialLinks").collect();
-    const latestLinksByAccount = new Map<string, Doc<"credentialLinks">[]>();
-
-    for (const link of links) {
-      const list = latestLinksByAccount.get(link.provisionedAccountId) ?? [];
-      list.push(link);
-      latestLinksByAccount.set(link.provisionedAccountId, list);
-    }
-
-    return accounts
-      .map((account) => ({
+    const accountsWithLinks = await Promise.all(
+      accounts.map(async (account) => ({
         ...account,
-        credentialLinks: (latestLinksByAccount.get(account._id) ?? [])
-          .sort((a, b) => b.createdAt - a.createdAt)
-          .slice(0, 5),
-      }))
-      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+        credentialLinks: await ctx.db
+          .query("credentialLinks")
+          .withIndex("by_account_created", (q) => q.eq("provisionedAccountId", account._id))
+          .order("desc")
+          .take(5),
+      })),
+    );
+
+    return accountsWithLinks.sort((a, b) => a.displayName.localeCompare(b.displayName));
   },
 });
 
@@ -449,7 +436,10 @@ export const deactivateGraduationYear = mutation({
   },
   handler: async (ctx, args) => {
     await currentAdmin(ctx);
-    const accounts = await ctx.db.query("provisionedAccounts").collect();
+    const accounts = await ctx.db
+      .query("provisionedAccounts")
+      .withIndex("by_graduation_year", (q) => q.eq("graduationYear", args.graduationYear))
+      .collect();
     let deactivatedCount = 0;
 
     for (const account of accounts) {

@@ -9,8 +9,7 @@ import {
   teamNumberForSeason,
   type TeamNumber,
 } from "./lib/programs";
-
-const teamNumberValidator = v.union(v.literal("5199"), v.literal("9271"));
+import { teamNumberValidator } from "./lib/validators";
 
 const defaultSubsystems = [
   ["D", "Drivetrain"],

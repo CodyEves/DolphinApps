@@ -4,34 +4,12 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-
-const levelValidator = v.union(
-  v.literal("intro"),
-  v.literal("intermediate"),
-  v.literal("advanced"),
-);
-
-const lessonTypeValidator = v.union(
-  v.literal("video"),
-  v.literal("video_assignment"),
-  v.literal("exam"),
-  v.literal("reading"),
-  v.literal("exercise"),
-);
-
-const questionTypeValidator = v.union(
-  v.literal("multiple_choice"),
-  v.literal("true_false"),
-  v.literal("short_answer"),
-  v.literal("paragraph"),
-  v.literal("fill_blank"),
-  v.literal("file_upload"),
-  v.literal("number"),
-  v.literal("linear_scale"),
-  v.literal("matching"),
-  v.literal("ordering"),
-  v.literal("url"),
-);
+import {
+  lessonResourceTypeValidator,
+  lessonTypeValidator,
+  questionTypeValidator,
+  trainingLevelValidator,
+} from "./lib/validators";
 
 const questionInputValidator = v.object({
   id: v.optional(v.id("questions")),
@@ -53,7 +31,7 @@ const questionInputValidator = v.object({
 
 const lessonResourceInputValidator = v.object({
   id: v.optional(v.id("lessonResources")),
-  resourceType: v.union(v.literal("link"), v.literal("file"), v.literal("note")),
+  resourceType: lessonResourceTypeValidator,
   title: v.string(),
   url: v.optional(v.string()),
   notes: v.optional(v.string()),
@@ -725,7 +703,7 @@ export const saveTrackDetails = mutation({
     title: v.string(),
     description: v.string(),
     category: v.string(),
-    level: levelValidator,
+    level: trainingLevelValidator,
   },
   handler: async (ctx, args) => {
     await requireAdmin(ctx);
@@ -1280,7 +1258,7 @@ export const saveLearningTrackDraft = mutation({
     title: v.string(),
     description: v.string(),
     category: v.string(),
-    level: levelValidator,
+    level: trainingLevelValidator,
     units: v.array(unitInputValidator),
   },
   handler: async (ctx, args) => {

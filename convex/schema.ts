@@ -1,140 +1,34 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-
-const program = v.union(v.literal("frc_5199"), v.literal("frc_9271"));
-const role = v.union(
-  v.literal("student"),
-  v.literal("instructor"),
-  v.literal("mentor"),
-  v.literal("guest"),
-  v.literal("kiosk"),
-  v.literal("admin"),
-);
-const activeStatus = v.union(v.literal("active"), v.literal("inactive"));
-const provisionedAccountStatus = v.union(
-  v.literal("pending_setup"),
-  v.literal("active"),
-  v.literal("inactive"),
-);
-const credentialLinkPurpose = v.union(
-  v.literal("initial_setup"),
-  v.literal("password_reset"),
-);
-const lessonType = v.union(
-  v.literal("video"),
-  v.literal("video_assignment"),
-  v.literal("exam"),
-  v.literal("reading"),
-  v.literal("exercise"),
-);
-const progressStatus = v.union(
-  v.literal("not_started"),
-  v.literal("started"),
-  v.literal("completed"),
-);
-const questionType = v.union(
-  v.literal("multiple_choice"),
-  v.literal("true_false"),
-  v.literal("short_answer"),
-  v.literal("paragraph"),
-  v.literal("fill_blank"),
-  v.literal("file_upload"),
-  v.literal("number"),
-  v.literal("linear_scale"),
-  v.literal("matching"),
-  v.literal("ordering"),
-  v.literal("url"),
-);
-const lessonResourceType = v.union(
-  v.literal("link"),
-  v.literal("file"),
-  v.literal("note"),
-);
-const attemptStatus = v.union(
-  v.literal("in_progress"),
-  v.literal("passed"),
-  v.literal("failed"),
-);
-const submissionStatus = v.union(
-  v.literal("submitted"),
-  v.literal("needs_revision"),
-  v.literal("approved"),
-);
-const signOffStatus = v.union(
-  v.literal("not_started"),
-  v.literal("requested"),
-  v.literal("approved"),
-  v.literal("rejected"),
-  v.literal("expired"),
-);
-const approvalAction = v.union(
-  v.literal("requested"),
-  v.literal("approved"),
-  v.literal("rejected"),
-  v.literal("commented"),
-);
-const websiteEditKind = v.union(
-  v.literal("text"),
-  v.literal("color"),
-  v.literal("background"),
-  v.literal("image"),
-);
-const partStatus = v.union(
-  v.literal("draft"),
-  v.literal("inDesign"),
-  v.literal("submittedForReview"),
-  v.literal("readyForFab"),
-  v.literal("inManufacturing"),
-  v.literal("manufactured"),
-  v.literal("stored"),
-  v.literal("onRobot"),
-  v.literal("deprecated"),
-);
-const partPriority = v.union(
-  v.literal("low"),
-  v.literal("normal"),
-  v.literal("high"),
-  v.literal("critical"),
-);
-const partKind = v.union(v.literal("part"), v.literal("assembly"));
-const catalogKind = v.union(
-  v.literal("material"),
-  v.literal("tool"),
-  v.literal("bitSize"),
-  v.literal("storageLocation"),
-);
-const partEventType = v.union(
-  v.literal("createdDraft"),
-  v.literal("generated"),
-  v.literal("designed"),
-  v.literal("statusChanged"),
-  v.literal("manufactured"),
-  v.literal("stored"),
-  v.literal("installed"),
-  v.literal("deprecated"),
-  v.literal("note"),
-);
-const orderStatus = v.union(
-  v.literal("requested"),
-  v.literal("approved"),
-  v.literal("ordered"),
-  v.literal("backordered"),
-  v.literal("delivered"),
-  v.literal("canceled"),
-);
-const shopSessionStatus = v.union(v.literal("active"), v.literal("closed"));
-const attendanceStatus = v.union(
-  v.literal("open"),
-  v.literal("complete"),
-  v.literal("needs_review"),
-  v.literal("void"),
-);
-const attendanceSource = v.union(
-  v.literal("slack"),
-  v.literal("web"),
-  v.literal("manual"),
-);
+import {
+  accountLabelValidator,
+  activeStatusValidator,
+  approvalActionValidator,
+  attemptStatusValidator,
+  attendanceSourceValidator,
+  attendanceStatusValidator,
+  catalogKindValidator,
+  credentialLinkPurposeValidator,
+  lessonResourceTypeValidator,
+  lessonTypeValidator,
+  orderStatusValidator,
+  partEventTypeValidator,
+  partKindValidator,
+  partStatusValidator,
+  priorityValidator,
+  programValidator,
+  progressStatusValidator,
+  provisionedAccountStatusValidator,
+  questionTypeValidator,
+  roleValidator,
+  shopSessionStatusValidator,
+  signOffStatusValidator,
+  submissionStatusValidator,
+  teamNumberValidator,
+  trainingLevelValidator,
+  websiteEditKindValidator,
+} from "./lib/validators";
 const shopScheduleEntry = v.object({
   dayOfWeek: v.number(),
   isActive: v.boolean(),
@@ -146,49 +40,46 @@ export default defineSchema({
 
   profiles: defineTable({
     userId: v.id("users"),
-    role,
+    role: roleValidator,
     displayName: v.optional(v.string()),
     email: v.optional(v.string()),
     bio: v.optional(v.string()),
     avatarStorageId: v.optional(v.id("_storage")),
-    primaryProgram: v.optional(program),
+    primaryProgram: v.optional(programValidator),
     graduationYear: v.optional(v.number()),
     studentGroup: v.optional(v.string()),
-    status: activeStatus,
+    status: activeStatusValidator,
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
     .index("by_role", ["role"])
+    .index("by_role_status", ["role", "status"])
+    .index("by_status", ["status"])
     .index("by_email", ["email"]),
 
   provisionedAccounts: defineTable({
     username: v.string(),
     displayName: v.string(),
-    accountLabel: v.union(
-      v.literal("varsity_5199"),
-      v.literal("jv_9271"),
-      v.literal("mentor"),
-      v.literal("guest"),
-      v.literal("kiosk"),
-      v.literal("admin"),
-    ),
+    accountLabel: accountLabelValidator,
     userId: v.optional(v.id("users")),
     profileId: v.optional(v.id("profiles")),
     graduationYear: v.optional(v.number()),
-    status: provisionedAccountStatus,
+    status: provisionedAccountStatusValidator,
     createdBy: v.optional(v.id("users")),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_username", ["username"])
     .index("by_user", ["userId"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_account_label", ["accountLabel"])
+    .index("by_graduation_year", ["graduationYear"]),
 
   credentialLinks: defineTable({
     provisionedAccountId: v.id("provisionedAccounts"),
     tokenHash: v.string(),
-    purpose: credentialLinkPurpose,
+    purpose: credentialLinkPurposeValidator,
     expiresAt: v.number(),
     consumedAt: v.optional(v.number()),
     revokedAt: v.optional(v.number()),
@@ -197,13 +88,14 @@ export default defineSchema({
   })
     .index("by_token_hash", ["tokenHash"])
     .index("by_account", ["provisionedAccountId"])
+    .index("by_account_created", ["provisionedAccountId", "createdAt"])
     .index("by_account_purpose", ["provisionedAccountId", "purpose"]),
 
   trainingTracks: defineTable({
     title: v.string(),
     description: v.string(),
     category: v.string(),
-    level: v.union(v.literal("intro"), v.literal("intermediate"), v.literal("advanced")),
+    level: trainingLevelValidator,
     order: v.number(),
     isPublished: v.boolean(),
     createdAt: v.number(),
@@ -228,7 +120,7 @@ export default defineSchema({
     unitId: v.id("units"),
     title: v.string(),
     description: v.string(),
-    lessonType,
+    lessonType: lessonTypeValidator,
     youtubeUrl: v.optional(v.string()),
     estimatedMinutes: v.number(),
     required: v.boolean(),
@@ -241,7 +133,7 @@ export default defineSchema({
 
   lessonResources: defineTable({
     lessonId: v.id("lessons"),
-    resourceType: lessonResourceType,
+    resourceType: lessonResourceTypeValidator,
     title: v.string(),
     url: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -255,7 +147,7 @@ export default defineSchema({
   lessonProgress: defineTable({
     userId: v.id("users"),
     lessonId: v.id("lessons"),
-    status: progressStatus,
+    status: progressStatusValidator,
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
     videoSecondsWatched: v.optional(v.number()),
@@ -278,11 +170,12 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_lesson", ["linkedLessonId"])
+    .index("by_unit", ["linkedUnitId"])
     .index("by_equipment", ["linkedEquipmentId"]),
 
   questions: defineTable({
     quizId: v.id("quizzes"),
-    type: questionType,
+    type: questionTypeValidator,
     prompt: v.string(),
     choices: v.optional(v.array(v.string())),
     correctAnswer: v.optional(v.string()),
@@ -304,7 +197,7 @@ export default defineSchema({
   quizAttempts: defineTable({
     quizId: v.id("quizzes"),
     userId: v.id("users"),
-    status: attemptStatus,
+    status: attemptStatusValidator,
     scorePercent: v.optional(v.number()),
     answers: v.optional(v.array(v.object({ questionId: v.id("questions"), answer: v.string() }))),
     startedAt: v.number(),
@@ -320,7 +213,7 @@ export default defineSchema({
     unitId: v.optional(v.id("units")),
     prompt: v.string(),
     response: v.string(),
-    status: submissionStatus,
+    status: submissionStatusValidator,
     reviewedBy: v.optional(v.id("users")),
     reviewedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -385,7 +278,7 @@ export default defineSchema({
   equipmentVideoProgress: defineTable({
     equipmentId: v.id("equipment"),
     userId: v.id("users"),
-    status: progressStatus,
+    status: progressStatusValidator,
     startedAt: v.optional(v.number()),
     completedAt: v.optional(v.number()),
     updatedAt: v.number(),
@@ -396,7 +289,7 @@ export default defineSchema({
   equipmentSignOffs: defineTable({
     equipmentId: v.id("equipment"),
     userId: v.id("users"),
-    status: signOffStatus,
+    status: signOffStatusValidator,
     requestedAt: v.optional(v.number()),
     approvedAt: v.optional(v.number()),
     approvedBy: v.optional(v.id("users")),
@@ -412,7 +305,7 @@ export default defineSchema({
   approvalEvents: defineTable({
     signOffId: v.id("equipmentSignOffs"),
     actorUserId: v.id("users"),
-    action: approvalAction,
+    action: approvalActionValidator,
     note: v.optional(v.string()),
     createdAt: v.number(),
   })
@@ -422,7 +315,7 @@ export default defineSchema({
   seasons: defineTable({
     name: v.string(),
     year: v.number(),
-    teamNumber: v.optional(v.union(v.literal("5199"), v.literal("9271"))),
+    teamNumber: v.optional(teamNumberValidator),
     isActive: v.boolean(),
     createdByProfileId: v.id("profiles"),
   })
@@ -443,12 +336,13 @@ export default defineSchema({
     .index("by_seasonId_and_sortOrder", ["seasonId", "sortOrder"]),
 
   catalogOptions: defineTable({
-    kind: catalogKind,
+    kind: catalogKindValidator,
     label: v.string(),
     isEnabled: v.boolean(),
     sortOrder: v.number(),
   })
     .index("by_kind", ["kind"])
+    .index("by_kind_sort_order", ["kind", "sortOrder"])
     .index("by_kind_and_label", ["kind", "label"]),
 
   parts: defineTable({
@@ -457,10 +351,10 @@ export default defineSchema({
     partNumber: v.union(v.string(), v.null()),
     sequenceNumber: v.union(v.number(), v.null()),
     name: v.string(),
-    kind: partKind,
-    status: partStatus,
+    kind: partKindValidator,
+    status: partStatusValidator,
     quantity: v.number(),
-    priority: partPriority,
+    priority: priorityValidator,
     materialOptionId: v.union(v.id("catalogOptions"), v.null()),
     toolOptionId: v.union(v.id("catalogOptions"), v.null()),
     bitSizeOptionId: v.union(v.id("catalogOptions"), v.null()),
@@ -496,11 +390,11 @@ export default defineSchema({
 
   partEvents: defineTable({
     partId: v.id("parts"),
-    eventType: partEventType,
+    eventType: partEventTypeValidator,
     profileId: v.union(v.id("profiles"), v.null()),
     occurredAt: v.number(),
-    fromStatus: v.union(partStatus, v.null()),
-    toStatus: v.union(partStatus, v.null()),
+    fromStatus: v.union(partStatusValidator, v.null()),
+    toStatus: v.union(partStatusValidator, v.null()),
     note: v.string(),
   })
     .index("by_partId", ["partId"])
@@ -533,7 +427,7 @@ export default defineSchema({
     quantity: v.number(),
     estimatedCost: v.union(v.number(), v.null()),
     reason: v.string(),
-    status: orderStatus,
+    status: orderStatusValidator,
     requestedByProfileId: v.id("profiles"),
     approvedByProfileId: v.union(v.id("profiles"), v.null()),
     orderedByProfileId: v.union(v.id("profiles"), v.null()),
@@ -549,7 +443,7 @@ export default defineSchema({
   websiteEdits: defineTable({
     pagePath: v.string(),
     targetKey: v.string(),
-    kind: websiteEditKind,
+    kind: websiteEditKindValidator,
     value: v.string(),
     updatedBy: v.id("users"),
     updatedAt: v.number(),
@@ -559,7 +453,7 @@ export default defineSchema({
 
   shopSessions: defineTable({
     title: v.optional(v.string()),
-    status: shopSessionStatus,
+    status: shopSessionStatusValidator,
     openedBy: v.optional(v.id("users")),
     openedAt: v.number(),
     closedBy: v.optional(v.id("users")),
@@ -596,8 +490,8 @@ export default defineSchema({
     shopSessionId: v.id("shopSessions"),
     userId: v.id("users"),
     profileId: v.optional(v.id("profiles")),
-    source: attendanceSource,
-    status: attendanceStatus,
+    source: attendanceSourceValidator,
+    status: attendanceStatusValidator,
     signInAt: v.number(),
     signOutAt: v.optional(v.number()),
     signInCodeHash: v.optional(v.string()),

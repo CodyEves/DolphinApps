@@ -3,6 +3,18 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireActiveProfile, requireProfile, requireSeasonAccess } from "./lib/authz";
 
+function normalizeOptionalPositiveInteger(value: number | null, label: string) {
+  if (value === null) {
+    return null;
+  }
+
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`${label} must be a whole number of at least 1.`);
+  }
+
+  return value;
+}
+
 export const list = query({
   args: {
     seasonId: v.id("seasons"),
@@ -54,36 +66,42 @@ export const upsert = mutation({
       throw new Error("Choose a subsystem in the active season.");
     }
 
-    const now = Date.now();
-
-    if (args.transmissionId) {
-      const transmission = await ctx.db.get(args.transmissionId);
-
-      if (!transmission || transmission.seasonId !== args.seasonId) {
-        throw new Error("Transmission not found in this robot program season.");
-      }
-
-      const { transmissionId, ...patch } = args;
-      await ctx.db.patch(transmissionId, {
-        ...patch,
-        name: patch.name.trim(),
-        updatedByProfileId: profile._id,
-        updatedAt: now,
-      });
-      return transmissionId;
-    }
-
-    return await ctx.db.insert("transmissions", {
+    const transmission = {
       seasonId: args.seasonId,
       subsystemId: args.subsystemId,
       name: args.name.trim(),
-      ratio: args.ratio,
-      driverTeeth: args.driverTeeth,
-      drivenTeeth: args.drivenTeeth,
-      beltTeeth: args.beltTeeth,
-      centerDistance: args.centerDistance,
-      calculatorUrl: args.calculatorUrl,
-      notes: args.notes,
+      ratio: args.ratio.trim(),
+      driverTeeth: normalizeOptionalPositiveInteger(args.driverTeeth, "Driver teeth"),
+      drivenTeeth: normalizeOptionalPositiveInteger(args.drivenTeeth, "Driven teeth"),
+      beltTeeth: normalizeOptionalPositiveInteger(args.beltTeeth, "Belt teeth"),
+      centerDistance: args.centerDistance.trim(),
+      calculatorUrl: args.calculatorUrl.trim(),
+      notes: args.notes.trim(),
+    };
+
+    if (!transmission.name) {
+      throw new Error("Transmission name is required.");
+    }
+
+    const now = Date.now();
+
+    if (args.transmissionId) {
+      const existingTransmission = await ctx.db.get(args.transmissionId);
+
+      if (!existingTransmission || existingTransmission.seasonId !== args.seasonId) {
+        throw new Error("Transmission not found in this robot program season.");
+      }
+
+      await ctx.db.patch(args.transmissionId, {
+        ...transmission,
+        updatedByProfileId: profile._id,
+        updatedAt: now,
+      });
+      return args.transmissionId;
+    }
+
+    return await ctx.db.insert("transmissions", {
+      ...transmission,
       updatedByProfileId: profile._id,
       updatedAt: now,
     });

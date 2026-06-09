@@ -32,18 +32,14 @@ export const upsert = mutation({
     await requireSeasonAccess(ctx, profile, args.seasonId);
 
     const letter = args.letter.trim().toUpperCase();
+    const name = args.name.trim();
 
     if (letter.length < 1 || letter.length > 3) {
       throw new Error("Subsystem letter must be 1-3 characters.");
     }
 
-    if (args.subsystemId) {
-      await ctx.db.patch(args.subsystemId, {
-        letter,
-        name: args.name.trim(),
-        isEnabled: args.isEnabled,
-      });
-      return args.subsystemId;
+    if (!name) {
+      throw new Error("Subsystem name is required.");
     }
 
     const existing = await ctx.db
@@ -53,14 +49,29 @@ export const upsert = mutation({
       )
       .unique();
 
-    if (existing) {
+    if (existing && existing._id !== args.subsystemId) {
       throw new Error("That subsystem letter already exists for this season.");
+    }
+
+    if (args.subsystemId) {
+      const subsystem = await ctx.db.get(args.subsystemId);
+
+      if (!subsystem || subsystem.seasonId !== args.seasonId) {
+        throw new Error("Subsystem not found in this season.");
+      }
+
+      await ctx.db.patch(args.subsystemId, {
+        letter,
+        name,
+        isEnabled: args.isEnabled,
+      });
+      return args.subsystemId;
     }
 
     return await ctx.db.insert("subsystems", {
       seasonId: args.seasonId,
       letter,
-      name: args.name.trim(),
+      name,
       nextPartNumber: 1,
       isEnabled: args.isEnabled,
       sortOrder: Date.now(),

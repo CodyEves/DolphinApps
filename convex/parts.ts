@@ -9,6 +9,21 @@ import { formatPartNumber } from "./lib/parts";
 import { partKindValidator, partStatusValidator, priorityValidator } from "./lib/validators";
 
 type PartStatus = Doc<"parts">["status"];
+type CatalogKind = Doc<"catalogOptions">["kind"];
+
+type PartFieldInput = {
+  name: string;
+  quantity: number;
+  materialOptionId: Id<"catalogOptions"> | null;
+  toolOptionId: Id<"catalogOptions"> | null;
+  bitSizeOptionId: Id<"catalogOptions"> | null;
+  sizeProfile?: string;
+  storageLocationOptionId: Id<"catalogOptions"> | null;
+  onshapeDocumentUrl: string;
+  onshapePartStudioUrl: string;
+  onshapeDrawingUrl: string;
+  notes: string;
+};
 
 const partInput = {
   seasonId: v.id("seasons"),
@@ -88,6 +103,53 @@ async function requireSupersededPartInSeason(
   }
 
   return supersededPart;
+}
+
+async function requireCatalogOptionKind(
+  ctx: MutationCtx,
+  optionId: Id<"catalogOptions"> | null,
+  kind: CatalogKind,
+) {
+  if (!optionId) {
+    return;
+  }
+
+  const option = await ctx.db.get(optionId);
+
+  if (!option || option.kind !== kind || !option.isEnabled) {
+    throw new Error(`Choose an enabled ${kind} catalog option.`);
+  }
+}
+
+async function requirePartCatalogOptions(ctx: MutationCtx, input: PartFieldInput) {
+  await Promise.all([
+    requireCatalogOptionKind(ctx, input.materialOptionId, "material"),
+    requireCatalogOptionKind(ctx, input.toolOptionId, "tool"),
+    requireCatalogOptionKind(ctx, input.bitSizeOptionId, "bitSize"),
+    requireCatalogOptionKind(ctx, input.storageLocationOptionId, "storageLocation"),
+  ]);
+}
+
+function normalizedPartFields<T extends PartFieldInput>(input: T) {
+  const name = input.name.trim();
+
+  if (!name) {
+    throw new Error("Part name is required.");
+  }
+
+  if (!Number.isInteger(input.quantity) || input.quantity < 1) {
+    throw new Error("Quantity must be a whole number of at least 1.");
+  }
+
+  return {
+    ...input,
+    name,
+    sizeProfile: (input.sizeProfile ?? "").trim(),
+    onshapeDocumentUrl: input.onshapeDocumentUrl.trim(),
+    onshapePartStudioUrl: input.onshapePartStudioUrl.trim(),
+    onshapeDrawingUrl: input.onshapeDrawingUrl.trim(),
+    notes: input.notes.trim(),
+  };
 }
 
 async function nextAvailablePartNumber(
@@ -223,12 +285,12 @@ export const saveDraft = mutation({
     await requireSubsystemInSeason(ctx, args.subsystemId, args.seasonId);
     const supersedesPartId = args.supersedesPartId ?? null;
     await requireSupersededPartInSeason(ctx, supersedesPartId, args.seasonId);
+    await requirePartCatalogOptions(ctx, args);
+    const partFields = normalizedPartFields(args);
     const now = Date.now();
 
     const partId = await ctx.db.insert("parts", {
-      ...args,
-      name: args.name.trim(),
-      sizeProfile: args.sizeProfile ?? "",
+      ...partFields,
       supersedesPartId,
       partNumber: null,
       sequenceNumber: null,
@@ -254,6 +316,8 @@ export const generate = mutation({
     const subsystem = await requireSubsystemInSeason(ctx, args.subsystemId, args.seasonId);
     const supersedesPartId = args.supersedesPartId ?? null;
     await requireSupersededPartInSeason(ctx, supersedesPartId, args.seasonId);
+    await requirePartCatalogOptions(ctx, args);
+    const partFields = normalizedPartFields(args);
 
     const { partNumber, sequenceNumber } = await nextAvailablePartNumber(
       ctx,
@@ -268,9 +332,7 @@ export const generate = mutation({
 
     const now = Date.now();
     const partId = await ctx.db.insert("parts", {
-      ...args,
-      name: args.name.trim(),
-      sizeProfile: args.sizeProfile ?? "",
+      ...partFields,
       supersedesPartId,
       partNumber,
       sequenceNumber,
@@ -388,10 +450,11 @@ export const update = mutation({
     }
 
     await requireSeasonAccess(ctx, profile, part.seasonId);
+    await requirePartCatalogOptions(ctx, patch);
+    const partFields = normalizedPartFields(patch);
 
     await ctx.db.patch(partId, {
-      ...patch,
-      name: patch.name.trim(),
+      ...partFields,
     });
 
     return null;
@@ -414,6 +477,7 @@ export const updateStatus = mutation({
     }
 
     await requireSeasonAccess(ctx, profile, part.seasonId);
+    await requireCatalogOptionKind(ctx, args.storageLocationOptionId, "storageLocation");
 
     if (
       args.status === "readyForFab" ||
@@ -465,8 +529,13 @@ export const addBomLink = mutation({
       throw new Error("A part cannot contain itself.");
     }
 
+    if (!Number.isInteger(args.quantity) || args.quantity < 1) {
+      throw new Error("BOM quantity must be a whole number of at least 1.");
+    }
+
     const parentPart = await ctx.db.get(args.parentPartId);
     const childPart = await ctx.db.get(args.childPartId);
+    const notes = args.notes.trim();
 
     if (!parentPart || !childPart || parentPart.seasonId !== childPart.seasonId) {
       throw new Error("Choose parts from the same robot program season.");
@@ -484,12 +553,15 @@ export const addBomLink = mutation({
     if (existing) {
       await ctx.db.patch(existing._id, {
         quantity: args.quantity,
-        notes: args.notes,
+        notes,
       });
       return existing._id;
     }
 
-    return await ctx.db.insert("partLinks", args);
+    return await ctx.db.insert("partLinks", {
+      ...args,
+      notes,
+    });
   },
 });
 

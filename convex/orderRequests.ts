@@ -65,11 +65,33 @@ export const submit = mutation({
       }
     }
 
+    const itemName = args.itemName.trim();
+    const vendor = args.vendor.trim();
+    const url = args.url.trim();
+    const reason = args.reason.trim();
+    const notes = args.notes.trim();
+
+    if (!itemName) {
+      throw new Error("Item name is required.");
+    }
+
+    if (!Number.isInteger(args.quantity) || args.quantity < 1) {
+      throw new Error("Quantity must be a whole number of at least 1.");
+    }
+
+    if (args.estimatedCost !== null && args.estimatedCost < 0) {
+      throw new Error("Estimated cost cannot be negative.");
+    }
+
     const now = Date.now();
 
     return await ctx.db.insert("orderRequests", {
       ...args,
-      itemName: args.itemName.trim(),
+      itemName,
+      vendor,
+      url,
+      reason,
+      notes,
       status: "requested",
       requestedByProfileId: profile._id,
       approvedByProfileId: null,
@@ -107,7 +129,7 @@ export const updateStatus = mutation({
 
     await ctx.db.patch(args.orderRequestId, {
       status: args.status,
-      notes: args.notes,
+      notes: args.notes.trim(),
       approvedByProfileId:
         args.status === "approved" ? profile._id : order.approvedByProfileId,
       orderedByProfileId:

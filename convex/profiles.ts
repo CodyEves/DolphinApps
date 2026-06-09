@@ -6,24 +6,7 @@ import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { validateProfileContent } from "./lib/profanity";
 import { programForProfile, programValidator } from "./lib/programs";
-
-const roleValidator = v.union(
-  v.literal("student"),
-  v.literal("instructor"),
-  v.literal("mentor"),
-  v.literal("guest"),
-  v.literal("kiosk"),
-  v.literal("admin"),
-);
-
-const accountLabelValidator = v.union(
-  v.literal("varsity_5199"),
-  v.literal("jv_9271"),
-  v.literal("mentor"),
-  v.literal("guest"),
-  v.literal("kiosk"),
-  v.literal("admin"),
-);
+import { accountLabelValidator, roleValidator } from "./lib/validators";
 const archivedLegacyProfileGroup = "__archived_legacy_profile__";
 
 async function currentUser(ctx: QueryCtx | MutationCtx) {

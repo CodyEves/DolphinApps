@@ -4,18 +4,11 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-
-const questionTypeValidator = v.union(
-  v.literal("multiple_choice"),
-  v.literal("true_false"),
-  v.literal("short_answer"),
-  v.literal("fill_blank"),
-  v.literal("file_upload"),
-);
+import { equipmentQuestionTypeValidator } from "./lib/validators";
 
 const questionInputValidator = v.object({
   id: v.optional(v.id("questions")),
-  type: questionTypeValidator,
+  type: equipmentQuestionTypeValidator,
   prompt: v.string(),
   choices: v.optional(v.array(v.string())),
   correctAnswer: v.optional(v.string()),
@@ -287,11 +280,10 @@ export const listStudentsForSignOff = query({
 
     const students = await ctx.db
       .query("profiles")
-      .withIndex("by_role", (q) => q.eq("role", "student"))
+      .withIndex("by_role_status", (q) => q.eq("role", "student").eq("status", "active"))
       .collect();
 
     return students
-      .filter((profile) => profile.status === "active")
       .sort((a, b) =>
         (a.displayName ?? a.email ?? "").localeCompare(b.displayName ?? b.email ?? ""),
       )

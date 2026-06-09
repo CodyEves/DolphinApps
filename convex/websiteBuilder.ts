@@ -3,13 +3,7 @@ import { v } from "convex/values";
 
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-
-const editKindValidator = v.union(
-  v.literal("text"),
-  v.literal("color"),
-  v.literal("background"),
-  v.literal("image"),
-);
+import { websiteEditKindValidator } from "./lib/validators";
 
 async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   const userId = await getAuthUserId(ctx);
@@ -93,7 +87,7 @@ export const saveEdit = mutation({
   args: {
     pagePath: v.string(),
     targetKey: v.string(),
-    kind: editKindValidator,
+    kind: websiteEditKindValidator,
     value: v.string(),
   },
   handler: async (ctx, args) => {

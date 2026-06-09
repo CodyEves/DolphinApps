@@ -208,11 +208,16 @@ async function collectQuizIdsForTrack(ctx: QueryCtx | MutationCtx, trackId: Id<"
       ),
     )
   ).flat();
-  const allQuizzes = await ctx.db.query("quizzes").collect();
-  const unitIds = new Set(units.map((unit) => unit._id));
-  const unitQuizzes = allQuizzes.filter(
-    (quiz) => quiz.linkedUnitId && unitIds.has(quiz.linkedUnitId),
-  );
+  const unitQuizzes = (
+    await Promise.all(
+      units.map((unit) =>
+        ctx.db
+          .query("quizzes")
+          .withIndex("by_unit", (q) => q.eq("linkedUnitId", unit._id))
+          .collect(),
+      ),
+    )
+  ).flat();
 
   return [...lessonQuizzes, ...unitQuizzes].map((quiz) => quiz._id);
 }

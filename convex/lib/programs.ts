@@ -1,11 +1,5 @@
-import { v } from "convex/values";
-
 import type { Doc } from "../_generated/dataModel";
-
-export const programValidator = v.union(
-  v.literal("frc_5199"),
-  v.literal("frc_9271"),
-);
+export { programValidator } from "./validators";
 
 export type Program = "frc_5199" | "frc_9271";
 export type TeamNumber = "5199" | "9271";

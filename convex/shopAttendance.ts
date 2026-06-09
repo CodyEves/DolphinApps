@@ -4,13 +4,7 @@ import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-
-const attendanceStatusValidator = v.union(
-  v.literal("open"),
-  v.literal("complete"),
-  v.literal("needs_review"),
-  v.literal("void"),
-);
+import { attendanceStatusValidator } from "./lib/validators";
 const shopScheduleEntryValidator = v.object({
   dayOfWeek: v.number(),
   isActive: v.boolean(),
