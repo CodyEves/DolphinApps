@@ -66,7 +66,7 @@ type OverviewData = {
   manufacturing: Doc<"parts">[];
   orders: Doc<"orderRequests">[];
   transmissions: Doc<"transmissions">[];
-  designers: Doc<"profiles">[];
+  designers?: Doc<"profiles">[];
 };
 
 function usePartsProgram() {
@@ -327,12 +327,12 @@ function catalogLabel(catalog: Doc<"catalogOptions">[], optionId: Id<"catalogOpt
   return optionId ? catalog.find((option) => option._id === optionId)?.label ?? "Unknown" : "None";
 }
 
-function designerLabel(designers: Doc<"profiles">[], profileId: Id<"profiles"> | null) {
+function designerLabel(designers: Doc<"profiles">[] | undefined, profileId: Id<"profiles"> | null) {
   if (!profileId) {
     return "Unassigned";
   }
 
-  const designer = designers.find((profile) => profile._id === profileId);
+  const designer = (designers ?? []).find((profile) => profile._id === profileId);
   return designer?.displayName ?? designer?.email ?? "Team member";
 }
 
