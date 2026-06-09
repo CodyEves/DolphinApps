@@ -1441,6 +1441,61 @@ export function ManufacturingRoute() {
         const draggedPart = draggedPartId
           ? boardParts.find((part) => part._id === draggedPartId) ?? null
           : null;
+        const statusTone = (status: PartStatus) => {
+          const tones: Partial<Record<PartStatus, { bar: string; column: string; count: string }>> = {
+            inDesign: {
+              bar: "bg-sky-500",
+              column: "bg-sky-50/70 dark:bg-sky-950/20",
+              count: "border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-200",
+            },
+            submittedForReview: {
+              bar: "bg-amber-500",
+              column: "bg-amber-50/70 dark:bg-amber-950/20",
+              count: "border-amber-200 bg-amber-100 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200",
+            },
+            readyForFab: {
+              bar: "bg-emerald-500",
+              column: "bg-emerald-50/70 dark:bg-emerald-950/20",
+              count: "border-emerald-200 bg-emerald-100 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200",
+            },
+            inManufacturing: {
+              bar: "bg-blue-600",
+              column: "bg-blue-50/70 dark:bg-blue-950/20",
+              count: "border-blue-200 bg-blue-100 text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-200",
+            },
+            manufactured: {
+              bar: "bg-violet-500",
+              column: "bg-violet-50/70 dark:bg-violet-950/20",
+              count: "border-violet-200 bg-violet-100 text-violet-900 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200",
+            },
+            stored: {
+              bar: "bg-slate-500",
+              column: "bg-slate-50/80 dark:bg-slate-900/30",
+              count: "border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
+            },
+            onRobot: {
+              bar: "bg-orange-500",
+              column: "bg-orange-50/70 dark:bg-orange-950/20",
+              count: "border-orange-200 bg-orange-100 text-orange-900 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-200",
+            },
+          };
+
+          return tones[status] ?? {
+            bar: "bg-muted-foreground",
+            column: "bg-muted/40",
+            count: "border-border bg-muted text-muted-foreground",
+          };
+        };
+        const priorityTone = (priority: Priority) => {
+          const tones: Record<Priority, string> = {
+            critical: "border-red-300 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200",
+            high: "border-orange-300 bg-orange-50 text-orange-800 dark:border-orange-900 dark:bg-orange-950 dark:text-orange-200",
+            normal: "border-border bg-muted text-muted-foreground",
+            low: "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200",
+          };
+
+          return tones[priority];
+        };
         const canDropOnStatus = (targetStatus: PartStatus) => {
           if (!draggedPart || draggedPart.status === targetStatus) {
             return false;
@@ -1495,28 +1550,33 @@ export function ManufacturingRoute() {
                 setDragTarget(null);
               }}
               className={cn(
-                "rounded-md border bg-card p-2.5 text-sm shadow-xs transition-all",
-                "cursor-grab active:cursor-grabbing hover:border-brand-aqua/60 hover:shadow-sm",
+                "relative overflow-hidden rounded-md border bg-card p-3 pl-4 text-sm shadow-sm transition-all",
+                "cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:border-brand-aqua/60 hover:shadow-md",
                 draggedPartId === part._id && "opacity-60",
               )}
             >
+              <div className={cn("absolute inset-y-0 left-0 w-1", statusTone(part.status).bar)} />
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <Link to={`/parts/${part._id}`} className="font-semibold hover:underline">
+                  <Link to={`/parts/${part._id}`} className="font-semibold leading-tight hover:underline">
                     {part.partNumber ?? "Draft"}
                   </Link>
-                  <p className="line-clamp-2 text-muted-foreground">{part.name}</p>
+                  <p className="mt-0.5 line-clamp-2 leading-snug text-muted-foreground">{part.name}</p>
                 </div>
-                <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                <span className={cn("shrink-0 rounded-md border px-2 py-0.5 text-xs", priorityTone(part.priority))}>
                   {part.priority}
                 </span>
               </div>
-              <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
-                <span>{subsystemName(overview.subsystems, part.subsystemId)}</span>
-                <span>{catalogLabel(catalog, part.toolOptionId) === "None" ? "No machine" : catalogLabel(catalog, part.toolOptionId)}</span>
-                <span>{catalogLabel(catalog, part.materialOptionId)}{part.sizeProfile ? ` / ${part.sizeProfile}` : ""}</span>
+              <div className="mt-3 flex flex-wrap gap-1.5 text-xs text-muted-foreground">
+                <span className="rounded-md bg-muted px-2 py-1">{subsystemName(overview.subsystems, part.subsystemId)}</span>
+                <span className="rounded-md bg-muted px-2 py-1">
+                  {catalogLabel(catalog, part.toolOptionId) === "None" ? "No machine" : catalogLabel(catalog, part.toolOptionId)}
+                </span>
+                <span className="rounded-md bg-muted px-2 py-1">
+                  {catalogLabel(catalog, part.materialOptionId)}{part.sizeProfile ? ` / ${part.sizeProfile}` : ""}
+                </span>
               </div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-2">
                 {part.status === "inDesign" && (
                   <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "submittedForReview")}>
                     Submit for review
@@ -1566,7 +1626,7 @@ export function ManufacturingRoute() {
               title="Manufacturing"
               description="Review, approval, and manufacturing status by subsystem or machine."
             />
-            <div className="mb-4 grid gap-3 rounded-md border bg-card p-3 md:grid-cols-2">
+            <div className="mb-4 grid gap-3 rounded-md border bg-card p-3 shadow-sm md:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="manufacturing-group">View</Label>
                 <select
@@ -1595,20 +1655,21 @@ export function ManufacturingRoute() {
                 </select>
               </div>
             </div>
-            <div className="grid gap-3">
+            <div className="grid gap-4">
               {groupNames.map((groupName) => {
                 const groupParts = sortedParts.filter((part) => groupLabel(part) === groupName);
 
                 return (
-                  <section key={groupName} className="rounded-md border bg-muted/40 p-3">
-                    <div className="mb-3 flex items-center justify-between gap-3">
+                  <section key={groupName} className="overflow-hidden rounded-md border bg-card shadow-sm">
+                    <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
                       <h2 className="font-semibold">{groupName}</h2>
-                      <span className="text-sm text-muted-foreground">{groupParts.length} parts</span>
+                      <span className="rounded-md border px-2 py-1 text-sm text-muted-foreground">{groupParts.length} parts</span>
                     </div>
-                    <div className="flex gap-3 overflow-x-auto pb-2">
+                    <div className="flex gap-3 overflow-x-auto p-3">
                       {boardStatuses.map((status) => {
                         const columnParts = groupParts.filter((part) => part.status === status);
                         const isActiveDrop = dragTarget === status && canDropOnStatus(status);
+                        const tone = statusTone(status);
 
                         return (
                           <div
@@ -1632,23 +1693,33 @@ export function ManufacturingRoute() {
                               void dropOnStatus(status);
                             }}
                             className={cn(
-                              "grid min-h-80 w-[18rem] shrink-0 content-start gap-2 rounded-md border bg-background p-2 transition-colors",
-                              isActiveDrop && "border-brand-aqua bg-accent/60",
-                              draggedPart && !canDropOnStatus(status) && "opacity-70",
+                              "flex min-h-[31rem] w-[19rem] shrink-0 flex-col overflow-hidden rounded-md border bg-background transition-all",
+                              tone.column,
+                              isActiveDrop && "border-brand-aqua ring-2 ring-brand-aqua/40",
                             )}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <h3 className="text-sm font-semibold">{partStatusLabel(status)}</h3>
-                              <span className="text-xs text-muted-foreground">{columnParts.length}</span>
+                            <div className={cn("h-1.5", tone.bar)} />
+                            <div className="flex items-center justify-between gap-2 border-b bg-background/80 px-3 py-2 backdrop-blur">
+                              <h3 className="text-sm font-semibold leading-tight">{partStatusLabel(status)}</h3>
+                              <span className={cn("rounded-md border px-2 py-0.5 text-xs font-medium", tone.count)}>
+                                {columnParts.length}
+                              </span>
                             </div>
-                            {columnParts.map((part) => (
-                              <PartKanbanCard key={part._id} part={part} />
-                            ))}
-                            {columnParts.length === 0 && (
-                              <div className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
-                                Drop here
-                              </div>
-                            )}
+                            <div className="grid content-start gap-2 p-2.5">
+                              {columnParts.map((part) => (
+                                <PartKanbanCard key={part._id} part={part} />
+                              ))}
+                              {columnParts.length === 0 && (
+                                <div
+                                  className={cn(
+                                    "rounded-md border border-dashed bg-background/60 p-4 text-center text-xs text-muted-foreground",
+                                    draggedPart && canDropOnStatus(status) && "border-brand-aqua text-foreground",
+                                  )}
+                                >
+                                  {draggedPart && canDropOnStatus(status) ? "Drop to move" : "No parts"}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
