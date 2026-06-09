@@ -96,7 +96,9 @@ async function nextAvailablePartNumber(
   letter: string,
   startingSequenceNumber: number,
 ) {
-  let sequenceNumber = Math.max(1, startingSequenceNumber);
+  let sequenceNumber = Number.isFinite(startingSequenceNumber)
+    ? Math.max(1, Math.trunc(startingSequenceNumber))
+    : 1;
 
   for (let attempt = 0; attempt < 1000; attempt += 1) {
     const partNumber = formatPartNumber(letter, sequenceNumber);
@@ -105,7 +107,7 @@ async function nextAvailablePartNumber(
       .withIndex("by_seasonId_and_partNumber", (q) =>
         q.eq("seasonId", seasonId).eq("partNumber", partNumber),
       )
-      .unique();
+      .first();
 
     if (!duplicate) {
       return { partNumber, sequenceNumber };
