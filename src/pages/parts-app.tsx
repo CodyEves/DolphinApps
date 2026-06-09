@@ -1381,6 +1381,8 @@ export function ManufacturingRoute() {
   const updateStatus = useMutation(api.parts.updateStatus);
   const [groupBy, setGroupBy] = useState<"none" | "subsystem" | "machine">("none");
   const [sortBy, setSortBy] = useState<"priority" | "subsystem" | "machine" | "newest">("priority");
+  const [draggedPartId, setDraggedPartId] = useState<Id<"parts"> | null>(null);
+  const [dragTarget, setDragTarget] = useState<PartStatus | null>(null);
 
   return (
     <RequireSeason>
@@ -1436,6 +1438,28 @@ export function ManufacturingRoute() {
           return b._creationTime - a._creationTime;
         });
         const groupNames = [...new Set(sortedParts.map(groupLabel))];
+        const draggedPart = draggedPartId
+          ? boardParts.find((part) => part._id === draggedPartId) ?? null
+          : null;
+        const canDropOnStatus = (targetStatus: PartStatus) => {
+          if (!draggedPart || draggedPart.status === targetStatus) {
+            return false;
+          }
+
+          if (targetStatus === "readyForFab") {
+            return canApprove;
+          }
+
+          if (targetStatus === "deprecated") {
+            return canApprove;
+          }
+
+          if (["inManufacturing", "manufactured", "stored", "onRobot"].includes(targetStatus)) {
+            return ["readyForFab", "inManufacturing", "manufactured", "stored", "onRobot"].includes(draggedPart.status);
+          }
+
+          return targetStatus === "inDesign" || targetStatus === "submittedForReview";
+        };
 
         async function move(partId: Id<"parts">, status: PartStatus) {
           try {
@@ -1446,9 +1470,36 @@ export function ManufacturingRoute() {
           }
         }
 
+        async function dropOnStatus(status: PartStatus) {
+          if (!draggedPartId || !canDropOnStatus(status)) {
+            setDragTarget(null);
+            return;
+          }
+
+          await move(draggedPartId, status);
+          setDraggedPartId(null);
+          setDragTarget(null);
+        }
+
         function PartKanbanCard({ part }: { part: Doc<"parts"> }) {
           return (
-            <div className="rounded-md border bg-card p-3 text-sm">
+            <div
+              draggable
+              onDragStart={(event) => {
+                setDraggedPartId(part._id);
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", part._id);
+              }}
+              onDragEnd={() => {
+                setDraggedPartId(null);
+                setDragTarget(null);
+              }}
+              className={cn(
+                "rounded-md border bg-card p-2.5 text-sm shadow-xs transition-all",
+                "cursor-grab active:cursor-grabbing hover:border-brand-aqua/60 hover:shadow-sm",
+                draggedPartId === part._id && "opacity-60",
+              )}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <Link to={`/parts/${part._id}`} className="font-semibold hover:underline">
@@ -1465,44 +1516,44 @@ export function ManufacturingRoute() {
                 <span>{catalogLabel(catalog, part.toolOptionId) === "None" ? "No machine" : catalogLabel(catalog, part.toolOptionId)}</span>
                 <span>{catalogLabel(catalog, part.materialOptionId)}{part.sizeProfile ? ` / ${part.sizeProfile}` : ""}</span>
               </div>
-              <div className="mt-3 grid gap-2">
+              <div className="mt-3 flex flex-wrap gap-1.5">
                 {part.status === "inDesign" && (
-                  <Button size="sm" variant="outline" onClick={() => move(part._id, "submittedForReview")}>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "submittedForReview")}>
                     Submit for review
                   </Button>
                 )}
                 {part.status === "submittedForReview" && (
                   <>
-                    <Button size="sm" variant="outline" onClick={() => move(part._id, "inDesign")}>
+                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "inDesign")}>
                       Pull back to design
                     </Button>
                     {canApprove && (
-                      <Button size="sm" variant="outline" onClick={() => move(part._id, "readyForFab")}>
+                      <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "readyForFab")}>
                         <CheckCircle2Icon data-icon="inline-start" aria-hidden="true" />
-                        Approve for manufacturing
+                        Approve
                       </Button>
                     )}
                   </>
                 )}
                 {part.status === "readyForFab" && (
-                  <Button size="sm" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
                     <PlayIcon data-icon="inline-start" aria-hidden="true" />
-                    Start manufacturing
+                    Start
                   </Button>
                 )}
                 {part.status === "inManufacturing" && (
-                  <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>
-                    Mark manufactured
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "manufactured")}>
+                    Manufactured
                   </Button>
                 )}
                 {part.status === "manufactured" && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button size="sm" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
-                    <Button size="sm" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
-                  </div>
+                  <>
+                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
+                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
+                  </>
                 )}
                 {part.status === "stored" && (
-                  <Button size="sm" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
+                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
                 )}
               </div>
             </div>
@@ -1554,12 +1605,38 @@ export function ManufacturingRoute() {
                       <h2 className="font-semibold">{groupName}</h2>
                       <span className="text-sm text-muted-foreground">{groupParts.length} parts</span>
                     </div>
-                    <div className="grid gap-3 xl:grid-cols-7">
+                    <div className="flex gap-3 overflow-x-auto pb-2">
                       {boardStatuses.map((status) => {
                         const columnParts = groupParts.filter((part) => part.status === status);
+                        const isActiveDrop = dragTarget === status && canDropOnStatus(status);
 
                         return (
-                          <div key={status} className="grid min-h-32 content-start gap-2 rounded-md border bg-background p-2">
+                          <div
+                            key={status}
+                            onDragOver={(event) => {
+                              if (!canDropOnStatus(status)) {
+                                return;
+                              }
+
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = "move";
+                              setDragTarget(status);
+                            }}
+                            onDragLeave={() => {
+                              if (dragTarget === status) {
+                                setDragTarget(null);
+                              }
+                            }}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              void dropOnStatus(status);
+                            }}
+                            className={cn(
+                              "grid min-h-80 w-[18rem] shrink-0 content-start gap-2 rounded-md border bg-background p-2 transition-colors",
+                              isActiveDrop && "border-brand-aqua bg-accent/60",
+                              draggedPart && !canDropOnStatus(status) && "opacity-70",
+                            )}
+                          >
                             <div className="flex items-center justify-between gap-2">
                               <h3 className="text-sm font-semibold">{partStatusLabel(status)}</h3>
                               <span className="text-xs text-muted-foreground">{columnParts.length}</span>
@@ -1567,6 +1644,11 @@ export function ManufacturingRoute() {
                             {columnParts.map((part) => (
                               <PartKanbanCard key={part._id} part={part} />
                             ))}
+                            {columnParts.length === 0 && (
+                              <div className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
+                                Drop here
+                              </div>
+                            )}
                           </div>
                         );
                       })}
