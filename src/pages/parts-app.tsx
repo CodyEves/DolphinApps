@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   canAdvanceOrders,
@@ -441,25 +442,171 @@ export function DashboardRoute() {
 
 export function PartsRoute() {
   const { partsSubsystemFilter, setPartsSubsystemFilter } = useUiStore();
+  const updateStatus = useMutation(api.parts.updateStatus);
 
   return (
     <RequireSeason>
       {(overview, _active, catalog) => {
+        const activeParts = overview.parts.filter((part) => part.status !== "deprecated");
+        const readyParts = overview.parts.filter((part) => part.status === "readyForFab");
+        const manufacturingParts = overview.parts.filter((part) => part.status === "inManufacturing");
+        const openOrders = overview.orders.filter(
+          (order) => order.status !== "delivered" && order.status !== "canceled",
+        );
         const filteredParts =
           partsSubsystemFilter === "all"
             ? overview.parts
             : overview.parts.filter((part) => part.subsystemId === partsSubsystemFilter);
 
+        async function move(partId: Id<"parts">, status: PartStatus) {
+          try {
+            await updateStatus({ partId, status, note: "", storageLocationOptionId: null });
+            toast.success("Status updated");
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Status update failed");
+          }
+        }
+
         return (
           <>
             <PageHeader
-              title="Parts"
-              description="Generated part numbers, drafts, metadata, and Onshape links."
+              title="Parts workspace"
+              description="Part numbers, system reference, manufacturing, orders, and calculator links."
               action={
-                <Button asChild><Link to="/parts/new"><PlusIcon data-icon="inline-start" aria-hidden="true" />
-                  New part</Link></Button>
+                <>
+                  <Button asChild>
+                    <Link to="/parts/new">
+                      <PlusIcon data-icon="inline-start" aria-hidden="true" />
+                      New part
+                    </Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/parts/transmissions">
+                      <GaugeIcon data-icon="inline-start" aria-hidden="true" />
+                      Calculator
+                    </Link>
+                  </Button>
+                </>
               }
             />
+            <section className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {([
+                ["Active parts", activeParts.length, PackageIcon],
+                ["Ready for fab", readyParts.length, CheckCircle2Icon],
+                ["Manufacturing", manufacturingParts.length, FactoryIcon],
+                ["Open orders", openOrders.length, ShoppingCartIcon],
+              ] as Array<[string, number, LucideIcon]>).map(([label, value, Icon]) => (
+                <div key={label} className="rounded-md border bg-card p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">{label}</p>
+                    <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+                  </div>
+                  <p className="mt-2 text-2xl font-semibold">{value}</p>
+                </div>
+              ))}
+            </section>
+            <section className="mb-4 grid gap-3 xl:grid-cols-[1fr_1fr_1.2fr]">
+              <div className="rounded-md border bg-card p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="font-semibold">Next numbers</h2>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/parts/new">
+                      <BadgePlusIcon data-icon="inline-start" aria-hidden="true" />
+                      Generate
+                    </Link>
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {overview.subsystems.slice(0, 9).map((subsystem) => (
+                    <Link
+                      key={subsystem._id}
+                      to="/parts/new"
+                      className="rounded-md border p-2 text-sm transition-colors hover:bg-muted/50"
+                    >
+                      <p className="font-medium">{subsystem.letter}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {nextPartNumberPreview(subsystem.letter, subsystem.nextPartNumber)}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-md border bg-card p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="font-semibold">Fab queue</h2>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/parts/manufacturing">
+                      <FactoryIcon data-icon="inline-start" aria-hidden="true" />
+                      Open
+                    </Link>
+                  </Button>
+                </div>
+                <div className="grid gap-2">
+                  {overview.manufacturing.slice(0, 5).map((part) => (
+                    <div key={part._id} className="rounded-md border p-2 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <Link to={`/parts/${part._id}`} className="font-medium hover:underline">
+                          {part.partNumber ?? "Draft"} - {part.name}
+                        </Link>
+                        <StatusPill status={part.status} />
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {part.status === "readyForFab" && (
+                          <Button size="sm" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
+                            <PlayIcon data-icon="inline-start" aria-hidden="true" />
+                            Start
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>
+                          Manufactured
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  {overview.manufacturing.length === 0 && <EmptyState>No parts are ready for fab.</EmptyState>}
+                </div>
+              </div>
+              <div className="rounded-md border bg-card p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <h2 className="font-semibold">Transmission cheatsheet</h2>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/parts/transmissions">
+                      <ExternalLinkIcon data-icon="inline-start" aria-hidden="true" />
+                      Add
+                    </Link>
+                  </Button>
+                </div>
+                <div className="grid gap-2">
+                  {overview.transmissions.slice(0, 5).map((transmission) => (
+                    <div key={transmission._id} className="rounded-md border p-2 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium">{transmission.name}</p>
+                        {transmission.calculatorUrl && (
+                          <Button size="icon" variant="ghost" asChild>
+                            <a href={transmission.calculatorUrl} target="_blank" rel="noreferrer">
+                              <ExternalLinkIcon aria-hidden="true" />
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {subsystemName(overview.subsystems, transmission.subsystemId)} / {transmission.ratio || calculatedRatio(transmission.driverTeeth, transmission.drivenTeeth) || "ratio TBD"}
+                      </p>
+                    </div>
+                  ))}
+                  {overview.transmissions.length === 0 && <EmptyState>No transmissions have been added.</EmptyState>}
+                </div>
+              </div>
+            </section>
+            <Tabs defaultValue="parts" className="grid gap-4">
+              <TabsList className="max-w-full overflow-x-auto">
+                <TabsTrigger value="parts">Parts</TabsTrigger>
+                <TabsTrigger value="systems">Systems</TabsTrigger>
+                <TabsTrigger value="fab">Fab</TabsTrigger>
+                <TabsTrigger value="transmissions">Transmissions</TabsTrigger>
+                <TabsTrigger value="orders">Orders</TabsTrigger>
+              </TabsList>
+              <TabsContent value="parts" className="grid gap-4">
             <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
               <Button
                 size="sm"
@@ -523,6 +670,159 @@ export function PartsRoute() {
               ))}
             </div>
             {filteredParts.length === 0 && <EmptyState>No parts match this filter.</EmptyState>}
+              </TabsContent>
+              <TabsContent value="systems">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {overview.subsystems.map((subsystem) => {
+                    const parts = overview.parts.filter((part) => part.subsystemId === subsystem._id);
+                    const fabParts = parts.filter(
+                      (part) => part.status === "readyForFab" || part.status === "inManufacturing",
+                    );
+                    const transmissions = overview.transmissions.filter(
+                      (transmission) => transmission.subsystemId === subsystem._id,
+                    );
+
+                    return (
+                      <section key={subsystem._id} className="rounded-md border bg-card p-4">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <h2 className="font-semibold">{subsystem.letter} - {subsystem.name}</h2>
+                            <p className="text-sm text-muted-foreground">
+                              Next {nextPartNumberPreview(subsystem.letter, subsystem.nextPartNumber)}
+                            </p>
+                          </div>
+                          <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                            {parts.length}
+                          </span>
+                        </div>
+                        <div className="mb-3 grid grid-cols-3 gap-2 text-center text-xs">
+                          <div className="rounded-md bg-muted p-2">
+                            <p className="text-lg font-semibold">{parts.filter((part) => part.status !== "deprecated").length}</p>
+                            <p className="text-muted-foreground">active</p>
+                          </div>
+                          <div className="rounded-md bg-muted p-2">
+                            <p className="text-lg font-semibold">{fabParts.length}</p>
+                            <p className="text-muted-foreground">fab</p>
+                          </div>
+                          <div className="rounded-md bg-muted p-2">
+                            <p className="text-lg font-semibold">{transmissions.length}</p>
+                            <p className="text-muted-foreground">trans</p>
+                          </div>
+                        </div>
+                        <div className="grid gap-2">
+                          {parts.slice(0, 5).map((part) => (
+                            <Link
+                              key={part._id}
+                              to={`/parts/${part._id}`}
+                              className="rounded-md border p-2 text-sm transition-colors hover:bg-muted/50"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="font-medium">{part.partNumber ?? "Draft"}</span>
+                                <span className="text-xs text-muted-foreground">Qty {part.quantity}</span>
+                              </div>
+                              <p className="mt-1 line-clamp-1 text-muted-foreground">{part.name}</p>
+                            </Link>
+                          ))}
+                          {parts.length === 0 && <EmptyState>No parts in this subsystem.</EmptyState>}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              </TabsContent>
+              <TabsContent value="fab">
+                <div className="grid gap-3">
+                  {overview.manufacturing.map((part) => (
+                    <div key={part._id} className="rounded-md border bg-card p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <Link to={`/parts/${part._id}`} className="font-semibold hover:underline">
+                            {part.partNumber ?? "Draft"} - {part.name}
+                          </Link>
+                          <p className="text-sm text-muted-foreground">
+                            {subsystemName(overview.subsystems, part.subsystemId)} / {catalogLabel(catalog, part.materialOptionId)} / {part.sizeProfile || "No profile"}
+                          </p>
+                        </div>
+                        <StatusPill status={part.status} />
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {part.status === "readyForFab" && (
+                          <Button size="sm" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
+                            <PlayIcon data-icon="inline-start" aria-hidden="true" />
+                            Start
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>Manufactured</Button>
+                        <Button size="sm" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
+                        <Button size="sm" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
+                      </div>
+                    </div>
+                  ))}
+                  {overview.manufacturing.length === 0 && <EmptyState>No parts are ready for fab.</EmptyState>}
+                </div>
+              </TabsContent>
+              <TabsContent value="transmissions">
+                <div className="grid gap-3">
+                  {overview.transmissions.map((transmission) => (
+                    <div key={transmission._id} className="rounded-md border bg-card p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h2 className="font-semibold">{transmission.name}</h2>
+                          <p className="text-sm text-muted-foreground">
+                            {subsystemName(overview.subsystems, transmission.subsystemId)} / {transmission.ratio || calculatedRatio(transmission.driverTeeth, transmission.drivenTeeth) || "ratio TBD"}
+                          </p>
+                        </div>
+                        {transmission.calculatorUrl && (
+                          <Button size="icon" variant="outline" asChild>
+                            <a href={transmission.calculatorUrl} target="_blank" rel="noreferrer">
+                              <ExternalLinkIcon aria-hidden="true" />
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                      <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-4">
+                        <span>Driver {transmission.driverTeeth ?? "TBD"}</span>
+                        <span>Driven {transmission.drivenTeeth ?? "TBD"}</span>
+                        <span>Belt {transmission.beltTeeth ?? "TBD"}</span>
+                        <span>Center {transmission.centerDistance || "TBD"}</span>
+                      </div>
+                    </div>
+                  ))}
+                  {overview.transmissions.length === 0 && <EmptyState>No transmissions have been added.</EmptyState>}
+                  <Button asChild className="w-full sm:w-fit">
+                    <Link to="/parts/transmissions">
+                      <PlusIcon data-icon="inline-start" aria-hidden="true" />
+                      Add transmission
+                    </Link>
+                  </Button>
+                </div>
+              </TabsContent>
+              <TabsContent value="orders">
+                <div className="grid gap-3">
+                  {overview.orders.map((order) => (
+                    <div key={order._id} className="rounded-md border bg-card p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h2 className="font-semibold">{order.itemName}</h2>
+                          <p className="text-sm text-muted-foreground">
+                            {order.vendor || "No vendor"} / Qty {order.quantity}
+                          </p>
+                        </div>
+                        <StatusPill status={order.status} />
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">{order.reason}</p>
+                    </div>
+                  ))}
+                  {overview.orders.length === 0 && <EmptyState>No order requests yet.</EmptyState>}
+                  <Button asChild className="w-full sm:w-fit">
+                    <Link to="/parts/orders">
+                      <ShoppingCartIcon data-icon="inline-start" aria-hidden="true" />
+                      New order
+                    </Link>
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
           </>
         );
       }}

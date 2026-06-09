@@ -6,15 +6,12 @@ import {
   BookOpen,
   Clock,
   ClipboardCheck,
-  Factory,
   FileCheck,
   Gauge,
-  ListTree,
   Menu,
   Monitor,
   Package,
   Settings,
-  ShoppingCart,
   ShieldCheck,
   SlidersHorizontal,
   Users,
@@ -61,14 +58,8 @@ const trainingNavItems: NavItem[] = [
 ];
 
 const partsNavItems: NavItem[] = [
-  { href: "/parts", label: "Parts", icon: Package },
-  { href: "/parts/dashboard", label: "Dashboard", icon: Gauge },
+  { href: "/parts", label: "Workspace", icon: Package },
   { href: "/parts/new", label: "Generate", icon: BadgePlus },
-  { href: "/parts/system-list", label: "System List", icon: ListTree },
-  { href: "/parts/bom", label: "BOM", icon: ListTree },
-  { href: "/parts/manufacturing", label: "Manufacturing", icon: Factory },
-  { href: "/parts/transmissions", label: "Transmissions", icon: Wrench },
-  { href: "/parts/orders", label: "Orders", icon: ShoppingCart },
   { href: "/parts/admin", label: "Parts Admin", icon: Settings, adminOnly: true },
 ];
 
