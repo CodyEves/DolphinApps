@@ -2,10 +2,13 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   GraduationCap,
   KeyRound,
   LockKeyhole,
+  MoreHorizontal,
   Plus,
   RotateCcw,
   Save,
@@ -29,8 +32,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -206,6 +223,17 @@ function credentialShareText(details: GeneratedCredentialLink) {
   ].join("\n");
 }
 
+function accountStatusText(status: "pending_setup" | "active" | "inactive") {
+  return status.replace("_", " ");
+}
+
+function formatShortDate(timestamp: number) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(timestamp));
+}
+
 export function AdminPeoplePage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
@@ -249,6 +277,10 @@ export function AdminPeoplePage() {
   const [statusFilter, setStatusFilter] = useState<AccountStatusFilter>("all");
   const [graduationFilter, setGraduationFilter] = useState("");
   const [sortBy, setSortBy] = useState<AccountSort>("displayName");
+  const [selectedAccountId, setSelectedAccountId] = useState<Id<"provisionedAccounts"> | null>(null);
+  const [isAccountSheetOpen, setIsAccountSheetOpen] = useState(false);
+  const [pageSize, setPageSize] = useState("50");
+  const [pageIndex, setPageIndex] = useState(0);
   const createdLinks = useMemo(() => Object.entries(generatedLinks), [generatedLinks]);
   const accountStats = useMemo(() => {
     const list = accounts ?? [];
@@ -330,6 +362,24 @@ export function AdminPeoplePage() {
         });
       });
   }, [accounts, graduationFilter, programFilter, roleFilter, searchTerm, sortBy, statusFilter]);
+  const selectedAccount = useMemo(
+    () => accounts?.find((account) => account._id === selectedAccountId),
+    [accounts, selectedAccountId],
+  );
+  const numericPageSize = Number(pageSize);
+  const pageCount = Math.max(1, Math.ceil(filteredAccounts.length / numericPageSize));
+  const safePageIndex = Math.min(pageIndex, pageCount - 1);
+  const paginatedAccounts = filteredAccounts.slice(
+    safePageIndex * numericPageSize,
+    safePageIndex * numericPageSize + numericPageSize,
+  );
+  const pageStart = filteredAccounts.length === 0 ? 0 : safePageIndex * numericPageSize + 1;
+  const pageEnd = Math.min(filteredAccounts.length, safePageIndex * numericPageSize + paginatedAccounts.length);
+
+  function openAccountSheet(provisionedAccountId: Id<"provisionedAccounts">) {
+    setSelectedAccountId(provisionedAccountId);
+    setIsAccountSheetOpen(true);
+  }
 
   async function handleSetAccountLabel(
     userId: Id<"users">,
@@ -726,7 +776,10 @@ export function AdminPeoplePage() {
                         <Input
                           id="peopleSearch"
                           value={searchTerm}
-                          onChange={(event) => setSearchTerm(event.target.value)}
+                          onChange={(event) => {
+                            setSearchTerm(event.target.value);
+                            setPageIndex(0);
+                          }}
                           className="pl-9"
                           placeholder="Name, username, team, class..."
                         />
@@ -736,7 +789,10 @@ export function AdminPeoplePage() {
                       <Label>Role</Label>
                       <Select
                         value={roleFilter}
-                        onValueChange={(value: AccountRole | "all") => setRoleFilter(value)}
+                        onValueChange={(value: AccountRole | "all") => {
+                          setRoleFilter(value);
+                          setPageIndex(0);
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -755,7 +811,10 @@ export function AdminPeoplePage() {
                       <Label>Program</Label>
                       <Select
                         value={programFilter}
-                        onValueChange={(value: Program | "all") => setProgramFilter(value)}
+                        onValueChange={(value: Program | "all") => {
+                          setProgramFilter(value);
+                          setPageIndex(0);
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -771,7 +830,10 @@ export function AdminPeoplePage() {
                       <Label>Status</Label>
                       <Select
                         value={statusFilter}
-                        onValueChange={(value: AccountStatusFilter) => setStatusFilter(value)}
+                        onValueChange={(value: AccountStatusFilter) => {
+                          setStatusFilter(value);
+                          setPageIndex(0);
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -786,7 +848,13 @@ export function AdminPeoplePage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Sort</Label>
-                      <Select value={sortBy} onValueChange={(value: AccountSort) => setSortBy(value)}>
+                      <Select
+                        value={sortBy}
+                        onValueChange={(value: AccountSort) => {
+                          setSortBy(value);
+                          setPageIndex(0);
+                        }}
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
@@ -804,7 +872,10 @@ export function AdminPeoplePage() {
                       <Input
                         id="graduationFilter"
                         value={graduationFilter}
-                        onChange={(event) => setGraduationFilter(event.target.value)}
+                        onChange={(event) => {
+                          setGraduationFilter(event.target.value);
+                          setPageIndex(0);
+                        }}
                         inputMode="numeric"
                         placeholder="2029"
                       />
@@ -821,6 +892,7 @@ export function AdminPeoplePage() {
                           setStatusFilter("all");
                           setGraduationFilter("");
                           setSortBy("displayName");
+                          setPageIndex(0);
                         }}
                       >
                         Clear
@@ -829,173 +901,397 @@ export function AdminPeoplePage() {
                   </CardContent>
                 </Card>
 
-                <Card>
-                  <CardHeader>
-                    <KeyRound className="size-5 text-primary" />
-                    <CardTitle>Provisioned accounts</CardTitle>
-                    <CardDescription>
-                      Showing {filteredAccounts.length} of {accounts?.length ?? 0} accounts.
-                    </CardDescription>
+                <Card className="overflow-hidden py-0">
+                  <CardHeader className="border-b px-5 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <KeyRound className="size-5 text-primary" />
+                          <CardTitle>Provisioned accounts</CardTitle>
+                        </div>
+                        <CardDescription>
+                          Showing {pageStart}-{pageEnd} of {filteredAccounts.length} filtered accounts.
+                        </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="accountPageSize" className="sr-only">Rows per page</Label>
+                        <Select
+                          value={pageSize}
+                          onValueChange={(value) => {
+                            setPageSize(value);
+                            setPageIndex(0);
+                          }}
+                        >
+                          <SelectTrigger id="accountPageSize" className="w-28">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="25">25 rows</SelectItem>
+                            <SelectItem value="50">50 rows</SelectItem>
+                            <SelectItem value="100">100 rows</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="p-0">
                     {accounts === undefined && (
-                      <p className="text-sm text-muted-foreground">Loading provisioned accounts...</p>
+                      <p className="p-5 text-sm text-muted-foreground">Loading provisioned accounts...</p>
                     )}
                     {accounts?.length === 0 && (
-                      <div className="rounded-md border p-4 text-sm text-muted-foreground">
+                      <div className="m-5 rounded-md border p-4 text-sm text-muted-foreground">
                         No provisioned accounts exist yet.
                       </div>
                     )}
                     {accounts && accounts.length > 0 && filteredAccounts.length === 0 && (
-                      <div className="rounded-md border p-4 text-sm text-muted-foreground">
+                      <div className="m-5 rounded-md border p-4 text-sm text-muted-foreground">
                         No accounts match the current filters.
                       </div>
                     )}
-                    {filteredAccounts.map((account) => {
-                      const accountLabel = account.accountLabel as AccountLabel;
-                      const role = roleForAccountLabel(accountLabel);
-                      const programLabel = programForAccountLabel(accountLabel);
+                    {filteredAccounts.length > 0 && (
+                      <>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                              <tr>
+                                <th className="px-4 py-3 font-medium">Name</th>
+                                <th className="px-4 py-3 font-medium">Username</th>
+                                <th className="px-4 py-3 font-medium">Role</th>
+                                <th className="px-4 py-3 font-medium">Program</th>
+                                <th className="px-4 py-3 font-medium">Class</th>
+                                <th className="px-4 py-3 font-medium">Status</th>
+                                <th className="px-4 py-3 font-medium">Last link</th>
+                                <th className="px-4 py-3 text-right font-medium">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {paginatedAccounts.map((account) => {
+                                const accountLabel = account.accountLabel as AccountLabel;
+                                const role = roleForAccountLabel(accountLabel);
+                                const programLabel = programForAccountLabel(accountLabel);
+                                const latestLink = account.credentialLinks[0];
+                                const activeLinkCount = account.credentialLinks.filter(
+                                  (link) => !link.consumedAt && !link.revokedAt && link.expiresAt > Date.now(),
+                                ).length;
 
-                      return (
-                        <div
-                          key={account._id}
-                          className="grid gap-3 rounded-md border p-4 lg:grid-cols-[1fr_auto] lg:items-center"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <p className="font-medium">{account.displayName}</p>
-                              <Badge variant="outline">{account.username}</Badge>
-                              <Badge variant="secondary">{accountLabelText[accountLabel]}</Badge>
-                              {role === "student" && (
-                                <Badge variant="outline">Team {programText[programLabel]}</Badge>
-                              )}
-                              <Badge variant={account.status === "inactive" ? "destructive" : "outline"}>
-                                {account.status.replace("_", " ")}
-                              </Badge>
-                            </div>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                              {account.userId ? "Password set" : "Waiting for setup"}
-                              {account.graduationYear ? ` / Class of ${account.graduationYear}` : ""}
-                            </p>
-                          </div>
-                          <div className="grid gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-center lg:justify-end">
-                            <Select
-                              value={role}
-                              onValueChange={(value: AccountRole) =>
-                                void handleUpdateProvisionedAccount(account._id, {
-                                  accountLabel: accountLabelFor(value, programLabel),
-                                })
-                              }
-                              disabled={busyAccountId === account._id}
-                            >
-                              <SelectTrigger className="w-full lg:w-32">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="student">Student</SelectItem>
-                                <SelectItem value="mentor">Mentor</SelectItem>
-                                <SelectItem value="guest">Guest</SelectItem>
-                                <SelectItem value="kiosk">Shop Kiosk</SelectItem>
-                                <SelectItem value="admin">Admin</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            {role === "student" && (
-                              <Select
-                                value={programLabel}
-                                onValueChange={(value: Program) =>
-                                  void handleUpdateProvisionedAccount(account._id, {
-                                    accountLabel: accountLabelFor("student", value),
-                                  })
-                                }
-                                disabled={busyAccountId === account._id}
-                              >
-                                <SelectTrigger className="w-full lg:w-28">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="frc_5199">5199</SelectItem>
-                                  <SelectItem value="frc_9271">9271</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            )}
-                            <Input
-                              className="w-full lg:w-28"
-                              defaultValue={account.graduationYear ?? ""}
-                              inputMode="numeric"
-                              placeholder="Grad"
-                              aria-label={`${account.displayName} graduation year`}
-                              onBlur={(event) => {
-                                const value = event.currentTarget.value.trim();
-                                const nextYear = value ? Number(value) : null;
-
-                                if ((account.graduationYear ?? null) === nextYear) {
-                                  return;
-                                }
-
-                                void handleUpdateProvisionedAccount(account._id, {
-                                  graduationYear: nextYear,
-                                });
-                              }}
-                              disabled={busyAccountId === account._id}
-                            />
-                            {!account.userId && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="w-full lg:w-auto"
-                                disabled={busyAccountId === account._id}
-                                onClick={() => void handleCreateLink(account._id, "initial_setup")}
-                              >
-                                <KeyRound className="size-4" />
-                                Setup link
-                              </Button>
-                            )}
-                            {account.userId && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="w-full lg:w-auto"
-                                disabled={busyAccountId === account._id}
-                                onClick={() => void handleCreateLink(account._id, "password_reset")}
-                              >
-                                <RotateCcw className="size-4" />
-                                Reset link
-                              </Button>
-                            )}
+                                return (
+                                  <tr
+                                    key={account._id}
+                                    className="cursor-pointer transition-colors hover:bg-muted/35"
+                                    onClick={() => openAccountSheet(account._id)}
+                                  >
+                                    <td className="max-w-64 px-4 py-3">
+                                      <div className="truncate font-medium">{account.displayName}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {account.userId ? "Password set" : "Waiting for setup"}
+                                      </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                                        {account.username}
+                                      </code>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <Badge variant="secondary">{accountLabelText[accountLabel]}</Badge>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {role === "student" ? programText[programLabel] : "-"}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {account.graduationYear ?? "-"}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      <Badge variant={account.status === "inactive" ? "destructive" : "outline"}>
+                                        {accountStatusText(account.status)}
+                                      </Badge>
+                                    </td>
+                                    <td className="px-4 py-3 text-muted-foreground">
+                                      {latestLink
+                                        ? `${latestLink.purpose === "initial_setup" ? "Setup" : "Reset"} ${formatShortDate(latestLink.createdAt)}`
+                                        : "-"}
+                                      {activeLinkCount > 0 ? ` / ${activeLinkCount} active` : ""}
+                                    </td>
+                                    <td className="px-4 py-3 text-right" onClick={(event) => event.stopPropagation()}>
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            aria-label={`Manage ${account.displayName}`}
+                                          >
+                                            <MoreHorizontal className="size-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem onSelect={() => openAccountSheet(account._id)}>
+                                            Manage account
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            disabled={busyAccountId === account._id}
+                                            onSelect={() =>
+                                              void handleCreateLink(
+                                                account._id,
+                                                account.userId ? "password_reset" : "initial_setup",
+                                              )
+                                            }
+                                          >
+                                            {account.userId ? "Create reset link" : "Create setup link"}
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            variant={account.status === "inactive" ? "default" : "destructive"}
+                                            disabled={busyAccountId === account._id}
+                                            onSelect={() =>
+                                              void handleToggleAccount(
+                                                account._id,
+                                                account.status === "inactive",
+                                              )
+                                            }
+                                          >
+                                            {account.status === "inactive" ? "Reactivate" : "Deactivate"}
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        <div className="flex flex-col gap-3 border-t px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-sm text-muted-foreground">
+                            Page {safePageIndex + 1} of {pageCount}
+                          </p>
+                          <div className="flex items-center gap-2">
                             <Button
                               type="button"
-                              variant={account.status === "inactive" ? "default" : "destructive"}
+                              variant="outline"
                               size="sm"
-                              className="w-full lg:w-auto"
-                              disabled={busyAccountId === account._id}
-                              onClick={() =>
-                                void handleToggleAccount(account._id, account.status === "inactive")
-                              }
+                              onClick={() => setPageIndex(Math.max(0, safePageIndex - 1))}
+                              disabled={safePageIndex === 0}
                             >
-                              {account.status === "inactive" ? "Reactivate" : "Deactivate"}
+                              <ChevronLeft className="size-4" />
+                              Previous
                             </Button>
-                            {account.credentialLinks
-                              .filter((link) => !link.consumedAt && !link.revokedAt && link.expiresAt > Date.now())
-                              .map((link) => (
-                                <Button
-                                  key={link._id}
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="w-full lg:w-auto"
-                                  onClick={() => void revokeCredentialLink({ credentialLinkId: link._id })}
-                                >
-                                  Revoke {link.purpose === "initial_setup" ? "setup" : "reset"}
-                                </Button>
-                              ))}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setPageIndex(Math.min(pageCount - 1, safePageIndex + 1))
+                              }
+                              disabled={safePageIndex >= pageCount - 1}
+                            >
+                              Next
+                              <ChevronRight className="size-4" />
+                            </Button>
                           </div>
                         </div>
-                      );
-                    })}
+                      </>
+                    )}
                   </CardContent>
                 </Card>
+
+                <Sheet open={isAccountSheetOpen} onOpenChange={setIsAccountSheetOpen}>
+                  <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+                    {selectedAccount ? (
+                      (() => {
+                        const accountLabel = selectedAccount.accountLabel as AccountLabel;
+                        const role = roleForAccountLabel(accountLabel);
+                        const programLabel = programForAccountLabel(accountLabel);
+                        const activeLinks = selectedAccount.credentialLinks.filter(
+                          (link) => !link.consumedAt && !link.revokedAt && link.expiresAt > Date.now(),
+                        );
+
+                        return (
+                          <>
+                            <SheetHeader className="border-b px-5 py-4">
+                              <SheetTitle>{selectedAccount.displayName}</SheetTitle>
+                              <SheetDescription>
+                                {selectedAccount.username} / {accountLabelText[accountLabel]}
+                              </SheetDescription>
+                            </SheetHeader>
+                            <div className="space-y-5 px-5 pb-5">
+                              <div className="grid gap-3 rounded-md border p-4 text-sm">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-muted-foreground">Status</span>
+                                  <Badge variant={selectedAccount.status === "inactive" ? "destructive" : "outline"}>
+                                    {accountStatusText(selectedAccount.status)}
+                                  </Badge>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-muted-foreground">Password</span>
+                                  <span className="font-medium">
+                                    {selectedAccount.userId ? "Set" : "Waiting for setup"}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-muted-foreground">Created</span>
+                                  <span className="font-medium">{formatShortDate(selectedAccount.createdAt)}</span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                <h3 className="font-medium">Account details</h3>
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  <div className="space-y-2">
+                                    <Label>Role</Label>
+                                    <Select
+                                      value={role}
+                                      onValueChange={(value: AccountRole) =>
+                                        void handleUpdateProvisionedAccount(selectedAccount._id, {
+                                          accountLabel: accountLabelFor(value, programLabel),
+                                        })
+                                      }
+                                      disabled={busyAccountId === selectedAccount._id}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="student">Student</SelectItem>
+                                        <SelectItem value="mentor">Mentor</SelectItem>
+                                        <SelectItem value="guest">Guest</SelectItem>
+                                        <SelectItem value="kiosk">Shop Kiosk</SelectItem>
+                                        <SelectItem value="admin">Admin</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label>Program</Label>
+                                    <Select
+                                      value={programLabel}
+                                      onValueChange={(value: Program) =>
+                                        void handleUpdateProvisionedAccount(selectedAccount._id, {
+                                          accountLabel: accountLabelFor("student", value),
+                                        })
+                                      }
+                                      disabled={role !== "student" || busyAccountId === selectedAccount._id}
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="frc_5199">5199</SelectItem>
+                                        <SelectItem value="frc_9271">9271</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="space-y-2 sm:col-span-2">
+                                    <Label htmlFor="selectedGraduationYear">Graduation year</Label>
+                                    <Input
+                                      key={`${selectedAccount._id}:${selectedAccount.graduationYear ?? ""}`}
+                                      id="selectedGraduationYear"
+                                      defaultValue={selectedAccount.graduationYear ?? ""}
+                                      inputMode="numeric"
+                                      placeholder="2029"
+                                      onBlur={(event) => {
+                                        const value = event.currentTarget.value.trim();
+                                        const nextYear = value ? Number(value) : null;
+
+                                        if ((selectedAccount.graduationYear ?? null) === nextYear) {
+                                          return;
+                                        }
+
+                                        void handleUpdateProvisionedAccount(selectedAccount._id, {
+                                          graduationYear: nextYear,
+                                        });
+                                      }}
+                                      disabled={busyAccountId === selectedAccount._id}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                <h3 className="font-medium">Credential links</h3>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={busyAccountId === selectedAccount._id || !!selectedAccount.userId}
+                                    onClick={() => void handleCreateLink(selectedAccount._id, "initial_setup")}
+                                  >
+                                    <KeyRound className="size-4" />
+                                    Setup link
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={busyAccountId === selectedAccount._id || !selectedAccount.userId}
+                                    onClick={() => void handleCreateLink(selectedAccount._id, "password_reset")}
+                                  >
+                                    <RotateCcw className="size-4" />
+                                    Reset link
+                                  </Button>
+                                </div>
+                                {activeLinks.length === 0 ? (
+                                  <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+                                    No active one-time links.
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {activeLinks.map((link) => (
+                                      <div
+                                        key={link._id}
+                                        className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm"
+                                      >
+                                        <div>
+                                          <p className="font-medium">
+                                            {link.purpose === "initial_setup" ? "Setup" : "Reset"} link
+                                          </p>
+                                          <p className="text-muted-foreground">
+                                            Expires {formatShortDate(link.expiresAt)}
+                                          </p>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => void revokeCredentialLink({ credentialLinkId: link._id })}
+                                        >
+                                          Revoke
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="space-y-3 border-t pt-5">
+                                <Button
+                                  type="button"
+                                  variant={selectedAccount.status === "inactive" ? "default" : "destructive"}
+                                  className="w-full"
+                                  disabled={busyAccountId === selectedAccount._id}
+                                  onClick={() =>
+                                    void handleToggleAccount(
+                                      selectedAccount._id,
+                                      selectedAccount.status === "inactive",
+                                    )
+                                  }
+                                >
+                                  {selectedAccount.status === "inactive" ? "Reactivate" : "Deactivate"}
+                                </Button>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()
+                    ) : (
+                      <>
+                        <SheetHeader>
+                          <SheetTitle>Account not found</SheetTitle>
+                          <SheetDescription>
+                            Select an account from the table to manage it.
+                          </SheetDescription>
+                        </SheetHeader>
+                      </>
+                    )}
+                  </SheetContent>
+                </Sheet>
               </TabsContent>
 
               <TabsContent value="provision">
