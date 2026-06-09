@@ -9,6 +9,7 @@ export const roleValidator = v.union(
 export const partStatusValidator = v.union(
   v.literal("draft"),
   v.literal("inDesign"),
+  v.literal("submittedForReview"),
   v.literal("readyForFab"),
   v.literal("inManufacturing"),
   v.literal("manufactured"),

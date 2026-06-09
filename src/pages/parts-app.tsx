@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   canAdvanceOrders,
+  canApproveParts,
   canManageAdmin,
   nextPartNumberPreview,
   orderStatusLabel,
@@ -450,7 +451,7 @@ export function DashboardRoute() {
 }
 
 export function PartsRoute() {
-  const { partsSubsystemFilter, setPartsSubsystemFilter } = useUiStore();
+  const { effectiveRoleView, partsSubsystemFilter, setPartsSubsystemFilter } = useUiStore();
   const generateNumber = useMutation(api.parts.generateNumber);
   const updatePart = useMutation(api.parts.update);
   const updateStatus = useMutation(api.parts.updateStatus);
@@ -461,11 +462,12 @@ export function PartsRoute() {
     <RequireSeason>
       {(overview, active, catalog) => {
         const activeParts = overview.parts.filter((part) => part.status !== "deprecated");
+        const inDesignParts = overview.parts.filter((part) => part.status === "inDesign");
+        const submittedParts = overview.parts.filter((part) => part.status === "submittedForReview");
         const readyParts = overview.parts.filter((part) => part.status === "readyForFab");
         const manufacturingParts = overview.parts.filter((part) => part.status === "inManufacturing");
-        const openOrders = overview.orders.filter(
-          (order) => order.status !== "delivered" && order.status !== "canceled",
-        );
+        const effectiveRole = resolveEffectiveRole(active.profile.role, effectiveRoleView);
+        const canApprove = canApproveParts(effectiveRole);
         const filteredParts =
           partsSubsystemFilter === "all"
             ? overview.parts
@@ -565,9 +567,10 @@ export function PartsRoute() {
             <section className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {([
                 ["Active parts", activeParts.length, PackageIcon],
-                ["Ready for fab", readyParts.length, CheckCircle2Icon],
+                ["In design", inDesignParts.length, PackageIcon],
+                ["Submitted", submittedParts.length, CheckCircle2Icon],
+                ["Ready for fab", readyParts.length, FactoryIcon],
                 ["Manufacturing", manufacturingParts.length, FactoryIcon],
-                ["Open orders", openOrders.length, ShoppingCartIcon],
               ] as Array<[string, number, LucideIcon]>).map(([label, value, Icon]) => (
                 <div key={label} className="rounded-md border bg-card p-3">
                   <div className="flex items-center justify-between gap-3">
@@ -620,7 +623,7 @@ export function PartsRoute() {
               </div>
               <div className="rounded-md border bg-card p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="font-semibold">Fab queue</h2>
+                  <h2 className="font-semibold">Review / fab</h2>
                   <Button asChild size="sm" variant="outline">
                     <Link to="/parts/manufacturing">
                       <FactoryIcon data-icon="inline-start" aria-hidden="true" />
@@ -629,7 +632,7 @@ export function PartsRoute() {
                   </Button>
                 </div>
                 <div className="grid gap-2">
-                  {overview.manufacturing.slice(0, 5).map((part) => (
+                  {[...submittedParts, ...overview.manufacturing].slice(0, 5).map((part) => (
                     <div key={part._id} className="rounded-md border p-2 text-sm">
                       <div className="flex items-start justify-between gap-2">
                         <Link to={`/parts/${part._id}`} className="font-medium hover:underline">
@@ -638,19 +641,27 @@ export function PartsRoute() {
                         <StatusPill status={part.status} />
                       </div>
                       <div className="mt-2 flex flex-wrap gap-2">
+                        {part.status === "submittedForReview" && canApprove && (
+                          <Button size="sm" variant="outline" onClick={() => move(part._id, "readyForFab")}>
+                            <CheckCircle2Icon data-icon="inline-start" aria-hidden="true" />
+                            Approve
+                          </Button>
+                        )}
                         {part.status === "readyForFab" && (
                           <Button size="sm" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
                             <PlayIcon data-icon="inline-start" aria-hidden="true" />
                             Start
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>
-                          Manufactured
-                        </Button>
+                        {part.status !== "submittedForReview" && (
+                          <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>
+                            Manufactured
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
-                  {overview.manufacturing.length === 0 && <EmptyState>No parts are ready for fab.</EmptyState>}
+                  {submittedParts.length + overview.manufacturing.length === 0 && <EmptyState>No parts are waiting on review or fab.</EmptyState>}
                 </div>
               </div>
               <div className="rounded-md border bg-card p-4">
@@ -928,13 +939,26 @@ export function PartsRoute() {
                         <StatusPill status={part.status} />
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {part.status === "readyForFab" && (
+                        {part.status === "inDesign" && (
+                          <Button size="sm" variant="outline" onClick={() => move(part._id, "submittedForReview")}>
+                            Submit for review
+                          </Button>
+                        )}
+                        {part.status === "submittedForReview" && canApprove && (
+                          <Button size="sm" variant="outline" onClick={() => move(part._id, "readyForFab")}>
+                            <CheckCircle2Icon data-icon="inline-start" aria-hidden="true" />
+                            Approve
+                          </Button>
+                        )}
+                        {part.status === "readyForFab" && canApprove && (
                           <Button size="sm" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
                             <PlayIcon data-icon="inline-start" aria-hidden="true" />
                             Start
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>Manufactured</Button>
+                        {part.status !== "submittedForReview" && (
+                          <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>Manufactured</Button>
+                        )}
                         <Button size="sm" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
                         <Button size="sm" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
                       </div>
@@ -1371,13 +1395,15 @@ export function SystemListRoute() {
 }
 
 export function ManufacturingRoute() {
-  const { manufacturingStatusFilter, setManufacturingStatusFilter } = useUiStore();
+  const { effectiveRoleView, manufacturingStatusFilter, setManufacturingStatusFilter } = useUiStore();
   const updateStatus = useMutation(api.parts.updateStatus);
 
   return (
     <RequireSeason>
-      {(overview, _active, catalog) => {
+      {(overview, active, catalog) => {
         const parts = overview.parts.filter((part) => part.status === manufacturingStatusFilter);
+        const effectiveRole = resolveEffectiveRole(active.profile.role, effectiveRoleView);
+        const canApprove = canApproveParts(effectiveRole);
 
         async function move(partId: Id<"parts">, status: PartStatus) {
           try {
@@ -1421,19 +1447,26 @@ export function ManufacturingRoute() {
                     <StatusPill status={part.status} />
                   </div>
                   <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
-                    {part.status === "readyForFab" && (
+                    {part.status === "inDesign" && (
+                      <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "submittedForReview")}>
+                        Submit for review
+                      </Button>
+                    )}
+                    {part.status === "submittedForReview" && canApprove && (
+                      <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "readyForFab")}>
+                        <CheckCircle2Icon data-icon="inline-start" aria-hidden="true" />
+                        Approve
+                      </Button>
+                    )}
+                    {part.status === "readyForFab" && canApprove && (
                       <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
                         <PlayIcon data-icon="inline-start" aria-hidden="true" />
                         Start
                       </Button>
                     )}
-                    {part.status !== "readyForFab" && (
-                      <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "readyForFab")}>
-                        <CheckCircle2Icon data-icon="inline-start" aria-hidden="true" />
-                        Ready
-                      </Button>
+                    {part.status !== "submittedForReview" && (
+                      <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "manufactured")}>Manufactured</Button>
                     )}
-                    <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "manufactured")}>Manufactured</Button>
                     <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
                     <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
                   </div>
@@ -1740,12 +1773,13 @@ export function OrdersRoute() {
 export function PartDetailRoute() {
   const { partId } = useParams();
   const detail = useQuery(api.parts.detail, partId ? { partId: partId as Id<"parts"> } : "skip");
-  const { overview, catalog } = useSeasonData();
+  const { active, overview, catalog } = useSeasonData();
+  const { effectiveRoleView } = useUiStore();
   const updatePart = useMutation(api.parts.update);
   const updateStatus = useMutation(api.parts.updateStatus);
   const addBomLink = useMutation(api.parts.addBomLink);
 
-  if (!partId || !detail || !overview) {
+  if (!partId || !detail || !overview || !active?.profile) {
     return <LoadingState />;
   }
 
@@ -1754,6 +1788,8 @@ export function PartDetailRoute() {
   }
 
   const part = detail.part;
+  const effectiveRole = resolveEffectiveRole(active.profile.role, effectiveRoleView);
+  const canApprove = canApproveParts(effectiveRole);
   const candidateChildren = overview.parts.filter((candidate) => candidate._id !== part._id);
   const catalogOptionsFor = (kind: Doc<"catalogOptions">["kind"]) =>
     catalog.filter((option) => option.kind === kind && option.isEnabled);
@@ -1934,6 +1970,7 @@ export function PartDetailRoute() {
             <h2 className="mb-3 font-semibold">Lifecycle</h2>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {partStatuses.map((status) => (
+                (!canApprove && (status === "readyForFab" || status === "inManufacturing" || status === "deprecated")) ? null : (
                 <Button
                   key={status}
                   size="sm"
@@ -1941,8 +1978,13 @@ export function PartDetailRoute() {
                   variant={part.status === status ? "default" : "outline"}
                   onClick={() => move(status)}
                 >
-                  {status === "readyForFab" ? "Ready for manufacturing" : partStatusLabel(status)}
+                  {status === "submittedForReview"
+                    ? "Submit for review"
+                    : status === "readyForFab"
+                      ? "Approve for fab"
+                      : partStatusLabel(status)}
                 </Button>
+                )
               ))}
             </div>
           </div>

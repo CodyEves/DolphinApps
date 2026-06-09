@@ -274,7 +274,7 @@ export const generate = mutation({
       supersedesPartId,
       partNumber,
       sequenceNumber,
-      status: "readyForFab",
+      status: "inDesign",
       designedByProfileId: profile._id,
       manufacturedByProfileId: null,
       designedAt: now,
@@ -289,8 +289,8 @@ export const generate = mutation({
       profile._id,
       "generated",
       null,
-      "readyForFab",
-      `Generated ${partNumber} and added to the manufacturing queue.`,
+      "inDesign",
+      `Generated ${partNumber} and started design.`,
     );
     return partId;
   },
@@ -338,7 +338,7 @@ export const generateNumber = mutation({
       supersedesPartId: null,
       partNumber,
       sequenceNumber,
-      status: "readyForFab",
+      status: "inDesign",
       designedByProfileId: profile._id,
       manufacturedByProfileId: null,
       designedAt: now,
@@ -353,8 +353,8 @@ export const generateNumber = mutation({
       profile._id,
       "generated",
       null,
-      "readyForFab",
-      `Generated ${partNumber} and added to the manufacturing queue.`,
+      "inDesign",
+      `Generated ${partNumber} and started design.`,
     );
 
     return { partId, partNumber };
@@ -415,7 +415,11 @@ export const updateStatus = mutation({
 
     await requireSeasonAccess(ctx, profile, part.seasonId);
 
-    if (args.status === "deprecated") {
+    if (
+      args.status === "readyForFab" ||
+      args.status === "inManufacturing" ||
+      args.status === "deprecated"
+    ) {
       requireRole(profile, ["mentor", "admin"]);
     }
 

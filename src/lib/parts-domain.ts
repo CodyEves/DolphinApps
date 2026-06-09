@@ -1,6 +1,7 @@
 export const partStatuses = [
   "draft",
   "inDesign",
+  "submittedForReview",
   "readyForFab",
   "inManufacturing",
   "manufactured",
@@ -42,10 +43,15 @@ export function canManageAdmin(role: Role) {
   return role === "admin";
 }
 
+export function canApproveParts(role: Role) {
+  return role === "mentor" || role === "admin";
+}
+
 export function partStatusLabel(status: PartStatus) {
   const labels: Record<PartStatus, string> = {
     draft: "Draft",
     inDesign: "In design",
+    submittedForReview: "Submitted for review",
     readyForFab: "Ready for fab",
     inManufacturing: "Manufacturing",
     manufactured: "Manufactured",

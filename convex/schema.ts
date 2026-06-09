@@ -83,6 +83,7 @@ const websiteEditKind = v.union(
 const partStatus = v.union(
   v.literal("draft"),
   v.literal("inDesign"),
+  v.literal("submittedForReview"),
   v.literal("readyForFab"),
   v.literal("inManufacturing"),
   v.literal("manufactured"),
