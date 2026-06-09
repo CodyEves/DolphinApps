@@ -14,7 +14,7 @@ import {
   ShoppingCartIcon,
   type LucideIcon,
 } from "lucide-react";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
@@ -383,7 +383,7 @@ export function DashboardRoute() {
               title="Dashboard"
               description="Live design, fab, order, and transmission status."
               action={
-                <Button asChild><Link to="/parts/new"><BadgePlusIcon data-icon="inline-start" aria-hidden="true" />
+                <Button asChild><Link to="/parts"><BadgePlusIcon data-icon="inline-start" aria-hidden="true" />
                   Generate</Link></Button>
               }
             />
@@ -442,11 +442,15 @@ export function DashboardRoute() {
 
 export function PartsRoute() {
   const { partsSubsystemFilter, setPartsSubsystemFilter } = useUiStore();
+  const generatePart = useMutation(api.parts.generate);
+  const updatePart = useMutation(api.parts.update);
   const updateStatus = useMutation(api.parts.updateStatus);
+  const [newSubsystemId, setNewSubsystemId] = useState<Id<"subsystems"> | null>(null);
+  const [expandedPartId, setExpandedPartId] = useState<Id<"parts"> | null>(null);
 
   return (
     <RequireSeason>
-      {(overview, _active, catalog) => {
+      {(overview, active, catalog) => {
         const activeParts = overview.parts.filter((part) => part.status !== "deprecated");
         const readyParts = overview.parts.filter((part) => part.status === "readyForFab");
         const manufacturingParts = overview.parts.filter((part) => part.status === "inManufacturing");
@@ -457,6 +461,81 @@ export function PartsRoute() {
           partsSubsystemFilter === "all"
             ? overview.parts
             : overview.parts.filter((part) => part.subsystemId === partsSubsystemFilter);
+        const enabledSubsystems = overview.subsystems.filter((subsystem) => subsystem.isEnabled);
+        const selectedNewSubsystem =
+          enabledSubsystems.find((subsystem) => subsystem._id === newSubsystemId) ??
+          enabledSubsystems[0];
+        const activeNewSubsystemId = newSubsystemId ?? selectedNewSubsystem?._id ?? null;
+        const catalogOptionsFor = (kind: Doc<"catalogOptions">["kind"]) =>
+          catalog.filter((option) => option.kind === kind && option.isEnabled);
+        const optionValue = (value: FormDataEntryValue | null) => {
+          const optionId = String(value ?? "");
+          return optionId ? optionId as Id<"catalogOptions"> : null;
+        };
+
+        async function createPartNumber(event: FormEvent<HTMLFormElement>) {
+          event.preventDefault();
+
+          if (!activeNewSubsystemId) {
+            toast.error("Create a subsystem before generating part numbers.");
+            return;
+          }
+
+          const formData = new FormData(event.currentTarget);
+
+          try {
+            await generatePart({
+              seasonId: active.season!._id,
+              subsystemId: activeNewSubsystemId,
+              name: String(formData.get("name") ?? ""),
+              kind: "part",
+              quantity: 1,
+              priority: "normal",
+              materialOptionId: null,
+              toolOptionId: null,
+              bitSizeOptionId: null,
+              sizeProfile: "",
+              storageLocationOptionId: null,
+              onshapeDocumentUrl: "",
+              onshapePartStudioUrl: "",
+              onshapeDrawingUrl: "",
+              notes: "",
+              supersedesPartId: null,
+            });
+            event.currentTarget.reset();
+            setPartsSubsystemFilter(activeNewSubsystemId);
+            toast.success("Part number generated");
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not generate part number");
+          }
+        }
+
+        async function saveInlinePart(event: FormEvent<HTMLFormElement>, part: Doc<"parts">) {
+          event.preventDefault();
+          const formData = new FormData(event.currentTarget);
+
+          try {
+            await updatePart({
+              partId: part._id,
+              name: String(formData.get("name") ?? ""),
+              kind: String(formData.get("kind") ?? "part") as "part" | "assembly",
+              quantity: Number(formData.get("quantity") ?? 1),
+              priority: String(formData.get("priority") ?? "normal") as Priority,
+              materialOptionId: optionValue(formData.get("materialOptionId")),
+              toolOptionId: optionValue(formData.get("toolOptionId")),
+              bitSizeOptionId: optionValue(formData.get("bitSizeOptionId")),
+              sizeProfile: String(formData.get("sizeProfile") ?? ""),
+              storageLocationOptionId: optionValue(formData.get("storageLocationOptionId")),
+              onshapeDocumentUrl: String(formData.get("onshapeDocumentUrl") ?? ""),
+              onshapePartStudioUrl: String(formData.get("onshapePartStudioUrl") ?? ""),
+              onshapeDrawingUrl: String(formData.get("onshapeDrawingUrl") ?? ""),
+              notes: String(formData.get("notes") ?? ""),
+            });
+            toast.success("Part details saved");
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not save part");
+          }
+        }
 
         async function move(partId: Id<"parts">, status: PartStatus) {
           try {
@@ -473,20 +552,12 @@ export function PartsRoute() {
               title="Parts workspace"
               description="Part numbers, system reference, manufacturing, orders, and calculator links."
               action={
-                <>
-                  <Button asChild>
-                    <Link to="/parts/new">
-                      <PlusIcon data-icon="inline-start" aria-hidden="true" />
-                      New part
-                    </Link>
-                  </Button>
-                  <Button asChild variant="outline">
-                    <Link to="/parts/transmissions">
-                      <GaugeIcon data-icon="inline-start" aria-hidden="true" />
-                      Calculator
-                    </Link>
-                  </Button>
-                </>
+                <Button asChild variant="outline">
+                  <Link to="/parts/transmissions">
+                    <GaugeIcon data-icon="inline-start" aria-hidden="true" />
+                    Calculator
+                  </Link>
+                </Button>
               }
             />
             <section className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -507,29 +578,43 @@ export function PartsRoute() {
             </section>
             <section className="mb-4 grid gap-3 xl:grid-cols-[1fr_1fr_1.2fr]">
               <div className="rounded-md border bg-card p-4">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="font-semibold">Next numbers</h2>
-                  <Button asChild size="sm" variant="outline">
-                    <Link to="/parts/new">
-                      <BadgePlusIcon data-icon="inline-start" aria-hidden="true" />
-                      Generate
-                    </Link>
-                  </Button>
-                </div>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {overview.subsystems.slice(0, 9).map((subsystem) => (
-                    <Link
-                      key={subsystem._id}
-                      to="/parts/new"
-                      className="rounded-md border p-2 text-sm transition-colors hover:bg-muted/50"
+                <h2 className="font-semibold">Generate a part number</h2>
+                <form className="mt-3 grid gap-3" onSubmit={createPartNumber}>
+                  <div className="grid gap-2">
+                    <Label htmlFor="quick-subsystem">Subsystem</Label>
+                    <select
+                      id="quick-subsystem"
+                      className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                      value={activeNewSubsystemId ?? ""}
+                      onChange={(event) => setNewSubsystemId(event.currentTarget.value as Id<"subsystems">)}
+                      required
                     >
-                      <p className="font-medium">{subsystem.letter}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {nextPartNumberPreview(subsystem.letter, subsystem.nextPartNumber)}
+                      {enabledSubsystems.map((subsystem) => (
+                        <option key={subsystem._id} value={subsystem._id}>
+                          {subsystem.name} ({subsystem.letter})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="quick-name">Working part name</Label>
+                    <Input id="quick-name" name="name" placeholder="Left gearbox plate" required />
+                  </div>
+                  {selectedNewSubsystem && (
+                    <div className="rounded-md bg-muted p-2 text-sm">
+                      <p className="font-medium">
+                        Next: {nextPartNumberPreview(selectedNewSubsystem.letter, selectedNewSubsystem.nextPartNumber)}
                       </p>
-                    </Link>
-                  ))}
-                </div>
+                      <p className="text-xs text-muted-foreground">
+                        More details can be added from the table after CAD starts.
+                      </p>
+                    </div>
+                  )}
+                  <Button type="submit">
+                    <BadgePlusIcon data-icon="inline-start" aria-hidden="true" />
+                    Generate
+                  </Button>
+                </form>
               </div>
               <div className="rounded-md border bg-card p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
@@ -639,27 +724,122 @@ export function PartsRoute() {
                     <th className="px-3 py-2 font-medium">Qty</th>
                     <th className="px-3 py-2 font-medium">Material</th>
                     <th className="px-3 py-2 font-medium">Size/Profile</th>
+                    <th className="px-3 py-2 font-medium">Details</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredParts.map((part) => (
-                    <tr key={part._id} className="border-b last:border-0 hover:bg-muted/50">
-                      <td className="px-3 py-2 font-medium">
-                        <Link to={`/parts/${part._id}`} className="hover:underline">
-                          {part.partNumber ?? "Draft"}
-                        </Link>
-                      </td>
-                      <td className="max-w-[260px] px-3 py-2">
-                        <span className="line-clamp-2">{part.name}</span>
-                      </td>
-                      <td className="px-3 py-2">{part.status === "deprecated" ? "Y" : "N"}</td>
-                      <td className="px-3 py-2">{subsystemName(overview.subsystems, part.subsystemId)}</td>
-                      <td className="px-3 py-2"><StatusPill status={part.status} /></td>
-                      <td className="px-3 py-2">{designerLabel(overview.designers, part.designedByProfileId)}</td>
-                      <td className="px-3 py-2">{part.quantity}</td>
-                      <td className="px-3 py-2">{catalogLabel(catalog, part.materialOptionId)}</td>
-                      <td className="px-3 py-2">{part.sizeProfile || "None"}</td>
-                    </tr>
+                    <Fragment key={part._id}>
+                      <tr className="border-b last:border-0 hover:bg-muted/50">
+                        <td className="px-3 py-2 font-medium">
+                          <Link to={`/parts/${part._id}`} className="hover:underline">
+                            {part.partNumber ?? "Draft"}
+                          </Link>
+                        </td>
+                        <td className="max-w-[260px] px-3 py-2">
+                          <span className="line-clamp-2">{part.name}</span>
+                        </td>
+                        <td className="px-3 py-2">{part.status === "deprecated" ? "Y" : "N"}</td>
+                        <td className="px-3 py-2">{subsystemName(overview.subsystems, part.subsystemId)}</td>
+                        <td className="px-3 py-2"><StatusPill status={part.status} /></td>
+                        <td className="px-3 py-2">{designerLabel(overview.designers, part.designedByProfileId)}</td>
+                        <td className="px-3 py-2">{part.quantity}</td>
+                        <td className="px-3 py-2">{catalogLabel(catalog, part.materialOptionId)}</td>
+                        <td className="px-3 py-2">{part.sizeProfile || "None"}</td>
+                        <td className="px-3 py-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setExpandedPartId(expandedPartId === part._id ? null : part._id)}
+                          >
+                            {expandedPartId === part._id ? "Close" : "Edit"}
+                          </Button>
+                        </td>
+                      </tr>
+                      {expandedPartId === part._id && (
+                        <tr className="border-b bg-muted/30">
+                          <td colSpan={10} className="px-3 py-4">
+                            <form className="grid gap-3" onSubmit={(event) => saveInlinePart(event, part)}>
+                              <div className="grid gap-3 lg:grid-cols-4">
+                                <div className="grid gap-2 lg:col-span-2">
+                                  <Label htmlFor={`part-name-${part._id}`}>Part name</Label>
+                                  <Input id={`part-name-${part._id}`} name="name" defaultValue={part.name} required />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor={`part-qty-${part._id}`}>Qty</Label>
+                                  <Input id={`part-qty-${part._id}`} name="quantity" type="number" min={1} defaultValue={part.quantity} required />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor={`part-kind-${part._id}`}>Kind</Label>
+                                  <select id={`part-kind-${part._id}`} name="kind" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.kind}>
+                                    <option value="part">Part</option>
+                                    <option value="assembly">Assembly</option>
+                                  </select>
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor={`part-priority-${part._id}`}>Priority</Label>
+                                  <select id={`part-priority-${part._id}`} name="priority" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.priority}>
+                                    {priorities.map((priority) => (
+                                      <option key={priority} value={priority}>{priority}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor={`part-material-${part._id}`}>Material</Label>
+                                  <select id={`part-material-${part._id}`} name="materialOptionId" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.materialOptionId ?? ""}>
+                                    <option value="">None</option>
+                                    {catalogOptionsFor("material").map((option) => (
+                                      <option key={option._id} value={option._id}>{option.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor={`part-size-${part._id}`}>Size/Profile</Label>
+                                  <Input id={`part-size-${part._id}`} name="sizeProfile" defaultValue={part.sizeProfile ?? ""} />
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor={`part-tool-${part._id}`}>Tool</Label>
+                                  <select id={`part-tool-${part._id}`} name="toolOptionId" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.toolOptionId ?? ""}>
+                                    <option value="">None</option>
+                                    {catalogOptionsFor("tool").map((option) => (
+                                      <option key={option._id} value={option._id}>{option.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor={`part-bit-${part._id}`}>Bit</Label>
+                                  <select id={`part-bit-${part._id}`} name="bitSizeOptionId" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.bitSizeOptionId ?? ""}>
+                                    <option value="">None</option>
+                                    {catalogOptionsFor("bitSize").map((option) => (
+                                      <option key={option._id} value={option._id}>{option.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="grid gap-2">
+                                  <Label htmlFor={`part-storage-${part._id}`}>Storage</Label>
+                                  <select id={`part-storage-${part._id}`} name="storageLocationOptionId" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.storageLocationOptionId ?? ""}>
+                                    <option value="">None</option>
+                                    {catalogOptionsFor("storageLocation").map((option) => (
+                                      <option key={option._id} value={option._id}>{option.label}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                              </div>
+                              <div className="grid gap-3 lg:grid-cols-3">
+                                <Input name="onshapeDocumentUrl" type="url" placeholder="Onshape doc URL" defaultValue={part.onshapeDocumentUrl} />
+                                <Input name="onshapePartStudioUrl" type="url" placeholder="Part studio URL" defaultValue={part.onshapePartStudioUrl} />
+                                <Input name="onshapeDrawingUrl" type="url" placeholder="Drawing URL" defaultValue={part.onshapeDrawingUrl} />
+                              </div>
+                              <Textarea name="notes" placeholder="Notes" defaultValue={part.notes} />
+                              <Button type="submit" className="w-full sm:w-fit">
+                                <SaveIcon data-icon="inline-start" aria-hidden="true" />
+                                Save details
+                              </Button>
+                            </form>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -936,24 +1116,29 @@ export function GeneratePartRoute() {
                   <Input id="name" name="name" required placeholder="Drive rail left" />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Subsystem</Label>
-                  <div className="grid gap-2 sm:flex sm:flex-wrap">
+                  <Label htmlFor="subsystemId">Subsystem</Label>
+                  <select
+                    id="subsystemId"
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    value={activeSubsystemId ?? ""}
+                    onChange={(event) => setSubsystemId(event.currentTarget.value as Id<"subsystems">)}
+                    required
+                  >
                     {enabledSubsystems.map((subsystem) => (
-                      <Button
-                        key={subsystem._id}
-                        type="button"
-                        className="w-full sm:w-auto"
-                        variant={activeSubsystemId === subsystem._id ? "default" : "outline"}
-                        onClick={() => setSubsystemId(subsystem._id)}
-                      >
-                        {subsystem.letter} - {subsystem.name}
-                      </Button>
+                      <option key={subsystem._id} value={subsystem._id}>
+                        {subsystem.name} ({subsystem.letter})
+                      </option>
                     ))}
-                  </div>
+                  </select>
                   {selectedSubsystem && (
-                    <p className="text-sm text-muted-foreground">
-                      Next number: {nextPartNumberPreview(selectedSubsystem.letter, selectedSubsystem.nextPartNumber)}
-                    </p>
+                    <div className="rounded-md border bg-muted p-3 text-sm">
+                      <p className="font-medium">
+                        Next part number: {nextPartNumberPreview(selectedSubsystem.letter, selectedSubsystem.nextPartNumber)}
+                      </p>
+                      <p className="mt-1 text-muted-foreground">
+                        {selectedSubsystem.letter} is the subsystem code for {selectedSubsystem.name}. The next number is reserved only when you generate the part.
+                      </p>
+                    </div>
                   )}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -1103,7 +1288,7 @@ export function SystemListRoute() {
             description="Subsystem reference for every part, fab item, and transmission."
             action={
               <Button asChild variant="outline">
-                <Link to="/parts/new">
+                <Link to="/parts">
                   <PlusIcon data-icon="inline-start" aria-hidden="true" />
                   New part
                 </Link>
@@ -1548,6 +1733,7 @@ export function PartDetailRoute() {
   const { partId } = useParams();
   const detail = useQuery(api.parts.detail, partId ? { partId: partId as Id<"parts"> } : "skip");
   const { overview, catalog } = useSeasonData();
+  const updatePart = useMutation(api.parts.update);
   const updateStatus = useMutation(api.parts.updateStatus);
   const addBomLink = useMutation(api.parts.addBomLink);
 
@@ -1561,6 +1747,12 @@ export function PartDetailRoute() {
 
   const part = detail.part;
   const candidateChildren = overview.parts.filter((candidate) => candidate._id !== part._id);
+  const catalogOptionsFor = (kind: Doc<"catalogOptions">["kind"]) =>
+    catalog.filter((option) => option.kind === kind && option.isEnabled);
+  const optionValue = (value: FormDataEntryValue | null) => {
+    const optionId = String(value ?? "");
+    return optionId ? optionId as Id<"catalogOptions"> : null;
+  };
 
   async function move(status: PartStatus) {
     try {
@@ -1577,6 +1769,33 @@ export function PartDetailRoute() {
       toast.success("BOM link added");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not add BOM link");
+    }
+  }
+
+  async function savePart(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    try {
+      await updatePart({
+        partId: part._id,
+        name: String(formData.get("name") ?? ""),
+        kind: String(formData.get("kind") ?? "part") as "part" | "assembly",
+        quantity: Number(formData.get("quantity") ?? 1),
+        priority: String(formData.get("priority") ?? "normal") as Priority,
+        materialOptionId: optionValue(formData.get("materialOptionId")),
+        toolOptionId: optionValue(formData.get("toolOptionId")),
+        bitSizeOptionId: optionValue(formData.get("bitSizeOptionId")),
+        sizeProfile: String(formData.get("sizeProfile") ?? ""),
+        storageLocationOptionId: optionValue(formData.get("storageLocationOptionId")),
+        onshapeDocumentUrl: String(formData.get("onshapeDocumentUrl") ?? ""),
+        onshapePartStudioUrl: String(formData.get("onshapePartStudioUrl") ?? ""),
+        onshapeDrawingUrl: String(formData.get("onshapeDrawingUrl") ?? ""),
+        notes: String(formData.get("notes") ?? ""),
+      });
+      toast.success("Part details saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save part");
     }
   }
 
@@ -1608,6 +1827,101 @@ export function PartDetailRoute() {
               {part.onshapeDrawingUrl && <Button size="sm" className="w-full sm:w-auto" variant="outline" asChild><a href={part.onshapeDrawingUrl} target="_blank" rel="noreferrer">Drawing</a></Button>}
             </div>
           </div>
+          <form className="grid gap-4 rounded-md border bg-card p-4" onSubmit={savePart}>
+            <div>
+              <h2 className="font-semibold">Edit part details</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Designers can update part metadata after a number has been generated.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-name">Part name</Label>
+                <Input id="edit-name" name="name" defaultValue={part.name} required />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-quantity">Quantity</Label>
+                <Input id="edit-quantity" name="quantity" type="number" min={1} defaultValue={part.quantity} required />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-kind">Kind</Label>
+                <select id="edit-kind" name="kind" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.kind}>
+                  <option value="part">Part</option>
+                  <option value="assembly">Assembly</option>
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-priority">Priority</Label>
+                <select id="edit-priority" name="priority" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.priority}>
+                  {priorities.map((priority) => (
+                    <option key={priority} value={priority}>{priority}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-material">Material</Label>
+                <select id="edit-material" name="materialOptionId" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.materialOptionId ?? ""}>
+                  <option value="">None</option>
+                  {catalogOptionsFor("material").map((option) => (
+                    <option key={option._id} value={option._id}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-size-profile">Size/Profile</Label>
+                <Input id="edit-size-profile" name="sizeProfile" defaultValue={part.sizeProfile ?? ""} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-tool">Tool</Label>
+                <select id="edit-tool" name="toolOptionId" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.toolOptionId ?? ""}>
+                  <option value="">None</option>
+                  {catalogOptionsFor("tool").map((option) => (
+                    <option key={option._id} value={option._id}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-bit">Bit size</Label>
+                <select id="edit-bit" name="bitSizeOptionId" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.bitSizeOptionId ?? ""}>
+                  <option value="">None</option>
+                  {catalogOptionsFor("bitSize").map((option) => (
+                    <option key={option._id} value={option._id}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-storage">Storage</Label>
+                <select id="edit-storage" name="storageLocationOptionId" className="h-10 rounded-md border border-input bg-background px-3 text-sm" defaultValue={part.storageLocationOptionId ?? ""}>
+                  <option value="">None</option>
+                  {catalogOptionsFor("storageLocation").map((option) => (
+                    <option key={option._id} value={option._id}>{option.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-onshape-doc">Onshape doc</Label>
+                <Input id="edit-onshape-doc" name="onshapeDocumentUrl" type="url" defaultValue={part.onshapeDocumentUrl} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-part-studio">Part studio</Label>
+                <Input id="edit-part-studio" name="onshapePartStudioUrl" type="url" defaultValue={part.onshapePartStudioUrl} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="edit-drawing">Drawing</Label>
+                <Input id="edit-drawing" name="onshapeDrawingUrl" type="url" defaultValue={part.onshapeDrawingUrl} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-notes">Notes</Label>
+              <Textarea id="edit-notes" name="notes" defaultValue={part.notes} />
+            </div>
+            <Button type="submit" className="w-full sm:w-fit">
+              <SaveIcon data-icon="inline-start" aria-hidden="true" />
+              Save changes
+            </Button>
+          </form>
           <div className="rounded-md border bg-card p-4">
             <h2 className="mb-3 font-semibold">Lifecycle</h2>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">

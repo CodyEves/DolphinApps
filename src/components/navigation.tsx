@@ -2,7 +2,6 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import {
   Award,
-  BadgePlus,
   BookOpen,
   Clock,
   ClipboardCheck,
@@ -59,7 +58,6 @@ const trainingNavItems: NavItem[] = [
 
 const partsNavItems: NavItem[] = [
   { href: "/parts", label: "Workspace", icon: Package },
-  { href: "/parts/new", label: "Generate", icon: BadgePlus },
   { href: "/parts/admin", label: "Parts Admin", icon: Settings, adminOnly: true },
 ];
 

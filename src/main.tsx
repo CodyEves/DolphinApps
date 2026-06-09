@@ -79,9 +79,6 @@ const PartsDashboardPage = lazy(() =>
 const PartsListPage = lazy(() =>
   import("@/pages/parts-app").then((module) => ({ default: module.PartsRoute })),
 );
-const PartGeneratorPage = lazy(() =>
-  import("@/pages/parts-app").then((module) => ({ default: module.GeneratePartRoute })),
-);
 const PartDetailPage = lazy(() =>
   import("@/pages/parts-app").then((module) => ({ default: module.PartDetailRoute })),
 );
@@ -132,7 +129,7 @@ const router = createBrowserRouter([
       { path: "equipment", element: <EquipmentPage /> },
       { path: "parts", element: <PartsListPage /> },
       { path: "parts/dashboard", element: <PartsDashboardPage /> },
-      { path: "parts/new", element: <PartGeneratorPage /> },
+      { path: "parts/new", element: <PartsListPage /> },
       { path: "parts/system-list", element: <PartsSystemListPage /> },
       { path: "parts/bom", element: <PartsBomPage /> },
       { path: "parts/manufacturing", element: <PartsManufacturingPage /> },
