@@ -873,11 +873,9 @@ export function PartsRoute() {
                             Start
                           </Button>
                         )}
-                        {part.status !== "submittedForReview" && (
+                        {part.status === "inManufacturing" && (
                           <Button size="sm" variant="outline" onClick={() => move(part._id, "manufactured")}>Manufactured</Button>
                         )}
-                        <Button size="sm" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
-                        <Button size="sm" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
                       </div>
                     </div>
                   ))}
@@ -1294,8 +1292,6 @@ export function ManufacturingRoute() {
           "readyForFab",
           "inManufacturing",
           "manufactured",
-          "stored",
-          "onRobot",
         ] as const;
         const priorityRank: Record<Priority, number> = {
           critical: 0,
@@ -1367,16 +1363,6 @@ export function ManufacturingRoute() {
               column: "bg-violet-50/70 dark:bg-violet-950/20",
               count: "border-violet-200 bg-violet-100 text-violet-900 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-200",
             },
-            stored: {
-              bar: "bg-slate-500",
-              column: "bg-slate-50/80 dark:bg-slate-900/30",
-              count: "border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200",
-            },
-            onRobot: {
-              bar: "bg-orange-500",
-              column: "bg-orange-50/70 dark:bg-orange-950/20",
-              count: "border-orange-200 bg-orange-100 text-orange-900 dark:border-orange-800 dark:bg-orange-950 dark:text-orange-200",
-            },
           };
 
           return tones[status] ?? {
@@ -1408,8 +1394,8 @@ export function ManufacturingRoute() {
             return canApprove;
           }
 
-          if (["inManufacturing", "manufactured", "stored", "onRobot"].includes(targetStatus)) {
-            return ["readyForFab", "inManufacturing", "manufactured", "stored", "onRobot"].includes(draggedPart.status);
+          if (["inManufacturing", "manufactured"].includes(targetStatus)) {
+            return ["readyForFab", "inManufacturing", "manufactured"].includes(draggedPart.status);
           }
 
           return targetStatus === "inDesign" || targetStatus === "submittedForReview";
@@ -1504,15 +1490,6 @@ export function ManufacturingRoute() {
                   <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "manufactured")}>
                     Manufactured
                   </Button>
-                )}
-                {part.status === "manufactured" && (
-                  <>
-                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
-                    <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
-                  </>
-                )}
-                {part.status === "stored" && (
-                  <Button size="sm" className="h-8 text-xs" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
                 )}
               </div>
             </div>
@@ -2163,10 +2140,14 @@ export function PartDetailRoute() {
             <h2 className="mb-3 font-semibold">Lifecycle</h2>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {partStatuses.map((status) => {
-                const isManufacturingProgress = ["inManufacturing", "manufactured", "stored", "onRobot"].includes(status);
-                const isApprovedForStudentControl = ["readyForFab", "inManufacturing", "manufactured", "stored", "onRobot"].includes(part.status);
+                const isManufacturingProgress = ["inManufacturing", "manufactured"].includes(status);
+                const isApprovedForStudentControl = ["readyForFab", "inManufacturing", "manufactured"].includes(part.status);
 
                 if (!canApprove && (status === "readyForFab" || status === "deprecated")) {
+                  return null;
+                }
+
+                if (!canApprove && (status === "stored" || status === "onRobot")) {
                   return null;
                 }
 
