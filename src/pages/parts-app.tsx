@@ -2,10 +2,12 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import {
   BadgePlusIcon,
+  CheckCircle2Icon,
   ExternalLinkIcon,
   FactoryIcon,
   GaugeIcon,
   PackageIcon,
+  PlayIcon,
   PlusIcon,
   SaveIcon,
   SettingsIcon,
@@ -64,6 +66,7 @@ type OverviewData = {
   manufacturing: Doc<"parts">[];
   orders: Doc<"orderRequests">[];
   transmissions: Doc<"transmissions">[];
+  designers: Doc<"profiles">[];
 };
 
 function usePartsProgram() {
@@ -324,6 +327,15 @@ function catalogLabel(catalog: Doc<"catalogOptions">[], optionId: Id<"catalogOpt
   return optionId ? catalog.find((option) => option._id === optionId)?.label ?? "Unknown" : "None";
 }
 
+function designerLabel(designers: Doc<"profiles">[], profileId: Id<"profiles"> | null) {
+  if (!profileId) {
+    return "Unassigned";
+  }
+
+  const designer = designers.find((profile) => profile._id === profileId);
+  return designer?.displayName ?? designer?.email ?? "Team member";
+}
+
 function PartCard({
   part,
   subsystems,
@@ -349,7 +361,7 @@ function PartCard({
         <span>{subsystemName(subsystems, part.subsystemId)}</span>
         <span>{part.kind}</span>
         <span>{catalogLabel(catalog, part.materialOptionId)}</span>
-        <span>Qty {part.quantity}</span>
+        <span>{part.sizeProfile || `Qty ${part.quantity}`}</span>
       </div>
     </Link>
   );
@@ -377,7 +389,7 @@ export function DashboardRoute() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {([
                 ["Active parts", activeParts.length, PackageIcon],
-                ["In manufacturing", overview.manufacturing.length, FactoryIcon],
+                ["Fab queue", overview.manufacturing.length, FactoryIcon],
                 ["Open orders", openOrders.length, ShoppingCartIcon],
                 ["Transmissions", overview.transmissions.length, GaugeIcon],
               ] as Array<[string, number, LucideIcon]>).map(([label, value, Icon]) => (
@@ -399,10 +411,10 @@ export function DashboardRoute() {
                       className="flex items-center justify-between rounded-md border p-2 text-sm"
                     >
                       <span>{part.partNumber ?? "Draft"} - {part.name}</span>
-                      <span className="text-muted-foreground">{part.priority}</span>
+                      <span className="text-muted-foreground">{partStatusLabel(part.status)}</span>
                     </Link>
                   ))}
-                  {overview.manufacturing.length === 0 && <EmptyState>No parts are in manufacturing.</EmptyState>}
+                  {overview.manufacturing.length === 0 && <EmptyState>No parts are ready for fab.</EmptyState>}
                 </div>
               </div>
               <div className="rounded-md border bg-card p-4">
@@ -467,12 +479,50 @@ export function PartsRoute() {
                 </Button>
               ))}
             </div>
-            <div className="grid gap-3">
+            <div className="hidden overflow-x-auto rounded-md border bg-card md:block">
+              <table className="w-full min-w-[980px] text-left text-sm">
+                <thead className="border-b bg-muted/70 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Part number</th>
+                    <th className="px-3 py-2 font-medium">Part name</th>
+                    <th className="px-3 py-2 font-medium">Obsolete</th>
+                    <th className="px-3 py-2 font-medium">System-Sub</th>
+                    <th className="px-3 py-2 font-medium">Status</th>
+                    <th className="px-3 py-2 font-medium">Drawn by</th>
+                    <th className="px-3 py-2 font-medium">Qty</th>
+                    <th className="px-3 py-2 font-medium">Material</th>
+                    <th className="px-3 py-2 font-medium">Size/Profile</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredParts.map((part) => (
+                    <tr key={part._id} className="border-b last:border-0 hover:bg-muted/50">
+                      <td className="px-3 py-2 font-medium">
+                        <Link to={`/parts/${part._id}`} className="hover:underline">
+                          {part.partNumber ?? "Draft"}
+                        </Link>
+                      </td>
+                      <td className="max-w-[260px] px-3 py-2">
+                        <span className="line-clamp-2">{part.name}</span>
+                      </td>
+                      <td className="px-3 py-2">{part.status === "deprecated" ? "Y" : "N"}</td>
+                      <td className="px-3 py-2">{subsystemName(overview.subsystems, part.subsystemId)}</td>
+                      <td className="px-3 py-2"><StatusPill status={part.status} /></td>
+                      <td className="px-3 py-2">{designerLabel(overview.designers, part.designedByProfileId)}</td>
+                      <td className="px-3 py-2">{part.quantity}</td>
+                      <td className="px-3 py-2">{catalogLabel(catalog, part.materialOptionId)}</td>
+                      <td className="px-3 py-2">{part.sizeProfile || "None"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="grid gap-3 md:hidden">
               {filteredParts.map((part) => (
                 <PartCard key={part._id} part={part} subsystems={overview.subsystems} catalog={catalog} />
               ))}
-              {filteredParts.length === 0 && <EmptyState>No parts match this filter.</EmptyState>}
             </div>
+            {filteredParts.length === 0 && <EmptyState>No parts match this filter.</EmptyState>}
           </>
         );
       }}
@@ -555,6 +605,7 @@ export function GeneratePartRoute() {
             materialOptionId,
             toolOptionId,
             bitSizeOptionId,
+            sizeProfile: String(formData.get("sizeProfile") ?? ""),
             storageLocationOptionId,
             onshapeDocumentUrl: String(formData.get("onshapeDocumentUrl") ?? ""),
             onshapePartStudioUrl: String(formData.get("onshapePartStudioUrl") ?? ""),
@@ -576,7 +627,7 @@ export function GeneratePartRoute() {
           <>
             <PageHeader
               title="Generate part"
-              description="Create a canonical part number and move the part into manufacturing."
+              description="Create a canonical part number and add the part to the fab queue."
             />
             <form className="grid gap-5 lg:grid-cols-[1fr_320px]" onSubmit={(event) => handleSubmit(event, submitMode)}>
               <div className="grid gap-4 rounded-md border bg-card p-4">
@@ -620,6 +671,10 @@ export function GeneratePartRoute() {
                     <Label htmlFor="quantity">Quantity</Label>
                     <Input id="quantity" name="quantity" type="number" min={1} defaultValue={1} required />
                   </div>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="sizeProfile">Size/Profile</Label>
+                  <Input id="sizeProfile" name="sizeProfile" placeholder='1/8" sheet, 2x1 tube, 5mm plate' />
                 </div>
                 <div className="grid gap-2">
                   <Label>Priority</Label>
@@ -686,7 +741,7 @@ export function GeneratePartRoute() {
               <aside className="h-fit rounded-md border bg-card p-4">
                 <h2 className="font-semibold">Design to fab</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Generate consumes the next subsystem number and moves the part to manufacturing.
+                  Generate consumes the next subsystem number and marks the part ready for fab.
                 </p>
                 <div className="mt-4 grid gap-2">
                   <Button type="submit" onClick={() => setSubmitMode("generate")}>
@@ -738,6 +793,90 @@ export function BomRoute() {
   );
 }
 
+export function SystemListRoute() {
+  return (
+    <RequireSeason>
+      {(overview, _active, catalog) => (
+        <>
+          <PageHeader
+            title="System list"
+            description="Subsystem reference for every part, fab item, and transmission."
+            action={
+              <Button asChild variant="outline">
+                <Link to="/parts/new">
+                  <PlusIcon data-icon="inline-start" aria-hidden="true" />
+                  New part
+                </Link>
+              </Button>
+            }
+          />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {overview.subsystems.map((subsystem) => {
+              const parts = overview.parts.filter((part) => part.subsystemId === subsystem._id);
+              const fabParts = parts.filter(
+                (part) => part.status === "readyForFab" || part.status === "inManufacturing",
+              );
+              const transmissions = overview.transmissions.filter(
+                (transmission) => transmission.subsystemId === subsystem._id,
+              );
+
+              return (
+                <section key={subsystem._id} className="rounded-md border bg-card p-4">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="font-semibold">{subsystem.letter} - {subsystem.name}</h2>
+                      <p className="text-sm text-muted-foreground">
+                        Next part {nextPartNumberPreview(subsystem.letter, subsystem.nextPartNumber)}
+                      </p>
+                    </div>
+                    <span className="rounded-md border px-2 py-1 text-xs text-muted-foreground">
+                      {parts.length} parts
+                    </span>
+                  </div>
+                  <div className="mb-3 grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="rounded-md bg-muted p-2">
+                      <p className="text-lg font-semibold">{parts.filter((part) => part.status !== "deprecated").length}</p>
+                      <p className="text-muted-foreground">active</p>
+                    </div>
+                    <div className="rounded-md bg-muted p-2">
+                      <p className="text-lg font-semibold">{fabParts.length}</p>
+                      <p className="text-muted-foreground">fab</p>
+                    </div>
+                    <div className="rounded-md bg-muted p-2">
+                      <p className="text-lg font-semibold">{transmissions.length}</p>
+                      <p className="text-muted-foreground">trans</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    {parts.slice(0, 8).map((part) => (
+                      <Link
+                        key={part._id}
+                        to={`/parts/${part._id}`}
+                        className="rounded-md border p-2 text-sm transition-colors hover:bg-muted/50"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-medium">{part.partNumber ?? "Draft"}</span>
+                          <span className="text-xs text-muted-foreground">Qty {part.quantity}</span>
+                        </div>
+                        <p className="mt-1 line-clamp-1 text-muted-foreground">{part.name}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {catalogLabel(catalog, part.materialOptionId)}
+                          {part.sizeProfile ? ` / ${part.sizeProfile}` : ""}
+                        </p>
+                      </Link>
+                    ))}
+                    {parts.length === 0 && <EmptyState>No parts in this subsystem.</EmptyState>}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </RequireSeason>
+  );
+}
+
 export function ManufacturingRoute() {
   const { manufacturingStatusFilter, setManufacturingStatusFilter } = useUiStore();
   const updateStatus = useMutation(api.parts.updateStatus);
@@ -758,7 +897,10 @@ export function ManufacturingRoute() {
 
         return (
           <>
-            <PageHeader title="Manufacturing" description="Shop queue and fabrication status." />
+            <PageHeader
+              title="Manufacturing"
+              description="Parts marked ready for fab automatically appear here."
+            />
             <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
               {partStatuses.filter((status) => status !== "draft").map((status) => (
                 <Button
@@ -786,6 +928,18 @@ export function ManufacturingRoute() {
                     <StatusPill status={part.status} />
                   </div>
                   <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
+                    {part.status === "readyForFab" && (
+                      <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "inManufacturing")}>
+                        <PlayIcon data-icon="inline-start" aria-hidden="true" />
+                        Start
+                      </Button>
+                    )}
+                    {part.status !== "readyForFab" && (
+                      <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "readyForFab")}>
+                        <CheckCircle2Icon data-icon="inline-start" aria-hidden="true" />
+                        Ready
+                      </Button>
+                    )}
                     <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "manufactured")}>Manufactured</Button>
                     <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "stored")}>Stored</Button>
                     <Button size="sm" className="w-full sm:w-auto" variant="outline" onClick={() => move(part._id, "onRobot")}>On robot</Button>
@@ -801,30 +955,110 @@ export function ManufacturingRoute() {
   );
 }
 
+type TransmissionImport = {
+  name?: string;
+  ratio?: string;
+  driverTeeth?: string;
+  drivenTeeth?: string;
+  beltTeeth?: string;
+  centerDistance?: string;
+};
+
+function parseTransmissionUrl(value: string): TransmissionImport {
+  if (!value.trim()) {
+    return {};
+  }
+
+  try {
+    const url = new URL(value);
+    const params = new URLSearchParams(url.search);
+    const hashQuery = url.hash.includes("?") ? url.hash.slice(url.hash.indexOf("?")) : url.hash.replace(/^#/, "");
+    const hashParams = new URLSearchParams(hashQuery);
+    const allParams = [params, hashParams];
+    const first = (...keys: string[]) => {
+      for (const source of allParams) {
+        for (const key of keys) {
+          const found = source.get(key);
+          if (found) {
+            return found;
+          }
+        }
+      }
+      return undefined;
+    };
+
+    const driverTeeth = first("driverTeeth", "driver", "smallPulleyTeeth", "smallTeeth", "inputTeeth", "motorTeeth");
+    const drivenTeeth = first("drivenTeeth", "driven", "largePulleyTeeth", "largeTeeth", "outputTeeth");
+    const ratio = first("ratio");
+
+    return {
+      name: first("name", "title", "mechanism"),
+      ratio: ratio ?? calculatedRatio(driverTeeth, drivenTeeth),
+      driverTeeth,
+      drivenTeeth,
+      beltTeeth: first("beltTeeth", "belt", "beltLength", "beltToothCount"),
+      centerDistance: first("centerDistance", "center", "cc", "targetCenterDistance"),
+    };
+  } catch {
+    return {};
+  }
+}
+
+function calculatedRatio(driverTeeth?: string | number | null, drivenTeeth?: string | number | null) {
+  const driver = Number(driverTeeth);
+  const driven = Number(drivenTeeth);
+
+  if (!driver || !driven) {
+    return "";
+  }
+
+  return `${Number((driven / driver).toFixed(3))}:1`;
+}
+
+function setFormValue(form: HTMLFormElement | null, name: string, value: string | undefined) {
+  if (!form || !value) {
+    return;
+  }
+
+  const field = form.elements.namedItem(name);
+  if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+    field.value = value;
+  }
+}
+
 export function TransmissionsRoute() {
   const upsert = useMutation(api.transmissions.upsert);
+  const [subsystemId, setSubsystemId] = useState<Id<"subsystems"> | null>(null);
 
   return (
     <RequireSeason>
       {(overview, active) => {
+        const selectedSubsystem =
+          overview.subsystems.find((subsystem) => subsystem._id === subsystemId) ??
+          overview.subsystems[0];
+
         async function handleSubmit(event: FormEvent<HTMLFormElement>) {
           event.preventDefault();
           const formData = new FormData(event.currentTarget);
-          const subsystem = overview.subsystems[0];
+          const subsystem = selectedSubsystem;
 
           if (!subsystem) {
             toast.error("Create a subsystem first.");
             return;
           }
 
+          const driverTeeth = Number(formData.get("driverTeeth") || 0) || null;
+          const drivenTeeth = Number(formData.get("drivenTeeth") || 0) || null;
+          const ratio = String(formData.get("ratio") ?? "") || calculatedRatio(driverTeeth, drivenTeeth);
+
           try {
             await upsert({
               seasonId: active.season!._id,
               subsystemId: subsystem._id,
               name: String(formData.get("name") ?? ""),
-              ratio: String(formData.get("ratio") ?? ""),
-              driverTeeth: Number(formData.get("driverTeeth") || 0) || null,
-              drivenTeeth: Number(formData.get("drivenTeeth") || 0) || null,
+              ratio,
+              driverTeeth,
+              drivenTeeth,
               beltTeeth: Number(formData.get("beltTeeth") || 0) || null,
               centerDistance: String(formData.get("centerDistance") ?? ""),
               calculatorUrl: String(formData.get("calculatorUrl") ?? ""),
@@ -847,7 +1081,37 @@ export function TransmissionsRoute() {
               <Input name="drivenTeeth" type="number" placeholder="Driven teeth" />
               <Input name="beltTeeth" type="number" placeholder="Belt teeth" />
               <Input name="centerDistance" placeholder="5 in" />
-              <Input name="calculatorUrl" type="url" placeholder="https://www.reca.lc/..." className="lg:col-span-2" />
+              <div className="grid gap-2 sm:col-span-2 lg:col-span-4">
+                <Label>Subsystem</Label>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {overview.subsystems.map((subsystem) => (
+                    <Button
+                      key={subsystem._id}
+                      type="button"
+                      size="sm"
+                      variant={selectedSubsystem?._id === subsystem._id ? "default" : "outline"}
+                      onClick={() => setSubsystemId(subsystem._id)}
+                    >
+                      {subsystem.letter}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <Input
+                name="calculatorUrl"
+                type="url"
+                placeholder="https://www.reca.lc/..."
+                className="lg:col-span-2"
+                onBlur={(event) => {
+                  const imported = parseTransmissionUrl(event.currentTarget.value);
+                  setFormValue(event.currentTarget.form, "name", imported.name);
+                  setFormValue(event.currentTarget.form, "ratio", imported.ratio);
+                  setFormValue(event.currentTarget.form, "driverTeeth", imported.driverTeeth);
+                  setFormValue(event.currentTarget.form, "drivenTeeth", imported.drivenTeeth);
+                  setFormValue(event.currentTarget.form, "beltTeeth", imported.beltTeeth);
+                  setFormValue(event.currentTarget.form, "centerDistance", imported.centerDistance);
+                }}
+              />
               <Textarea name="notes" placeholder="Notes" className="sm:col-span-2 lg:col-span-3" />
               <Button type="submit">
                 <SaveIcon data-icon="inline-start" aria-hidden="true" />
@@ -868,7 +1132,13 @@ export function TransmissionsRoute() {
                       <Button size="icon" variant="outline" asChild><a href={transmission.calculatorUrl} target="_blank" rel="noreferrer"><ExternalLinkIcon aria-hidden="true" /></a></Button>
                     )}
                   </div>
-                  <p className="mt-2 text-sm text-muted-foreground">{transmission.notes}</p>
+                  <div className="mt-3 grid gap-2 text-sm text-muted-foreground sm:grid-cols-4">
+                    <span>Driver {transmission.driverTeeth ?? "TBD"}</span>
+                    <span>Driven {transmission.drivenTeeth ?? "TBD"}</span>
+                    <span>Belt {transmission.beltTeeth ?? "TBD"}</span>
+                    <span>Center {transmission.centerDistance || "TBD"}</span>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">{transmission.notes || "No notes yet."}</p>
                 </div>
               ))}
               {overview.transmissions.length === 0 && <EmptyState>No transmissions have been added.</EmptyState>}
@@ -1027,6 +1297,7 @@ export function PartDetailRoute() {
               <p>Material: {catalogLabel(catalog, part.materialOptionId)}</p>
               <p>Tool: {catalogLabel(catalog, part.toolOptionId)}</p>
               <p>Bit: {catalogLabel(catalog, part.bitSizeOptionId)}</p>
+              <p>Size/Profile: {part.sizeProfile || "None"}</p>
               <p>Storage: {catalogLabel(catalog, part.storageLocationOptionId)}</p>
             </div>
             <Separator className="my-4" />
@@ -1048,7 +1319,7 @@ export function PartDetailRoute() {
                   variant={part.status === status ? "default" : "outline"}
                   onClick={() => move(status)}
                 >
-                  {partStatusLabel(status)}
+                  {status === "readyForFab" ? "Ready for manufacturing" : partStatusLabel(status)}
                 </Button>
               ))}
             </div>

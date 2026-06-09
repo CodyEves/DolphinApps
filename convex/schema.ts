@@ -463,6 +463,7 @@ export default defineSchema({
     materialOptionId: v.union(v.id("catalogOptions"), v.null()),
     toolOptionId: v.union(v.id("catalogOptions"), v.null()),
     bitSizeOptionId: v.union(v.id("catalogOptions"), v.null()),
+    sizeProfile: v.optional(v.string()),
     storageLocationOptionId: v.union(v.id("catalogOptions"), v.null()),
     onshapeDocumentUrl: v.string(),
     onshapePartStudioUrl: v.string(),

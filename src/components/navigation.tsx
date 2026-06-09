@@ -64,6 +64,7 @@ const partsNavItems: NavItem[] = [
   { href: "/parts", label: "Parts", icon: Package },
   { href: "/parts/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/parts/new", label: "Generate", icon: BadgePlus },
+  { href: "/parts/system-list", label: "System List", icon: ListTree },
   { href: "/parts/bom", label: "BOM", icon: ListTree },
   { href: "/parts/manufacturing", label: "Manufacturing", icon: Factory },
   { href: "/parts/transmissions", label: "Transmissions", icon: Wrench },
