@@ -519,6 +519,7 @@ export default defineSchema({
     startsAt: v.optional(v.number()),
     endsAt: v.optional(v.number()),
     status: attendanceEventStatusValidator,
+    code: v.optional(v.string()),
     codeHash: v.optional(v.string()),
     codeUpdatedAt: v.optional(v.number()),
     createdBy: v.id("users"),

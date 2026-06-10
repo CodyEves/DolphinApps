@@ -1237,11 +1237,14 @@ export const createAttendanceEvent = mutation({
     description: v.optional(v.string()),
     startsAt: v.optional(v.number()),
     endsAt: v.optional(v.number()),
+    code: v.optional(v.string()),
     codeHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const manager = await requireShopManager(ctx);
     const title = args.title.trim();
+    const eventCode = args.code ? normalizeCode(args.code) : undefined;
+    const codeHash = eventCode ? await sha256Hex(eventCode) : args.codeHash;
 
     if (!title) {
       throw new Error("Event name is required.");
@@ -1251,7 +1254,7 @@ export const createAttendanceEvent = mutation({
       throw new Error("Event end time must be after the start time.");
     }
 
-    if (args.codeHash && (await activeAttendanceEventForCodeHash(ctx, args.codeHash))) {
+    if (codeHash && (await activeAttendanceEventForCodeHash(ctx, codeHash))) {
       throw new Error("That event code is already used by an active event.");
     }
 
@@ -1264,8 +1267,9 @@ export const createAttendanceEvent = mutation({
       startsAt: args.startsAt,
       endsAt: args.endsAt,
       status: "active",
-      codeHash: args.codeHash,
-      codeUpdatedAt: args.codeHash ? now : undefined,
+      code: eventCode,
+      codeHash,
+      codeUpdatedAt: codeHash ? now : undefined,
       createdBy: manager.userId,
       createdAt: now,
       updatedAt: now,
@@ -1319,23 +1323,32 @@ export const updateAttendanceEvent = mutation({
 export const setAttendanceEventCode = mutation({
   args: {
     eventId: v.id("attendanceEvents"),
-    codeHash: v.string(),
+    code: v.optional(v.string()),
+    codeHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await requireShopManager(ctx);
     const event = await ctx.db.get(args.eventId);
-    const existing = await activeAttendanceEventForCodeHash(ctx, args.codeHash);
+    const eventCode = args.code ? normalizeCode(args.code) : undefined;
+    const codeHash = eventCode ? await sha256Hex(eventCode) : args.codeHash;
 
     if (!event) {
       throw new Error("Attendance event not found.");
     }
+
+    if (!codeHash) {
+      throw new Error("Event code is required.");
+    }
+
+    const existing = await activeAttendanceEventForCodeHash(ctx, codeHash);
 
     if (existing && existing._id !== args.eventId) {
       throw new Error("That event code is already used by an active event.");
     }
 
     await ctx.db.patch(args.eventId, {
-      codeHash: args.codeHash,
+      code: eventCode,
+      codeHash,
       codeUpdatedAt: Date.now(),
       updatedAt: Date.now(),
     });

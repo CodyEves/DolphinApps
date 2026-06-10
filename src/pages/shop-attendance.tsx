@@ -639,7 +639,7 @@ export function ShopAttendancePage() {
   const [eventEndsAt, setEventEndsAt] = useState("");
   const [eventDescription, setEventDescription] = useState("");
   const [eventCodeDraft, setEventCodeDraft] = useState(randomShopCode());
-  const [recentEventCodes, setRecentEventCodes] = useState<Record<string, string>>({});
+  const [selectedEventCodeDraft, setSelectedEventCodeDraft] = useState("");
   const [selectedEventId, setSelectedEventId] = useState<Id<"attendanceEvents"> | "">("");
   const [isEventBusy, setIsEventBusy] = useState(false);
   const [now, setNow] = useState(0);
@@ -1012,10 +1012,9 @@ export function ShopAttendancePage() {
         description: eventDescription || undefined,
         startsAt: eventStartsAt ? fromDateTimeLocal(eventStartsAt) : undefined,
         endsAt: eventEndsAt ? fromDateTimeLocal(eventEndsAt) : undefined,
-        codeHash: await sha256Hex(code),
+        code,
       });
 
-      setRecentEventCodes((currentCodes) => ({ ...currentCodes, [eventId]: code }));
       setSelectedEventId(eventId);
       setEventTitle("");
       setEventLocation("");
@@ -1039,12 +1038,35 @@ export function ShopAttendancePage() {
     try {
       await setAttendanceEventCode({
         eventId,
-        codeHash: await sha256Hex(code),
+        code,
       });
-      setRecentEventCodes((currentCodes) => ({ ...currentCodes, [eventId]: code }));
       toast.success("Event code generated");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not generate event code");
+    } finally {
+      setIsEventBusy(false);
+    }
+  }
+
+  async function handleSetSelectedEventCode(eventId: Id<"attendanceEvents">) {
+    const code = normalizeAttendanceCode(selectedEventCodeDraft);
+
+    if (!code) {
+      toast.error("Enter an event code.");
+      return;
+    }
+
+    setIsEventBusy(true);
+
+    try {
+      await setAttendanceEventCode({
+        eventId,
+        code,
+      });
+      setSelectedEventCodeDraft("");
+      toast.success("Event code saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save event code");
     } finally {
       setIsEventBusy(false);
     }
@@ -2289,11 +2311,28 @@ export function ShopAttendancePage() {
                             <div className="rounded-md border p-4">
                               <p className="text-sm text-muted-foreground">Code</p>
                               <p className="mt-1 font-mono text-2xl font-semibold">
-                                {recentEventCodes[selectedAttendanceEvent._id] ?? (selectedAttendanceEvent.hasCode ? "Set" : "None")}
+                                {selectedAttendanceEvent.code ?? (selectedAttendanceEvent.hasCode ? "Set" : "None")}
                               </p>
                             </div>
                           </div>
                           <div className="flex flex-wrap gap-2">
+                            <div className="grid min-w-64 flex-1 gap-2 sm:grid-cols-[1fr_auto]">
+                              <Input
+                                value={selectedEventCodeDraft}
+                                onChange={(event) => setSelectedEventCodeDraft(normalizeAttendanceCode(event.target.value))}
+                                placeholder={selectedAttendanceEvent.code ?? "Enter event code"}
+                                className="font-mono"
+                                aria-label="Set event code"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => void handleSetSelectedEventCode(selectedAttendanceEvent._id)}
+                                disabled={isEventBusy}
+                              >
+                                Save code
+                              </Button>
+                            </div>
                             <Button
                               type="button"
                               variant="outline"
