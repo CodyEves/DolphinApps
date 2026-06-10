@@ -303,9 +303,14 @@ export function AdminPeoplePage() {
   const [pageIndex, setPageIndex] = useState(0);
   const createdLinks = useMemo(() => Object.entries(generatedLinks), [generatedLinks]);
   const canRefreshAdminAccess =
-    viewer?.provisionedAccount?.accountLabel === "admin" &&
-    viewer.provisionedAccount.status === "active" &&
-    !isAdmin;
+    !isAdmin &&
+    (
+      (viewer?.profile.role === "admin" && viewer.profile.status !== "active") ||
+      (
+        viewer?.provisionedAccount?.accountLabel === "admin" &&
+        viewer.provisionedAccount.status === "active"
+      )
+    );
   const accountStats = useMemo(() => {
     const list = accounts ?? [];
 

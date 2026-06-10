@@ -909,6 +909,34 @@ export const syncMyProvisionedProfile = mutation({
       .query("provisionedAccounts")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
+    const profile = await ctx.db
+      .query("profiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (profile?.role === "admin") {
+      const now = Date.now();
+
+      await ctx.db.patch(profile._id, {
+        status: "active",
+        updatedAt: now,
+      });
+
+      if (account?.accountLabel === "admin") {
+        await ctx.db.patch(account._id, {
+          profileId: profile._id,
+          status: "active",
+          updatedAt: now,
+        });
+      }
+
+      return {
+        profileId: profile._id,
+        role: profile.role,
+        status: "active" as const,
+        accountLabel: account?.accountLabel ?? "admin" as const,
+      };
+    }
 
     if (!account || account.status !== "active") {
       throw new Error("Your active provisioned team account was not found.");
