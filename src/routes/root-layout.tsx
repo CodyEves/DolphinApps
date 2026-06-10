@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router";
 
 import { AppLauncher } from "@/components/app-launcher";
 import { MobileNav, Sidebar } from "@/components/navigation";
+import { NotificationMenu } from "@/components/notification-menu";
 import { ProgramOnboarding } from "@/components/program-onboarding";
 import { ThemeModeToggle } from "@/components/theme-mode-toggle";
 import { UserMenu } from "@/components/user-menu";
@@ -76,6 +77,7 @@ export function RootLayout() {
               <div className="ml-auto flex items-center gap-2">
                 <ThemeModeToggle />
                 <AppLauncher collapsed />
+                <NotificationMenu />
                 <UserMenu />
               </div>
             </div>

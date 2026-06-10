@@ -23,6 +23,7 @@ import type * as lib_parts from "../lib/parts.js";
 import type * as lib_profanity from "../lib/profanity.js";
 import type * as lib_programs from "../lib/programs.js";
 import type * as lib_validators from "../lib/validators.js";
+import type * as notifications from "../notifications.js";
 import type * as orderRequests from "../orderRequests.js";
 import type * as parts from "../parts.js";
 import type * as profiles from "../profiles.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   "lib/profanity": typeof lib_profanity;
   "lib/programs": typeof lib_programs;
   "lib/validators": typeof lib_validators;
+  notifications: typeof notifications;
   orderRequests: typeof orderRequests;
   parts: typeof parts;
   profiles: typeof profiles;
