@@ -68,6 +68,15 @@ function namePartsFromInput(input: {
   throw new Error("First and last name are required.");
 }
 
+function splitDisplayName(displayName: string) {
+  const parts = normalizeNamePart(displayName).split(/\s+/).filter(Boolean);
+
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" "),
+  };
+}
+
 async function nextAccountNumber(ctx: QueryCtx | MutationCtx, reserved: Set<string>) {
   const accounts = await ctx.db.query("provisionedAccounts").collect();
   let maxAccountNumber = 100000;
@@ -477,19 +486,20 @@ export const updateProvisionedAccount = mutation({
       args.displayName !== undefined ||
       args.firstName !== undefined ||
       args.lastName !== undefined;
-    const namePatch = hasNamePatch
-      ? namePartsFromInput({
-          firstName: args.firstName ?? account.firstName,
-          lastName: args.lastName ?? account.lastName,
-          displayName: args.displayName ?? account.displayName,
-        })
-      : null;
+    const fallbackName = splitDisplayName(account.displayName);
+    const nextFirstName = normalizeNamePart(args.firstName ?? account.firstName ?? fallbackName.firstName);
+    const nextLastName = normalizeNamePart(args.lastName ?? account.lastName ?? fallbackName.lastName);
+
+    if (hasNamePatch && (!nextFirstName || !nextLastName)) {
+      throw new Error("First and last name are required.");
+    }
+
     const patch = {
-      ...(namePatch
+      ...(hasNamePatch
         ? {
-            displayName: namePatch.displayName,
-            firstName: namePatch.firstName,
-            lastName: namePatch.lastName,
+            displayName: `${nextFirstName} ${nextLastName}`,
+            firstName: nextFirstName,
+            lastName: nextLastName,
           }
         : {}),
       ...(args.accountLabel ? { accountLabel: args.accountLabel } : {}),

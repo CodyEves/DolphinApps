@@ -56,7 +56,7 @@ function userProfileFields(user: Doc<"users"> | null) {
 }
 
 function accountLabelForProfile(profile: {
-  role: "student" | "instructor" | "mentor" | "guest" | "kiosk" | "admin";
+  role?: "student" | "instructor" | "mentor" | "guest" | "kiosk" | "admin";
   primaryProgram?: "frc_5199" | "frc_9271";
   studentGroup?: string;
 }) {
@@ -198,14 +198,21 @@ export const listUsersForAdmin = query({
     );
     const users = await Promise.all(
       profiles.map(async (profile) => {
-        const user = await ctx.db.get(profile.userId);
-        const provisionedAccount = await provisionedAccountForProfile(ctx, profile);
+        let user: Doc<"users"> | null = null;
+        let provisionedAccount: Doc<"provisionedAccounts"> | null = null;
+
+        try {
+          user = await ctx.db.get(profile.userId);
+          provisionedAccount = await provisionedAccountForProfile(ctx, profile);
+        } catch {
+          // Keep legacy/corrupt profile rows from crashing the whole admin page.
+        }
 
         return {
           ...profile,
           user,
           provisionedAccount,
-          accountLabel: accountLabelForProfile(profile),
+          accountLabel: provisionedAccount?.accountLabel ?? accountLabelForProfile(profile),
         };
       }),
     );
