@@ -202,6 +202,9 @@ export function AuthPage() {
                       <div className="space-y-3">
                         <div>
                           <p className="font-medium">{preview.displayName}</p>
+                          {preview.accountNumber && (
+                            <p className="text-muted-foreground">Account ID: {preview.accountNumber}</p>
+                          )}
                           <p className="text-muted-foreground">
                             Save this username. You will use it every time you sign in.
                           </p>

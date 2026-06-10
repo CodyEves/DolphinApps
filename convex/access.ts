@@ -34,6 +34,73 @@ function usernameBase(displayName: string) {
   return `${first}.${lastInitial}`;
 }
 
+function normalizeNamePart(value: string | undefined) {
+  return (value ?? "").trim().replace(/\s+/g, " ");
+}
+
+function namePartsFromInput(input: {
+  firstName?: string;
+  lastName?: string;
+  displayName?: string;
+}) {
+  const explicitFirstName = normalizeNamePart(input.firstName);
+  const explicitLastName = normalizeNamePart(input.lastName);
+
+  if (explicitFirstName && explicitLastName) {
+    return {
+      firstName: explicitFirstName,
+      lastName: explicitLastName,
+      displayName: `${explicitFirstName} ${explicitLastName}`,
+    };
+  }
+
+  const displayName = normalizeNamePart(input.displayName);
+  const parts = displayName.split(/\s+/).filter(Boolean);
+
+  if (parts.length >= 2) {
+    return {
+      firstName: parts[0],
+      lastName: parts.slice(1).join(" "),
+      displayName,
+    };
+  }
+
+  throw new Error("First and last name are required.");
+}
+
+async function nextAccountNumber(ctx: QueryCtx | MutationCtx, reserved: Set<string>) {
+  const accounts = await ctx.db.query("provisionedAccounts").collect();
+  let maxAccountNumber = 100000;
+
+  for (const account of accounts) {
+    const parsed = Number(account.accountNumber);
+
+    if (Number.isInteger(parsed)) {
+      maxAccountNumber = Math.max(maxAccountNumber, parsed);
+    }
+  }
+
+  for (let offset = 1; offset <= 9999; offset += 1) {
+    const candidate = String(maxAccountNumber + offset);
+
+    if (reserved.has(candidate)) {
+      continue;
+    }
+
+    const existing = await ctx.db
+      .query("provisionedAccounts")
+      .withIndex("by_account_number", (q) => q.eq("accountNumber", candidate))
+      .first();
+
+    if (!existing) {
+      reserved.add(candidate);
+      return candidate;
+    }
+  }
+
+  throw new Error("Could not assign a unique account ID.");
+}
+
 async function uniqueUsername(ctx: QueryCtx | MutationCtx, displayName: string, reserved: Set<string>) {
   const base = usernameBase(displayName);
 
@@ -229,6 +296,9 @@ export const getCredentialLinkPreview = query({
     return {
       username: account.username,
       displayName: account.displayName,
+      firstName: account.firstName,
+      lastName: account.lastName,
+      accountNumber: account.accountNumber,
       purpose: link.purpose,
       expiresAt: link.expiresAt,
     };
@@ -237,25 +307,27 @@ export const getCredentialLinkPreview = query({
 
 export const createProvisionedAccount = mutation({
   args: {
-    displayName: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    displayName: v.optional(v.string()),
     accountLabel: accountLabelValidator,
     graduationYear: v.optional(v.number()),
     setupTokenHash: v.string(),
     setupExpiresAt: v.number(),
   },
   handler: async (ctx, args) => {
-    const displayName = args.displayName.trim();
-
-    if (!displayName) {
-      throw new Error("Name is required.");
-    }
+    const name = namePartsFromInput(args);
 
     const createdBy = await requireAdminOrFirstAdminBootstrap(ctx, args.accountLabel);
-    const username = await uniqueUsername(ctx, displayName, new Set());
+    const username = await uniqueUsername(ctx, name.displayName, new Set());
+    const accountNumber = await nextAccountNumber(ctx, new Set());
     const now = Date.now();
     const accountId = await ctx.db.insert("provisionedAccounts", {
       username,
-      displayName,
+      displayName: name.displayName,
+      firstName: name.firstName,
+      lastName: name.lastName,
+      accountNumber,
       accountLabel: args.accountLabel,
       graduationYear: args.graduationYear,
       status: "pending_setup",
@@ -275,7 +347,10 @@ export const createProvisionedAccount = mutation({
       accountId,
       credentialLinkId,
       username,
-      displayName,
+      displayName: name.displayName,
+      firstName: name.firstName,
+      lastName: name.lastName,
+      accountNumber,
     };
   },
 });
@@ -284,7 +359,9 @@ export const bulkCreateProvisionedAccounts = mutation({
   args: {
     accounts: v.array(
       v.object({
-        displayName: v.string(),
+        firstName: v.optional(v.string()),
+        lastName: v.optional(v.string()),
+        displayName: v.optional(v.string()),
         accountLabel: accountLabelValidator,
         graduationYear: v.optional(v.number()),
         setupTokenHash: v.string(),
@@ -299,20 +376,21 @@ export const bulkCreateProvisionedAccounts = mutation({
 
     const createdBy = await currentAdmin(ctx);
     const reserved = new Set<string>();
+    const reservedAccountNumbers = new Set<string>();
     const created = [];
 
     for (const input of args.accounts) {
-      const displayName = input.displayName.trim();
+      const name = namePartsFromInput(input);
 
-      if (!displayName) {
-        throw new Error("Every imported account needs a name.");
-      }
-
-      const username = await uniqueUsername(ctx, displayName, reserved);
+      const username = await uniqueUsername(ctx, name.displayName, reserved);
+      const accountNumber = await nextAccountNumber(ctx, reservedAccountNumbers);
       const now = Date.now();
       const accountId = await ctx.db.insert("provisionedAccounts", {
         username,
-        displayName,
+        displayName: name.displayName,
+        firstName: name.firstName,
+        lastName: name.lastName,
+        accountNumber,
         accountLabel: input.accountLabel,
         graduationYear: input.graduationYear,
         status: "pending_setup",
@@ -332,7 +410,10 @@ export const bulkCreateProvisionedAccounts = mutation({
         accountId,
         credentialLinkId,
         username,
-        displayName,
+        displayName: name.displayName,
+        firstName: name.firstName,
+        lastName: name.lastName,
+        accountNumber,
       });
     }
 
@@ -379,6 +460,8 @@ export const updateProvisionedAccount = mutation({
   args: {
     provisionedAccountId: v.id("provisionedAccounts"),
     displayName: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
     accountLabel: v.optional(accountLabelValidator),
     graduationYear: v.optional(v.union(v.number(), v.null())),
   },
@@ -390,9 +473,25 @@ export const updateProvisionedAccount = mutation({
       throw new Error("Provisioned account not found.");
     }
 
-    const displayName = args.displayName?.trim();
+    const hasNamePatch =
+      args.displayName !== undefined ||
+      args.firstName !== undefined ||
+      args.lastName !== undefined;
+    const namePatch = hasNamePatch
+      ? namePartsFromInput({
+          firstName: args.firstName ?? account.firstName,
+          lastName: args.lastName ?? account.lastName,
+          displayName: args.displayName ?? account.displayName,
+        })
+      : null;
     const patch = {
-      ...(displayName ? { displayName } : {}),
+      ...(namePatch
+        ? {
+            displayName: namePatch.displayName,
+            firstName: namePatch.firstName,
+            lastName: namePatch.lastName,
+          }
+        : {}),
       ...(args.accountLabel ? { accountLabel: args.accountLabel } : {}),
       ...(args.graduationYear !== undefined
         ? { graduationYear: args.graduationYear ?? undefined }
@@ -406,6 +505,8 @@ export const updateProvisionedAccount = mutation({
       ...account,
       ...patch,
       displayName: patch.displayName ?? account.displayName,
+      firstName: patch.firstName ?? account.firstName,
+      lastName: patch.lastName ?? account.lastName,
       accountLabel: patch.accountLabel ?? account.accountLabel,
       graduationYear: patch.graduationYear ?? account.graduationYear,
     };
@@ -420,12 +521,54 @@ export const updateProvisionedAccount = mutation({
     if (profileId) {
       await ctx.db.patch(profileId, {
         displayName: nextAccount.displayName,
+        firstName: nextAccount.firstName,
+        lastName: nextAccount.lastName,
+        accountNumber: nextAccount.accountNumber,
         ...profilePatchForAccount(nextAccount),
         updatedAt: Date.now(),
       });
     }
 
     return args.provisionedAccountId;
+  },
+});
+
+export const assignMissingAccountNumbers = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await currentAdmin(ctx);
+
+    const accounts = await ctx.db.query("provisionedAccounts").collect();
+    const reserved = new Set(
+      accounts
+        .map((account) => account.accountNumber)
+        .filter((accountNumber): accountNumber is string => !!accountNumber),
+    );
+    let assignedCount = 0;
+
+    for (const account of accounts) {
+      if (account.accountNumber) {
+        continue;
+      }
+
+      const accountNumber = await nextAccountNumber(ctx, reserved);
+
+      await ctx.db.patch(account._id, {
+        accountNumber,
+        updatedAt: Date.now(),
+      });
+
+      if (account.profileId) {
+        await ctx.db.patch(account.profileId, {
+          accountNumber,
+          updatedAt: Date.now(),
+        });
+      }
+
+      assignedCount += 1;
+    }
+
+    return { assignedCount };
   },
 });
 
@@ -597,6 +740,9 @@ export const consumeCredentialLink = internalMutation({
       accountId: account._id,
       username: account.username,
       displayName: account.displayName,
+      firstName: account.firstName,
+      lastName: account.lastName,
+      accountNumber: account.accountNumber,
       accountLabel: account.accountLabel,
       userId: account.userId,
       graduationYear: account.graduationYear,
@@ -695,6 +841,9 @@ export const completeInitialSetup = internalMutation({
     const profilePatch = {
       userId: args.userId,
       displayName: account.displayName,
+      firstName: account.firstName,
+      lastName: account.lastName,
+      accountNumber: account.accountNumber,
       status: "active" as const,
       ...profilePatchForAccount(account),
       updatedAt: now,

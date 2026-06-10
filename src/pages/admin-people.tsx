@@ -65,11 +65,12 @@ type AccountLabel = "varsity_5199" | "jv_9271" | "mentor" | "guest" | "kiosk" | 
 type AccountRole = "student" | "mentor" | "guest" | "kiosk" | "admin";
 type Program = "frc_5199" | "frc_9271";
 type AccountStatusFilter = "all" | "pending_setup" | "active" | "inactive";
-type AccountSort = "displayName" | "username" | "program" | "graduationYear" | "status";
+type AccountSort = "displayName" | "accountNumber" | "username" | "program" | "graduationYear" | "status";
 type GeneratedCredentialLink = {
   link: string;
   username: string;
   displayName: string;
+  accountNumber?: string;
   purpose: "initial_setup" | "password_reset";
 };
 
@@ -194,8 +195,13 @@ function parseCsvRows(csv: string) {
     const role = normalizeRole(record.role, fallbackAccountLabel);
     const program = normalizeProgram(record.program || record.team || record.teamNumber);
 
+    const firstName = record.firstName || record.first || "";
+    const lastName = record.lastName || record.last || "";
+
     return {
-      displayName: record.displayName || record.name || "",
+      firstName,
+      lastName,
+      displayName: record.displayName || record.name || [firstName, lastName].filter(Boolean).join(" "),
       accountLabel: record.accountLabel
         ? fallbackAccountLabel
         : accountLabelFor(role, program),
@@ -217,6 +223,7 @@ function credentialShareText(details: GeneratedCredentialLink) {
 
   return [
     `Dolphin Apps account for ${details.displayName}`,
+    ...(details.accountNumber ? [`Account ID: ${details.accountNumber}`] : []),
     `Username: ${details.username}`,
     action,
     details.link,
@@ -232,6 +239,15 @@ function formatShortDate(timestamp: number) {
     month: "short",
     day: "numeric",
   }).format(new Date(timestamp));
+}
+
+function splitDisplayName(displayName: string) {
+  const parts = displayName.trim().split(/\s+/).filter(Boolean);
+
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" "),
+  };
 }
 
 export function AdminPeoplePage() {
@@ -252,6 +268,7 @@ export function AdminPeoplePage() {
   const bulkCreateProvisionedAccounts = useMutation(api.access.bulkCreateProvisionedAccounts);
   const createCredentialLink = useMutation(api.access.createCredentialLink);
   const updateProvisionedAccount = useMutation(api.access.updateProvisionedAccount);
+  const assignMissingAccountNumbers = useMutation(api.access.assignMissingAccountNumbers);
   const deactivateGraduationYear = useMutation(api.access.deactivateGraduationYear);
   const revokeCredentialLink = useMutation(api.access.revokeCredentialLink);
   const deactivateAccount = useMutation(api.access.deactivateAccount);
@@ -259,15 +276,17 @@ export function AdminPeoplePage() {
   const clearLegacyProfile = useMutation(api.profiles.clearLegacyProfile);
   const clearLegacyProfiles = useMutation(api.profiles.clearLegacyProfiles);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
-  const [displayName, setDisplayName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [accountRole, setAccountRole] = useState<AccountRole>("student");
   const [program, setProgram] = useState<Program>("frc_5199");
   const [graduationYear, setGraduationYear] = useState("");
   const [graduatingYear, setGraduatingYear] = useState("");
   const [graduatingProgram, setGraduatingProgram] = useState<Program | "all">("all");
-  const [csv, setCsv] = useState("displayName,role,program,graduationYear\n");
+  const [csv, setCsv] = useState("firstName,lastName,role,program,graduationYear\n");
   const [generatedLinks, setGeneratedLinks] = useState<Record<string, GeneratedCredentialLink>>({});
   const [busyAccountId, setBusyAccountId] = useState<string | null>(null);
+  const [isAssigningAccountNumbers, setIsAssigningAccountNumbers] = useState(false);
   const [isGraduating, setIsGraduating] = useState(false);
   const [clearingProfileId, setClearingProfileId] = useState<string | null>(null);
   const [isClearingLegacyProfiles, setIsClearingLegacyProfiles] = useState(false);
@@ -292,6 +311,10 @@ export function AdminPeoplePage() {
       inactive: list.filter((account) => account.status === "inactive").length,
     };
   }, [accounts]);
+  const missingAccountNumberCount = useMemo(
+    () => (accounts ?? []).filter((account) => !account.accountNumber).length,
+    [accounts],
+  );
   const filteredAccounts = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     const graduationSearch = graduationFilter.trim();
@@ -303,6 +326,9 @@ export function AdminPeoplePage() {
         const accountProgram = programForAccountLabel(accountLabel);
         const searchable = [
           account.displayName,
+          account.firstName ?? "",
+          account.lastName ?? "",
+          account.accountNumber ?? "",
           account.username,
           accountLabelText[accountLabel],
           account.status,
@@ -348,12 +374,16 @@ export function AdminPeoplePage() {
             ? programTextForAccountLabel(firstLabel)
             : sortBy === "status"
               ? first.status
+              : sortBy === "accountNumber"
+                ? first.accountNumber ?? ""
               : first[sortBy];
         const secondValue =
           sortBy === "program"
             ? programTextForAccountLabel(secondLabel)
             : sortBy === "status"
               ? second.status
+              : sortBy === "accountNumber"
+                ? second.accountNumber ?? ""
               : second[sortBy];
 
         return String(firstValue ?? "").localeCompare(String(secondValue ?? ""), undefined, {
@@ -404,7 +434,8 @@ export function AdminPeoplePage() {
 
     try {
       const result = await createProvisionedAccount({
-        displayName,
+        firstName,
+        lastName,
         accountLabel: accountLabelFor(accountRole, program),
         graduationYear: graduationYear ? Number(graduationYear) : undefined,
         setupTokenHash: tokenHash,
@@ -415,10 +446,12 @@ export function AdminPeoplePage() {
         link,
         username: result.username,
         displayName: result.displayName,
+        accountNumber: result.accountNumber,
         purpose: "initial_setup",
       };
       setGeneratedLinks((current) => ({ ...current, [result.credentialLinkId]: details }));
-      setDisplayName("");
+      setFirstName("");
+      setLastName("");
       setGraduationYear("");
       await copyText(credentialShareText(details));
       toast.success(`Created ${result.username}`);
@@ -430,6 +463,9 @@ export function AdminPeoplePage() {
   async function handleUpdateProvisionedAccount(
     provisionedAccountId: Id<"provisionedAccounts">,
     patch: {
+      firstName?: string;
+      lastName?: string;
+      displayName?: string;
       accountLabel?: AccountLabel;
       graduationYear?: number | null;
     },
@@ -472,6 +508,19 @@ export function AdminPeoplePage() {
     }
   }
 
+  async function handleAssignMissingAccountNumbers() {
+    setIsAssigningAccountNumbers(true);
+
+    try {
+      const result = await assignMissingAccountNumbers({});
+      toast.success(`Assigned ${result.assignedCount} account IDs`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not assign account IDs");
+    } finally {
+      setIsAssigningAccountNumbers(false);
+    }
+  }
+
   async function handleBulkCreate() {
     const rows = parseCsvRows(csv);
 
@@ -495,6 +544,8 @@ export function AdminPeoplePage() {
     try {
       const result = await bulkCreateProvisionedAccounts({
         accounts: prepared.map(({ row, tokenHash }) => ({
+          firstName: row.firstName,
+          lastName: row.lastName,
           displayName: row.displayName,
           accountLabel: row.accountLabel,
           graduationYear: row.graduationYear,
@@ -509,6 +560,7 @@ export function AdminPeoplePage() {
             link: setupLink(prepared[index].token),
             username: created.username,
             displayName: created.displayName,
+            accountNumber: created.accountNumber,
             purpose: "initial_setup" as const,
           },
         ]),
@@ -543,6 +595,7 @@ export function AdminPeoplePage() {
         link,
         username: result.username,
         displayName: account?.displayName ?? result.username,
+        accountNumber: account?.accountNumber,
         purpose,
       };
       setGeneratedLinks((current) => ({ ...current, [result.credentialLinkId]: details }));
@@ -712,6 +765,11 @@ export function AdminPeoplePage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-medium">{details.displayName}</p>
+                          {details.accountNumber && (
+                            <Badge variant="secondary" className="font-mono">
+                              {details.accountNumber}
+                            </Badge>
+                          )}
                           <Badge variant="outline" className="font-mono">
                             {details.username}
                           </Badge>
@@ -781,7 +839,7 @@ export function AdminPeoplePage() {
                             setPageIndex(0);
                           }}
                           className="pl-9"
-                          placeholder="Name, username, team, class..."
+                          placeholder="Name, ID, username, team, class..."
                         />
                       </div>
                     </div>
@@ -860,6 +918,7 @@ export function AdminPeoplePage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="displayName">Name</SelectItem>
+                          <SelectItem value="accountNumber">Account ID</SelectItem>
                           <SelectItem value="username">Username</SelectItem>
                           <SelectItem value="program">Program</SelectItem>
                           <SelectItem value="graduationYear">Graduation year</SelectItem>
@@ -913,7 +972,19 @@ export function AdminPeoplePage() {
                           Showing {pageStart}-{pageEnd} of {filteredAccounts.length} filtered accounts.
                         </CardDescription>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {missingAccountNumberCount > 0 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void handleAssignMissingAccountNumbers()}
+                            disabled={isAssigningAccountNumbers}
+                          >
+                            <Save className="size-4" />
+                            Assign IDs
+                          </Button>
+                        )}
                         <Label htmlFor="accountPageSize" className="sr-only">Rows per page</Label>
                         <Select
                           value={pageSize}
@@ -955,6 +1026,7 @@ export function AdminPeoplePage() {
                             <thead className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
                               <tr>
                                 <th className="px-4 py-3 font-medium">Name</th>
+                                <th className="px-4 py-3 font-medium">Account ID</th>
                                 <th className="px-4 py-3 font-medium">Username</th>
                                 <th className="px-4 py-3 font-medium">Role</th>
                                 <th className="px-4 py-3 font-medium">Program</th>
@@ -985,6 +1057,15 @@ export function AdminPeoplePage() {
                                       <div className="text-xs text-muted-foreground">
                                         {account.userId ? "Password set" : "Waiting for setup"}
                                       </div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                      {account.accountNumber ? (
+                                        <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
+                                          {account.accountNumber}
+                                        </code>
+                                      ) : (
+                                        <span className="text-muted-foreground">-</span>
+                                      )}
                                     </td>
                                     <td className="px-4 py-3">
                                       <code className="rounded bg-muted px-1.5 py-0.5 text-xs">
@@ -1101,6 +1182,9 @@ export function AdminPeoplePage() {
                         const accountLabel = selectedAccount.accountLabel as AccountLabel;
                         const role = roleForAccountLabel(accountLabel);
                         const programLabel = programForAccountLabel(accountLabel);
+                        const fallbackName = splitDisplayName(selectedAccount.displayName);
+                        const selectedFirstName = selectedAccount.firstName ?? fallbackName.firstName;
+                        const selectedLastName = selectedAccount.lastName ?? fallbackName.lastName;
                         const activeLinks = selectedAccount.credentialLinks.filter(
                           (link) => !link.consumedAt && !link.revokedAt && link.expiresAt > Date.now(),
                         );
@@ -1110,11 +1194,18 @@ export function AdminPeoplePage() {
                             <SheetHeader className="border-b px-5 py-4">
                               <SheetTitle>{selectedAccount.displayName}</SheetTitle>
                               <SheetDescription>
+                                {selectedAccount.accountNumber ? `${selectedAccount.accountNumber} / ` : ""}
                                 {selectedAccount.username} / {accountLabelText[accountLabel]}
                               </SheetDescription>
                             </SheetHeader>
                             <div className="space-y-5 px-5 pb-5">
                               <div className="grid gap-3 rounded-md border p-4 text-sm">
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-muted-foreground">Account ID</span>
+                                  <span className="font-mono font-medium">
+                                    {selectedAccount.accountNumber ?? "Unassigned"}
+                                  </span>
+                                </div>
                                 <div className="flex items-center justify-between gap-3">
                                   <span className="text-muted-foreground">Status</span>
                                   <Badge variant={selectedAccount.status === "inactive" ? "destructive" : "outline"}>
@@ -1136,6 +1227,50 @@ export function AdminPeoplePage() {
                               <div className="space-y-3">
                                 <h3 className="font-medium">Account details</h3>
                                 <div className="grid gap-3 sm:grid-cols-2">
+                                  <div className="space-y-2">
+                                    <Label htmlFor="selectedFirstName">First name</Label>
+                                    <Input
+                                      key={`${selectedAccount._id}:first:${selectedFirstName}`}
+                                      id="selectedFirstName"
+                                      defaultValue={selectedFirstName}
+                                      placeholder="First"
+                                      onBlur={(event) => {
+                                        const value = event.currentTarget.value.trim();
+
+                                        if (!value || value === selectedFirstName) {
+                                          return;
+                                        }
+
+                                        void handleUpdateProvisionedAccount(selectedAccount._id, {
+                                          firstName: value,
+                                          lastName: selectedLastName,
+                                        });
+                                      }}
+                                      disabled={busyAccountId === selectedAccount._id}
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <Label htmlFor="selectedLastName">Last name</Label>
+                                    <Input
+                                      key={`${selectedAccount._id}:last:${selectedLastName}`}
+                                      id="selectedLastName"
+                                      defaultValue={selectedLastName}
+                                      placeholder="Last"
+                                      onBlur={(event) => {
+                                        const value = event.currentTarget.value.trim();
+
+                                        if (!value || value === selectedLastName) {
+                                          return;
+                                        }
+
+                                        void handleUpdateProvisionedAccount(selectedAccount._id, {
+                                          firstName: selectedFirstName,
+                                          lastName: value,
+                                        });
+                                      }}
+                                      disabled={busyAccountId === selectedAccount._id}
+                                    />
+                                  </div>
                                   <div className="space-y-2">
                                     <Label>Role</Label>
                                     <Select
@@ -1305,15 +1440,27 @@ export function AdminPeoplePage() {
                   </CardHeader>
                   <CardContent>
                     <form onSubmit={handleCreateAccount} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="displayName">Student name</Label>
-                        <Input
-                          id="displayName"
-                          value={displayName}
-                          onChange={(event) => setDisplayName(event.target.value)}
-                          placeholder="Avery Student"
-                          required
-                        />
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="firstName">First name</Label>
+                          <Input
+                            id="firstName"
+                            value={firstName}
+                            onChange={(event) => setFirstName(event.target.value)}
+                            placeholder="Avery"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="lastName">Last name</Label>
+                          <Input
+                            id="lastName"
+                            value={lastName}
+                            onChange={(event) => setLastName(event.target.value)}
+                            placeholder="Student"
+                            required
+                          />
+                        </div>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-3">
                         <div className="space-y-2">
@@ -1376,7 +1523,7 @@ export function AdminPeoplePage() {
                     <Upload className="size-5 text-primary" />
                     <CardTitle>Bulk import</CardTitle>
                     <CardDescription>
-                      CSV columns: displayName, role, program, graduationYear.
+                      CSV columns: firstName, lastName, role, program, graduationYear.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">

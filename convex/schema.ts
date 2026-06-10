@@ -43,6 +43,9 @@ export default defineSchema({
     userId: v.id("users"),
     role: roleValidator,
     displayName: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    accountNumber: v.optional(v.string()),
     email: v.optional(v.string()),
     bio: v.optional(v.string()),
     avatarStorageId: v.optional(v.id("_storage")),
@@ -62,6 +65,9 @@ export default defineSchema({
   provisionedAccounts: defineTable({
     username: v.string(),
     displayName: v.string(),
+    firstName: v.optional(v.string()),
+    lastName: v.optional(v.string()),
+    accountNumber: v.optional(v.string()),
     accountLabel: accountLabelValidator,
     userId: v.optional(v.id("users")),
     profileId: v.optional(v.id("profiles")),
@@ -75,6 +81,7 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_status", ["status"])
     .index("by_account_label", ["accountLabel"])
+    .index("by_account_number", ["accountNumber"])
     .index("by_graduation_year", ["graduationYear"]),
 
   credentialLinks: defineTable({
