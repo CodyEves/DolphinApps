@@ -109,15 +109,37 @@ export function UserMenu() {
 
   if (viewer === undefined) {
     return (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-10 rounded-full"
-        disabled
-        aria-label="Loading profile"
-      >
-        <UserRound className="size-5" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-10 rounded-full"
+            aria-label="Open profile menu"
+          >
+            <Avatar className="size-7">
+              <AvatarFallback>
+                <UserRound className="size-4" />
+              </AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuLabel>
+            <span className="block truncate">
+              Loading profile
+            </span>
+            <span className="text-xs font-normal text-muted-foreground">
+              Checking your account
+            </span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleSignOut} variant="destructive">
+            <LogOut className="size-4" />
+            Sign out and reset
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 
