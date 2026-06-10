@@ -1351,8 +1351,8 @@ export const eventSignInWithCode = mutation({
   handler: async (ctx, args) => {
     const profile = await requireActiveProfile(ctx);
 
-    if (profile.role !== "student") {
-      throw new Error("Only student accounts can check in to events.");
+    if (profile.role === "kiosk") {
+      throw new Error("Kiosk accounts cannot check in to events.");
     }
 
     const normalizedCode = normalizeCode(args.code);
@@ -1416,8 +1416,8 @@ export const useAttendanceCode = mutation({
     const event = await activeAttendanceEventForCodeHash(ctx, codeHash);
 
     if (event) {
-      if (profile.role !== "student") {
-        throw new Error("Only student accounts can check in to events.");
+      if (profile.role === "kiosk") {
+        throw new Error("Kiosk accounts cannot check in to events.");
       }
 
       const existing = await ctx.db
