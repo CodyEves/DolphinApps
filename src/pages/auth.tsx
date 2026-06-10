@@ -142,6 +142,35 @@ export function AuthPage() {
     return <Navigate to={viewer.profile.role === "kiosk" ? "/shop/display" : returnTo} replace />;
   }
 
+  if (isLoading || (isAuthenticated && viewer === undefined)) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <PageHeading
+          eyebrow="Authentication"
+          title="Checking your session"
+          description="Hang tight while Dolphin Apps confirms your account."
+        />
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Loader2 className="size-5 animate-spin text-primary" />
+              Loading account
+            </CardTitle>
+            <CardDescription>
+              If this keeps spinning, reset the local session and sign in again.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={() => void signOut()}>
+              <LogOut className="size-4" />
+              Sign out and reset
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   async function handleCopyUsername(username: string) {
     await navigator.clipboard.writeText(username);
     toast.success("Copied username.");
