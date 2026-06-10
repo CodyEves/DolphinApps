@@ -38,6 +38,21 @@ async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   return profile;
 }
 
+async function activeAdminProfile(ctx: QueryCtx | MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+
+  if (!userId) {
+    return null;
+  }
+
+  const profile = await ctx.db
+    .query("profiles")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .first();
+
+  return profile?.role === "admin" && profile.status === "active" ? profile : null;
+}
+
 async function provisionedAccountForProfile(
   ctx: QueryCtx | MutationCtx,
   profile: Doc<"profiles">,
@@ -213,7 +228,11 @@ export const updateMyProfile = mutation({
 export const listUsersForAdmin = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    const admin = await activeAdminProfile(ctx);
+
+    if (!admin) {
+      return [];
+    }
 
     const profiles = (await ctx.db.query("profiles").collect()).filter(
       (profile) => profile.studentGroup !== archivedLegacyProfileGroup,

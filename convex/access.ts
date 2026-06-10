@@ -204,6 +204,21 @@ async function currentAdmin(ctx: QueryCtx | MutationCtx) {
   return profile;
 }
 
+async function activeAdminProfile(ctx: QueryCtx | MutationCtx) {
+  const userId = await getAuthUserId(ctx);
+
+  if (!userId) {
+    return null;
+  }
+
+  const profile = await ctx.db
+    .query("profiles")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .first();
+
+  return profile?.role === "admin" && profile.status === "active" ? profile : null;
+}
+
 async function requireAdminOrFirstAdminBootstrap(
   ctx: MutationCtx,
   accountLabel: AccountLabel,
@@ -257,7 +272,11 @@ async function insertCredentialLink(
 export const listProvisionedAccountsForAdmin = query({
   args: {},
   handler: async (ctx) => {
-    await currentAdmin(ctx);
+    const admin = await activeAdminProfile(ctx);
+
+    if (!admin) {
+      return [];
+    }
 
     const accounts = await ctx.db.query("provisionedAccounts").collect();
     const accountsWithLinks = await Promise.all(

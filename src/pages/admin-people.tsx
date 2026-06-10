@@ -57,7 +57,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
@@ -253,8 +252,7 @@ function splitDisplayName(displayName: string) {
 export function AdminPeoplePage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isAdmin = effectiveRole === "admin";
+  const isAdmin = viewer?.profile.role === "admin" && viewer.profile.status === "active";
   const users = useQuery(
     api.profiles.listUsersForAdmin,
     isAuthenticated && isAdmin ? {} : "skip",
