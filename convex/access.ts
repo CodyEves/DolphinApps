@@ -169,6 +169,15 @@ function normalizeChosenUsername(value: string) {
   return value.trim().toLowerCase();
 }
 
+async function sha256Hex(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 function validateChosenUsername(username: string) {
   if (!usernamePattern.test(username)) {
     throw new Error(
@@ -379,6 +388,69 @@ export const createProvisionedAccount = mutation({
       firstName: name.firstName,
       lastName: name.lastName,
       accountNumber,
+    };
+  },
+});
+
+export const createRecoveryAdminAccount = mutation({
+  args: {
+    recoveryToken: v.string(),
+    firstName: v.string(),
+    lastName: v.string(),
+    setupToken: v.string(),
+    setupExpiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const expectedToken = process.env.ADMIN_RECOVERY_TOKEN;
+
+    if (!expectedToken) {
+      throw new Error("Admin recovery is not configured.");
+    }
+
+    if (args.recoveryToken !== expectedToken) {
+      throw new Error("Invalid admin recovery token.");
+    }
+
+    if (args.setupExpiresAt <= Date.now()) {
+      throw new Error("Setup link expiration must be in the future.");
+    }
+
+    const name = namePartsFromInput({
+      firstName: args.firstName,
+      lastName: args.lastName,
+    });
+    const username = await uniqueUsername(ctx, name.displayName, new Set());
+    const accountNumber = await nextAccountNumber(ctx, new Set());
+    const now = Date.now();
+    const accountId = await ctx.db.insert("provisionedAccounts", {
+      username,
+      displayName: name.displayName,
+      firstName: name.firstName,
+      lastName: name.lastName,
+      accountNumber,
+      accountLabel: "admin",
+      status: "pending_setup",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const credentialLinkId = await insertCredentialLink(ctx, {
+      provisionedAccountId: accountId,
+      tokenHash: await sha256Hex(args.setupToken),
+      purpose: "initial_setup",
+      expiresAt: args.setupExpiresAt,
+    });
+    const siteUrl = process.env.SITE_URL;
+    const setupUrl = siteUrl
+      ? `${siteUrl.replace(/\/$/, "")}/auth/setup?token=${encodeURIComponent(args.setupToken)}`
+      : undefined;
+
+    return {
+      accountId,
+      credentialLinkId,
+      username,
+      displayName: name.displayName,
+      accountNumber,
+      setupUrl,
     };
   },
 });

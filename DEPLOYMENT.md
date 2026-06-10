@@ -95,3 +95,29 @@ for an admin, or the profile refresh action times out:
 4. Redeploy Vercel after changing `VITE_CONVEX_URL`; Vite bakes this value into
    the built JavaScript bundle.
 5. Redeploy Convex after changing Convex Auth configuration or auth keys.
+
+## Emergency Admin Recovery
+
+If every admin account is locked out, create a temporary backend-only recovery
+token in the production Convex dashboard:
+
+```text
+ADMIN_RECOVERY_TOKEN=<long random secret>
+```
+
+Then run `access:createRecoveryAdminAccount` in the production Convex function
+runner with arguments like:
+
+```json
+{
+  "recoveryToken": "<same long random secret>",
+  "firstName": "Backup",
+  "lastName": "Admin",
+  "setupToken": "<another long random secret>",
+  "setupExpiresAt": 1790000000000
+}
+```
+
+Open the returned `setupUrl`, set a password, and save the returned `username`.
+After the backup admin works, remove `ADMIN_RECOVERY_TOKEN` from Convex
+environment variables.
