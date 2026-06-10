@@ -96,9 +96,34 @@ export function UserMenu() {
     toast.success("Signed out");
   }
 
-  if (!isAuthenticated || viewer == null) {
+  if (!isAuthenticated) {
     return (
       <Button asChild variant={isLoading ? "outline" : "default"}>
+        <Link to="/auth">
+          <LogIn className="size-4" />
+          Sign in
+        </Link>
+      </Button>
+    );
+  }
+
+  if (viewer === undefined) {
+    return (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-10 rounded-full"
+        disabled
+        aria-label="Loading profile"
+      >
+        <UserRound className="size-5" />
+      </Button>
+    );
+  }
+
+  if (viewer === null) {
+    return (
+      <Button asChild variant="default">
         <Link to="/auth">
           <LogIn className="size-4" />
           Sign in

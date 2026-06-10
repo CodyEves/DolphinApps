@@ -1,7 +1,6 @@
 import {
   createContext,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -9,9 +8,7 @@ import {
 
 type Role = "student" | "instructor" | "mentor" | "guest" | "kiosk" | "admin";
 export type RoleView = "actual" | "student" | "mentor" | "admin";
-
-const visibleRoleViews = ["student", "mentor", "admin"] as const;
-export type VisibleRoleView = (typeof visibleRoleViews)[number];
+export type VisibleRoleView = "student" | "mentor" | "admin";
 
 type RolePreviewContextValue = {
   roleView: RoleView;
@@ -20,38 +17,10 @@ type RolePreviewContextValue = {
   setStudentPreview: (enabled: boolean) => void;
 };
 
-const storageKey = "dolphin-apps-role-view";
-const legacyStudentPreviewKey = "dolphin-lms-student-preview";
 const RolePreviewContext = createContext<RolePreviewContextValue | null>(null);
 
-function initialRoleView(): RoleView {
-  if (typeof window === "undefined") {
-    return "actual";
-  }
-
-  const stored = window.localStorage.getItem(storageKey);
-  if (visibleRoleViews.includes(stored as VisibleRoleView)) {
-    return stored as VisibleRoleView;
-  }
-
-  return window.localStorage.getItem(legacyStudentPreviewKey) === "true"
-    ? "student"
-    : "actual";
-}
-
 export function RolePreviewProvider({ children }: { children: ReactNode }) {
-  const [roleView, setRoleView] = useState<RoleView>(initialRoleView);
-
-  useEffect(() => {
-    window.localStorage.removeItem(legacyStudentPreviewKey);
-
-    if (roleView === "actual") {
-      window.localStorage.removeItem(storageKey);
-      return;
-    }
-
-    window.localStorage.setItem(storageKey, roleView);
-  }, [roleView]);
+  const [roleView, setRoleView] = useState<RoleView>("actual");
 
   const value = useMemo(
     () => ({
@@ -92,5 +61,5 @@ export function useEffectiveRole(role: Role | undefined) {
     return roleView;
   }
 
-  return role ?? "student";
+  return role ?? "guest";
 }
