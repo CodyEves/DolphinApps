@@ -83,6 +83,28 @@ function accountLabelForProfile(profile: {
   return "varsity_5199" as const;
 }
 
+function safeAccountLabelForProfile(profile: Doc<"profiles">) {
+  try {
+    return accountLabelForProfile(profile);
+  } catch {
+    return "guest" as const;
+  }
+}
+
+function profileSortKey(user: {
+  displayName?: unknown;
+  email?: unknown;
+  user?: { email?: unknown } | null;
+}) {
+  for (const value of [user.displayName, user.email, user.user?.email]) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+
+  return "";
+}
+
 export const viewer = query({
   args: {},
   handler: async (ctx) => {
@@ -212,16 +234,12 @@ export const listUsersForAdmin = query({
           ...profile,
           user,
           provisionedAccount,
-          accountLabel: provisionedAccount?.accountLabel ?? accountLabelForProfile(profile),
+          accountLabel: provisionedAccount?.accountLabel ?? safeAccountLabelForProfile(profile),
         };
       }),
     );
 
-    return users.sort((a, b) =>
-      (a.displayName ?? a.email ?? a.user?.email ?? "").localeCompare(
-        b.displayName ?? b.email ?? b.user?.email ?? "",
-      ),
-    );
+    return users.sort((a, b) => profileSortKey(a).localeCompare(profileSortKey(b)));
   },
 });
 
