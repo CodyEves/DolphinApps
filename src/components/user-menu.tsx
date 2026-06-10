@@ -41,6 +41,8 @@ const roleViewMeta: Record<VisibleRoleView, { label: string; icon: LucideIcon }>
   admin: { label: "Admin view", icon: ShieldCheck },
 };
 
+const profileRefreshTimeoutMs = 12_000;
+
 function initials(nameOrEmail?: string | null) {
   if (!nameOrEmail) {
     return "DA";
@@ -106,13 +108,22 @@ export function UserMenu() {
     setIsRefreshingProfile(true);
 
     try {
-      const synced = await syncMyProvisionedProfile({});
+      const synced = await Promise.race([
+        syncMyProvisionedProfile({}),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(
+            () => reject(new Error("Profile refresh timed out. Restart Convex and try again.")),
+            profileRefreshTimeoutMs,
+          );
+        }),
+      ]);
       setRoleView("actual");
       toast.success(
         synced.role === "admin"
           ? "Admin access refreshed"
           : "Team profile refreshed",
       );
+      window.location.reload();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to refresh team profile");
     } finally {
