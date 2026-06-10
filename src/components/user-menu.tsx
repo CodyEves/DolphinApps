@@ -1,13 +1,16 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
+import { useMutation } from "convex/react";
 import {
   GraduationCap,
   LogIn,
   LogOut,
+  RefreshCw,
   ShieldCheck,
   UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
@@ -30,6 +33,7 @@ import {
   type VisibleRoleView,
 } from "@/providers/role-preview-provider";
 import { useProgramView } from "@/hooks/use-program-view";
+import { api } from "@convex/_generated/api";
 
 const roleViewMeta: Record<VisibleRoleView, { label: string; icon: LucideIcon }> = {
   student: { label: "Student view", icon: GraduationCap },
@@ -85,6 +89,8 @@ export function UserMenu() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const { viewer } = useProgramView();
   const { roleView, setRoleView } = useRolePreview();
+  const syncMyProvisionedProfile = useMutation(api.access.syncMyProvisionedProfile);
+  const [isRefreshingProfile, setIsRefreshingProfile] = useState(false);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const roleOptions = allowedRoleViews(viewer?.profile.role);
   const selectedView = selectedRoleView(roleView, viewer?.profile.role);
@@ -94,6 +100,24 @@ export function UserMenu() {
     setRoleView("actual");
     await signOut();
     toast.success("Signed out");
+  }
+
+  async function handleRefreshProfile() {
+    setIsRefreshingProfile(true);
+
+    try {
+      const synced = await syncMyProvisionedProfile({});
+      setRoleView("actual");
+      toast.success(
+        synced.role === "admin"
+          ? "Admin access refreshed"
+          : "Team profile refreshed",
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to refresh team profile");
+    } finally {
+      setIsRefreshingProfile(false);
+    }
   }
 
   if (!isAuthenticated) {
@@ -133,6 +157,14 @@ export function UserMenu() {
               Checking your account
             </span>
           </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => void handleRefreshProfile()}
+            disabled={isRefreshingProfile}
+          >
+            <RefreshCw className="size-4" />
+            {isRefreshingProfile ? "Refreshing..." : "Refresh team profile"}
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
             <LogOut className="size-4" />
@@ -214,6 +246,14 @@ export function UserMenu() {
             </DropdownMenuItem>
           </>
         )}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => void handleRefreshProfile()}
+          disabled={isRefreshingProfile}
+        >
+          <RefreshCw className="size-4" />
+          {isRefreshingProfile ? "Refreshing..." : "Refresh team profile"}
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} variant="destructive">
           <LogOut className="size-4" />
