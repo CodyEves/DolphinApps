@@ -1400,6 +1400,93 @@ export const eventSignInWithCode = mutation({
   },
 });
 
+export const useAttendanceCode = mutation({
+  args: {
+    code: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const profile = await requireActiveProfile(ctx);
+    const normalizedCode = normalizeCode(args.code);
+
+    if (!normalizedCode) {
+      throw new Error("Enter the attendance code.");
+    }
+
+    const codeHash = await sha256Hex(normalizedCode);
+    const event = await activeAttendanceEventForCodeHash(ctx, codeHash);
+
+    if (event) {
+      if (profile.role !== "student") {
+        throw new Error("Only student accounts can check in to events.");
+      }
+
+      const existing = await ctx.db
+        .query("eventAttendanceRecords")
+        .withIndex("by_event_user", (q) =>
+          q.eq("eventId", event._id).eq("userId", profile.userId),
+        )
+        .first();
+
+      if (existing) {
+        throw new Error("You are already checked in for this event.");
+      }
+
+      const now = Date.now();
+      const recordId = await ctx.db.insert("eventAttendanceRecords", {
+        eventId: event._id,
+        userId: profile.userId,
+        profileId: profile._id,
+        source: "web",
+        codeHash,
+        checkedInAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      return {
+        kind: "event" as const,
+        action: "checked_in" as const,
+        recordId,
+        eventId: event._id,
+        eventTitle: event.title,
+        checkedInAt: now,
+      };
+    }
+
+    const openShopAttendance = await ctx.db
+      .query("attendanceSessions")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", profile.userId).eq("status", "open"),
+      )
+      .first();
+
+    if (openShopAttendance) {
+      const result = await signOutUser(ctx, {
+        userId: profile.userId,
+        code: normalizedCode,
+      });
+
+      return {
+        kind: "shop" as const,
+        action: "signed_out" as const,
+        ...result,
+      };
+    }
+
+    const result = await signInUser(ctx, {
+      userId: profile.userId,
+      source: "web",
+      code: normalizedCode,
+    });
+
+    return {
+      kind: "shop" as const,
+      action: "signed_in" as const,
+      ...result,
+    };
+  },
+});
+
 export const listEventAttendance = query({
   args: {
     eventId: v.id("attendanceEvents"),

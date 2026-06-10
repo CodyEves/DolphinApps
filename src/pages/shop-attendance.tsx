@@ -563,8 +563,7 @@ export function ShopAttendancePage() {
   const startShopSessionFromDisplay = useMutation(api.shopAttendance.startShopSessionFromDisplay);
   const endShopSession = useMutation(api.shopAttendance.endShopSession);
   const generateCode = useMutation(api.shopAttendance.generateOrReadCurrentCode);
-  const signInWithCode = useMutation(api.shopAttendance.signInWithCode);
-  const signOutWithCode = useMutation(api.shopAttendance.signOutWithCode);
+  const submitAttendanceCode = useMutation(api.shopAttendance.useAttendanceCode);
   const reviewAttendance = useMutation(api.shopAttendance.reviewAttendanceSession);
   const deleteAttendance = useMutation(api.shopAttendance.deleteAttendanceSession);
   const createManualAttendance = useMutation(api.shopAttendance.createManualAttendanceSession);
@@ -572,7 +571,6 @@ export function ShopAttendancePage() {
   const createAttendanceEvent = useMutation(api.shopAttendance.createAttendanceEvent);
   const updateAttendanceEvent = useMutation(api.shopAttendance.updateAttendanceEvent);
   const setAttendanceEventCode = useMutation(api.shopAttendance.setAttendanceEventCode);
-  const eventSignInWithCode = useMutation(api.shopAttendance.eventSignInWithCode);
   const deleteEventAttendanceRecord = useMutation(api.shopAttendance.deleteEventAttendanceRecord);
   const notifyClosed = useAction(api.shopSlack.notifyShopSessionClosed);
   const [shopTitle, setShopTitle] = useState("");
@@ -601,9 +599,6 @@ export function ShopAttendancePage() {
   const [now, setNow] = useState(0);
   const [attendanceCode, setAttendanceCode] = useState(
     searchParams.get("code")?.trim().toUpperCase() ?? "",
-  );
-  const [eventCheckInCode, setEventCheckInCode] = useState(
-    searchParams.get("eventCode")?.trim().toUpperCase() ?? "",
   );
   const selectedEventAttendance = useQuery(
     api.shopAttendance.listEventAttendance,
@@ -929,25 +924,27 @@ export function ShopAttendancePage() {
     );
   }
 
-  async function handleStudentAttendance(action: "in" | "out") {
-    const code = attendanceCode.trim().toUpperCase();
+  async function handleStudentAttendance() {
+    const code = normalizeAttendanceCode(attendanceCode);
 
     if (!code) {
-      toast.error("Enter or scan the current shop code.");
+      toast.error("Enter the attendance code.");
       return;
     }
 
     setIsAttendanceBusy(true);
 
     try {
-      if (action === "in") {
-        await signInWithCode({ code });
-        setAttendanceCode("");
-        toast.success("Signed in to the shop");
-      } else {
-        await signOutWithCode({ code });
-        setAttendanceCode("");
+      const result = await submitAttendanceCode({ code });
+
+      setAttendanceCode("");
+
+      if (result.kind === "event") {
+        toast.success(`Checked in for ${result.eventTitle}`);
+      } else if (result.action === "signed_out") {
         toast.success("Signed out of the shop");
+      } else {
+        toast.success("Signed in to the shop");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update attendance");
@@ -1026,27 +1023,6 @@ export function ShopAttendancePage() {
       toast.success(status === "active" ? "Event reopened" : "Event closed");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update event");
-    } finally {
-      setIsEventBusy(false);
-    }
-  }
-
-  async function handleEventCheckIn() {
-    const code = normalizeAttendanceCode(eventCheckInCode);
-
-    if (!code) {
-      toast.error("Enter the event code.");
-      return;
-    }
-
-    setIsEventBusy(true);
-
-    try {
-      const result = await eventSignInWithCode({ code });
-      setEventCheckInCode("");
-      toast.success(`Checked in for ${result.eventTitle}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not check in to event");
     } finally {
       setIsEventBusy(false);
     }
@@ -1915,7 +1891,7 @@ export function ShopAttendancePage() {
                 </TabsTrigger>
               </>
             )}
-            {canUseStudentCheckIn && (
+            {canManage && (
               <TabsTrigger value="events">
                 <CalendarDays className="size-4" />
                 Events
@@ -2131,34 +2107,9 @@ export function ShopAttendancePage() {
             </TabsContent>
           )}
 
-          {canUseStudentCheckIn && (
+          {canManage && (
             <TabsContent value="events" className="space-y-5">
-              <Card>
-                <CardHeader>
-                  <CalendarDays className="size-5 text-primary" />
-                  <CardTitle>Event check-in</CardTitle>
-                  <CardDescription>Use the event code from a mentor to record that you attended.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
-                  <div className="space-y-2">
-                    <Label htmlFor="eventCheckInCode">Event code</Label>
-                    <Input
-                      id="eventCheckInCode"
-                      value={eventCheckInCode}
-                      onChange={(event) => setEventCheckInCode(normalizeAttendanceCode(event.target.value))}
-                      placeholder="EVENT1"
-                      className="font-mono text-lg"
-                    />
-                  </div>
-                  <Button type="button" onClick={() => void handleEventCheckIn()} disabled={isEventBusy}>
-                    {isEventBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                    Check in
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {canManage && (
-                <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+              <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
                   <Card>
                     <CardHeader>
                       <Plus className="size-5 text-primary" />
@@ -2377,8 +2328,7 @@ export function ShopAttendancePage() {
                       </Card>
                     )}
                   </div>
-                </div>
-              )}
+              </div>
             </TabsContent>
           )}
 
@@ -2387,21 +2337,21 @@ export function ShopAttendancePage() {
               <Card>
                 <CardHeader>
                   <QrCode className="size-5 text-primary" />
-                  <CardTitle>Website check-in</CardTitle>
+                  <CardTitle>Attendance code</CardTitle>
                   <CardDescription>
                     {myAttendance
-                      ? `Signed in since ${formatTime(myAttendance.signInAt)}.`
-                      : "Scan the shop QR with your camera or type the current code."}
+                      ? `Signed in to the shop since ${formatTime(myAttendance.signInAt)}. Enter the next shop code to sign out.`
+                      : "Scan or type a shop code or event code."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-end">
                     <div className="space-y-2">
-                      <Label htmlFor="attendanceCode">Shop code</Label>
+                      <Label htmlFor="attendanceCode">Attendance code</Label>
                       <Input
                         id="attendanceCode"
                         value={attendanceCode}
-                        onChange={(event) => setAttendanceCode(event.target.value.toUpperCase())}
+                        onChange={(event) => setAttendanceCode(normalizeAttendanceCode(event.target.value))}
                         placeholder="ABC123"
                         className="font-mono text-lg"
                       />
@@ -2414,25 +2364,14 @@ export function ShopAttendancePage() {
                       <Camera className="size-4" />
                       {isScanning ? "Stop scanning" : "Scan QR"}
                     </Button>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        type="button"
-                        onClick={() => void handleStudentAttendance("in")}
-                        disabled={isAttendanceBusy || !!myAttendance}
-                      >
-                        {isAttendanceBusy ? <Loader2 className="size-4 animate-spin" /> : <Clock className="size-4" />}
-                        Sign in
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => void handleStudentAttendance("out")}
-                        disabled={isAttendanceBusy || !myAttendance}
-                      >
-                        <Square className="size-4" />
-                        Sign out
-                      </Button>
-                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => void handleStudentAttendance()}
+                      disabled={isAttendanceBusy}
+                    >
+                      {isAttendanceBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                      Use code
+                    </Button>
                   </div>
                   {isScanning && (
                     <div className="overflow-hidden rounded-md border bg-black">
@@ -2440,7 +2379,7 @@ export function ShopAttendancePage() {
                     </div>
                   )}
                   <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                    Phone camera apps can also open the QR link directly. The code still expires quickly.
+                    Shop codes clock you in or out. Event codes mark you attended.
                   </div>
                 </CardContent>
               </Card>
