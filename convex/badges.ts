@@ -18,11 +18,23 @@ async function currentProfile(ctx: QueryCtx | MutationCtx) {
     .unique();
 }
 
+function canManageBadges(role: string | undefined) {
+  return role === "admin" || role === "mentor" || role === "instructor";
+}
+
+async function requireBadgeManager(ctx: QueryCtx | MutationCtx) {
+  const profile = await currentProfile(ctx);
+
+  if (!canManageBadges(profile?.role)) {
+    throw new Error("Only admins and mentors can manage badges.");
+  }
+}
+
 async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   const profile = await currentProfile(ctx);
 
   if (profile?.role !== "admin") {
-    throw new Error("Only admins can manage badges.");
+    throw new Error("Only admins can reset lesson progress.");
   }
 }
 
@@ -197,9 +209,11 @@ export const listBadges = query({
   args: {},
   handler: async (ctx) => {
     const profile = await currentProfile(ctx);
-    const isAdmin = profile?.role === "admin";
+    const canManageBadgeRecords = canManageBadges(profile?.role);
     const badges = await ctx.db.query("badges").withIndex("by_active").collect();
-    const visibleBadges = isAdmin ? badges : badges.filter((badge) => badge.isActive);
+    const visibleBadges = canManageBadgeRecords
+      ? badges
+      : badges.filter((badge) => badge.isActive);
 
     return await Promise.all(visibleBadges.map((badge) => collectBadgeDetails(ctx, badge)));
   },
@@ -231,7 +245,7 @@ export const listMyBadgeAwards = query({
 export const listBadgeAwardsForAdmin = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireBadgeManager(ctx);
 
     const badges = await ctx.db.query("badges").withIndex("by_active").collect();
 
@@ -275,7 +289,7 @@ export const listBadgeAwardsForAdmin = query({
 export const listAwardableUsersForAdmin = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireBadgeManager(ctx);
 
     const profiles = await ctx.db.query("profiles").collect();
     const users = await Promise.all(
@@ -306,7 +320,7 @@ export const getBadgeForEdit = query({
     badgeId: v.id("badges"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireBadgeManager(ctx);
 
     const badge = await ctx.db.get(args.badgeId);
     return await collectBadgeDetails(ctx, badge);
@@ -316,7 +330,7 @@ export const getBadgeForEdit = query({
 export const listRequirementOptions = query({
   args: {},
   handler: async (ctx) => {
-    await requireAdmin(ctx);
+    await requireBadgeManager(ctx);
 
     const tracks = await ctx.db.query("trainingTracks").withIndex("by_order").collect();
     const equipment = await ctx.db.query("equipment").withIndex("by_category").collect();
@@ -336,7 +350,7 @@ export const saveBadge = mutation({
     isActive: v.boolean(),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireBadgeManager(ctx);
 
     const title = args.title.trim();
     const description = args.description.trim();
@@ -399,7 +413,7 @@ export const forceAwardBadge = mutation({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireBadgeManager(ctx);
 
     const badge = await ctx.db.get(args.badgeId);
     const user = await ctx.db.get(args.userId);
@@ -439,7 +453,7 @@ export const removeBadgeAward = mutation({
     awardId: v.id("userBadges"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireBadgeManager(ctx);
 
     const award = await ctx.db.get(args.awardId);
 

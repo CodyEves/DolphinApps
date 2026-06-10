@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { canReviewLearning } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -39,15 +40,11 @@ function formatDate(timestamp: number | undefined) {
   }).format(new Date(timestamp));
 }
 
-function canReview(role: string) {
-  return role === "admin" || role === "mentor" || role === "instructor";
-}
-
 export function ReviewsPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isReviewer = canReview(effectiveRole);
+  const isReviewer = canReviewLearning(effectiveRole);
   const queue = useQuery(
     api.adminLms.listReviewQueue,
     isAuthenticated && isReviewer ? {} : "skip",

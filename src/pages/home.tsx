@@ -19,6 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useProgramView } from "@/hooks/use-program-view";
+import { canOpenManagement } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
@@ -26,7 +27,7 @@ export function HomePage() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isAdmin = effectiveRole === "admin";
+  const hasManagementAccess = canOpenManagement(effectiveRole);
   const { activeProgramMeta } = useProgramView();
   const apps = [
     {
@@ -55,13 +56,13 @@ export function HomePage() {
     },
     {
       title: "Management",
-      description: "Accounts, rosters, access, LMS content, badges, team information, and future paperwork tools.",
+      description: "Reviews, badge management, team information, paperwork, and admin tools.",
       href: "/management",
       icon: Settings,
-      label: "Admin app",
-      adminOnly: true,
+      label: "Management",
+      managementOnly: true,
     },
-  ].filter((app) => !app.adminOnly || isAdmin);
+  ].filter((app) => !app.managementOnly || hasManagementAccess);
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-6xl flex-col justify-center space-y-8">

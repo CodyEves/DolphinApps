@@ -36,6 +36,12 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useProgramView } from "@/hooks/use-program-view";
+import {
+  canManageBadges,
+  canOpenManagement,
+  canReviewLearning,
+  isAdminRole,
+} from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { useUiStore } from "@/stores/use-ui-store";
 import { cn } from "@/lib/utils";
@@ -46,6 +52,8 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   adminOnly?: boolean;
+  badgeManagerOnly?: boolean;
+  managementOnly?: boolean;
   reviewOnly?: boolean;
 };
 
@@ -64,13 +72,13 @@ const partsNavItems: NavItem[] = [
 ];
 
 const managementNavItems: NavItem[] = [
-  { href: "/management", label: "Overview", icon: SlidersHorizontal, adminOnly: true },
-  { href: "/management/reviews", label: "Reviews", icon: ClipboardCheck, adminOnly: true },
+  { href: "/management", label: "Overview", icon: SlidersHorizontal, managementOnly: true },
+  { href: "/management/reviews", label: "Reviews", icon: ClipboardCheck, reviewOnly: true },
   { href: "/management/people", label: "People", icon: Users, adminOnly: true },
   { href: "/management/lms", label: "Learning Admin", icon: BookOpen, adminOnly: true },
-  { href: "/management/badges", label: "Badge Admin", icon: Award, adminOnly: true },
-  { href: "/management/team", label: "Team Info", icon: ShieldCheck, adminOnly: true },
-  { href: "/management/paperwork", label: "Paperwork", icon: FileCheck, adminOnly: true },
+  { href: "/management/badges", label: "Badge Admin", icon: Award, badgeManagerOnly: true },
+  { href: "/management/team", label: "Team Info", icon: ShieldCheck, managementOnly: true },
+  { href: "/management/paperwork", label: "Paperwork", icon: FileCheck, managementOnly: true },
   { href: "/management/parts", label: "Parts Admin", icon: Settings, adminOnly: true },
 ];
 
@@ -78,10 +86,6 @@ const shopNavItems: NavItem[] = [
   { href: "/shop", label: "Overview", icon: Clock },
   { href: "/shop/display", label: "Display", icon: Monitor },
 ];
-
-function canReview(role: string) {
-  return role === "admin" || role === "mentor" || role === "instructor";
-}
 
 function navItemsForPath(pathname: string) {
   if (pathname.startsWith("/management") || pathname.startsWith("/admin")) {
@@ -98,8 +102,10 @@ function navItemsForPath(pathname: string) {
 function visibleItems(items: NavItem[], role: string) {
   return items.filter(
     (item) =>
-      (!item.adminOnly || role === "admin") &&
-      (!item.reviewOnly || canReview(role)),
+      (!item.adminOnly || isAdminRole(role)) &&
+      (!item.badgeManagerOnly || canManageBadges(role)) &&
+      (!item.managementOnly || canOpenManagement(role)) &&
+      (!item.reviewOnly || canReviewLearning(role)),
   );
 }
 

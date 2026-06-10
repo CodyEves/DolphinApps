@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { canManageBadges } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
@@ -33,7 +34,7 @@ export function BadgesPage() {
   const awards = useQuery(api.badges.listMyBadgeAwards, isAuthenticated ? {} : "skip");
   const syncMyBadges = useMutation(api.badges.syncMyBadges);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isAdmin = effectiveRole === "admin";
+  const canManageBadgeRecords = canManageBadges(effectiveRole);
   const earnedAwards = new Map(awards?.map((award) => [award.badgeId, award]));
 
   useEffect(() => {
@@ -62,7 +63,7 @@ export function BadgesPage() {
         description="Badges are automatically awarded when assigned training and equipment requirements are complete."
         actions={
           <Authenticated>
-            {isAdmin && (
+            {canManageBadgeRecords && (
               <>
                 <Button asChild variant="outline">
                   <Link to="/badges/awards">
@@ -108,7 +109,7 @@ export function BadgesPage() {
               <CardHeader>
                 <CardTitle>No badges yet</CardTitle>
                 <CardDescription>
-                  Admins can create the first badge to start awarding achievements.
+                  Admins and mentors can create the first badge to start awarding achievements.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -129,7 +130,7 @@ export function BadgesPage() {
                       <CardTitle>{badge.title}</CardTitle>
                       <CardDescription>{badge.description}</CardDescription>
                     </div>
-                    {isAdmin && (
+                    {canManageBadgeRecords && (
                       <Button asChild variant="ghost" size="icon" aria-label="Edit badge">
                         <Link to={`/badges/${badge._id}/edit`}>
                           <Pencil className="size-4" />

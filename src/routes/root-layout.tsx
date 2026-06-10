@@ -22,7 +22,7 @@ function currentAppCopy(pathname: string, program: Program = "frc_5199") {
   if (pathname.startsWith("/management") || pathname.startsWith("/admin")) {
     return {
       title: "Management",
-      description: "Accounts, rosters, content, badges, and team operations.",
+      description: "Reviews, badges, rosters, and team operations.",
     };
   }
 

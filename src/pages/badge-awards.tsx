@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { canManageBadges } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
@@ -50,10 +51,10 @@ export function BadgeAwardsPage() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isAdmin = effectiveRole === "admin";
+  const canManageBadgeRecords = canManageBadges(effectiveRole);
   const badgeAwards = useQuery(
     api.badges.listBadgeAwardsForAdmin,
-    isAuthenticated && isAdmin ? {} : "skip",
+    isAuthenticated && canManageBadgeRecords ? {} : "skip",
   );
 
   if (isLoading) {
@@ -90,20 +91,20 @@ export function BadgeAwardsPage() {
             <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Sign in required</CardTitle>
             <CardDescription>
-              Badge award records require an authenticated admin account.
+              Badge award records require an authenticated admin or mentor account.
             </CardDescription>
           </CardHeader>
         </Card>
       </Unauthenticated>
 
       <Authenticated>
-        {!isAdmin ? (
+        {!canManageBadgeRecords ? (
           <Card>
             <CardHeader>
               <LockKeyhole className="size-5 text-primary" />
-              <CardTitle>Admin access required</CardTitle>
+              <CardTitle>Badge management access required</CardTitle>
               <CardDescription>
-                Switch back to your actual role or sign in with an admin account.
+                Switch back to your actual role or sign in with an admin or mentor account.
               </CardDescription>
             </CardHeader>
           </Card>

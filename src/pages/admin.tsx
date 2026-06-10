@@ -21,6 +21,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  canManageBadges,
+  canOpenManagement,
+  canReviewLearning,
+  isAdminRole,
+} from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
@@ -28,7 +34,10 @@ export function AdminPage() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isAdmin = effectiveRole === "admin";
+  const isAdmin = isAdminRole(effectiveRole);
+  const hasManagementAccess = canOpenManagement(effectiveRole);
+  const canReview = canReviewLearning(effectiveRole);
+  const canManageBadgeRecords = canManageBadges(effectiveRole);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -38,7 +47,7 @@ export function AdminPage() {
         description="Manage accounts, rosters, training content, badges, reviews, and team operations."
         actions={
           <Badge variant={isAdmin ? "default" : "outline"}>
-            {isAdmin ? "Admin access" : "Limited view"}
+            {isAdmin ? "Admin access" : hasManagementAccess ? "Mentor access" : "Limited view"}
           </Badge>
         }
       />
@@ -49,82 +58,90 @@ export function AdminPage() {
             <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Sign in required</CardTitle>
             <CardDescription>
-              Sign in with an admin account to use these tools.
+              Sign in with an admin or mentor account to use these tools.
             </CardDescription>
           </CardHeader>
         </Card>
       </Unauthenticated>
 
       <Authenticated>
-        {!isAdmin ? (
+        {!hasManagementAccess ? (
           <Card>
             <CardHeader>
               <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin tools are restricted</CardTitle>
               <CardDescription>
-                Your account can view this area, but editing requires the admin role.
+                Sign in with an admin or mentor account to use management tools.
               </CardDescription>
             </CardHeader>
           </Card>
         ) : (
           <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <Card>
-                <CardHeader>
-                  <ClipboardCheck className="size-5 text-primary" />
-                  <CardTitle>Reviews</CardTitle>
-                  <CardDescription>
-                    Review uploaded lesson files and hands-on equipment checks.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild variant="outline">
-                    <Link to="/management/reviews">Open reviews</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <Users className="size-5 text-primary" />
-                  <CardTitle>People</CardTitle>
-                  <CardDescription>
-                    Manage users, roles, graduation years, and active status.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild variant="outline">
-                    <Link to="/management/people">Open people</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <Database className="size-5 text-primary" />
-                  <CardTitle>Learning Admin</CardTitle>
-                  <CardDescription>
-                    Manage tracks, units, lessons, quizzes, badges, and equipment.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild variant="outline">
-                    <Link to="/management/lms">Open learning admin</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <Award className="size-5 text-primary" />
-                  <CardTitle>Badges</CardTitle>
-                  <CardDescription>
-                    Force awards, remove awards, and review badge records.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild variant="outline">
-                    <Link to="/management/badges">Open badges</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+              {canReview && (
+                <Card>
+                  <CardHeader>
+                    <ClipboardCheck className="size-5 text-primary" />
+                    <CardTitle>Reviews</CardTitle>
+                    <CardDescription>
+                      Review uploaded lesson files and hands-on equipment checks.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button asChild variant="outline">
+                      <Link to="/management/reviews">Open reviews</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+              {isAdmin && (
+                <>
+                  <Card>
+                    <CardHeader>
+                      <Users className="size-5 text-primary" />
+                      <CardTitle>People</CardTitle>
+                      <CardDescription>
+                        Manage users, roles, graduation years, and active status.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button asChild variant="outline">
+                        <Link to="/management/people">Open people</Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <Database className="size-5 text-primary" />
+                      <CardTitle>Learning Admin</CardTitle>
+                      <CardDescription>
+                        Manage tracks, units, lessons, quizzes, badges, and equipment.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button asChild variant="outline">
+                        <Link to="/management/lms">Open learning admin</Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </>
+              )}
+              {canManageBadgeRecords && (
+                <Card>
+                  <CardHeader>
+                    <Award className="size-5 text-primary" />
+                    <CardTitle>Badges</CardTitle>
+                    <CardDescription>
+                      Create badge rules, force awards, remove awards, and review badge records.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button asChild variant="outline">
+                      <Link to="/management/badges">Open badges</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
               <Card>
                 <CardHeader>
                   <ShieldCheck className="size-5 text-primary" />
@@ -153,20 +170,22 @@ export function AdminPage() {
                   </Button>
                 </CardContent>
               </Card>
-              <Card>
-                <CardHeader>
-                  <ShieldCheck className="size-5 text-primary" />
-                  <CardTitle>Parts Admin</CardTitle>
-                  <CardDescription>
-                    Manage robot build seasons, subsystems, catalog options, and parts configuration.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button asChild variant="outline">
-                    <Link to="/management/parts">Open parts admin</Link>
-                  </Button>
-                </CardContent>
-              </Card>
+              {isAdmin && (
+                <Card>
+                  <CardHeader>
+                    <ShieldCheck className="size-5 text-primary" />
+                    <CardTitle>Parts Admin</CardTitle>
+                    <CardDescription>
+                      Manage robot build seasons, subsystems, catalog options, and parts configuration.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button asChild variant="outline">
+                      <Link to="/management/parts">Open parts admin</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         )}

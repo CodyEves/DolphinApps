@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useProgramView } from "@/hooks/use-program-view";
+import { canOpenManagement } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
@@ -35,7 +36,7 @@ type LauncherApp = {
   description: string;
   icon: LucideIcon;
   iconClassName: string;
-  adminOnly?: boolean;
+  managementOnly?: boolean;
 };
 
 const apps: LauncherApp[] = [
@@ -71,10 +72,10 @@ const apps: LauncherApp[] = [
     href: "/management",
     titleKey: "trainingTitle",
     title: "Management",
-    description: "Accounts, rosters, admin",
+    description: "Reviews, badges, team admin",
     icon: Settings,
     iconClassName: "bg-brand-navy text-white",
-    adminOnly: true,
+    managementOnly: true,
   },
 ];
 
@@ -113,7 +114,7 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
             href: "/shop/display",
             description: "Display code",
           }))
-      : apps.filter((app) => !app.adminOnly || effectiveRole === "admin");
+      : apps.filter((app) => !app.managementOnly || canOpenManagement(effectiveRole));
   const activeApp =
     visibleApps.find((app) => isActiveApp(location.pathname, app.href)) ?? visibleApps[0];
   const activeAppName = activeApp.title ?? activeProgramMeta[activeApp.titleKey ?? "trainingTitle"];

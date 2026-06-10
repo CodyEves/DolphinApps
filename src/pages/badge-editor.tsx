@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { canManageBadges } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -55,14 +56,14 @@ export function BadgeEditorPage() {
   const badgeId = params.badgeId as Id<"badges"> | undefined;
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isAdmin = effectiveRole === "admin";
+  const canManageBadgeRecords = canManageBadges(effectiveRole);
   const badge = useQuery(
     api.badges.getBadgeForEdit,
-    isAuthenticated && isAdmin && badgeId ? { badgeId } : "skip",
+    isAuthenticated && canManageBadgeRecords && badgeId ? { badgeId } : "skip",
   );
   const options = useQuery(
     api.badges.listRequirementOptions,
-    isAuthenticated && isAdmin ? {} : "skip",
+    isAuthenticated && canManageBadgeRecords ? {} : "skip",
   );
   const saveBadge = useMutation(api.badges.saveBadge);
   const [form, setForm] = useState<BadgeForm>(emptyForm);
@@ -108,13 +109,13 @@ export function BadgeEditorPage() {
     );
   }
 
-  if (!isAuthenticated || !isAdmin) {
+  if (!isAuthenticated || !canManageBadgeRecords) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
           eyebrow="Badges"
-          title="Admin access required"
-          description="Only admins can create and modify badges."
+          title="Badge management access required"
+          description="Only admins and mentors can create and modify badges."
           actions={
             <Button asChild variant="outline">
               <Link to="/badges">
