@@ -65,6 +65,10 @@ Set this Vercel environment variable:
 VITE_CONVEX_URL=https://your-deployment.convex.cloud
 ```
 
+Do not use a local value such as `http://127.0.0.1:3210` or `http://localhost:3210`
+in Vercel. A deployed browser would try to connect to the visitor's own machine,
+which makes auth/profile queries appear to hang or fall back to guest.
+
 Do not set private service keys in `VITE_` variables because Vite exposes them to browser code.
 
 The included `vercel.json` rewrites all routes to `index.html`, so direct links and refreshes on React Router pages keep working.
@@ -76,3 +80,18 @@ The included `vercel.json` rewrites all routes to `index.html`, so direct links 
 3. Use the Convex dashboard or CLI to run `profiles:setRoleForEmail` for the first admin.
 4. Smoke-test `/`, `/auth`, `/dashboard`, `/training`, `/equipment`, and `/badges`.
 5. Confirm the Convex production deployment has no test student data or private uploaded files that should not be public.
+
+## Production Auth Troubleshooting
+
+If the hosted app gets stuck on "Checking your session", shows a guest profile
+for an admin, or the profile refresh action times out:
+
+1. In Vercel, confirm `VITE_CONVEX_URL` is the production Convex cloud URL,
+   for example `https://your-deployment.convex.cloud`.
+2. In Convex production environment variables, confirm `SITE_URL` is the exact
+   public Vercel app URL, for example `https://your-site.vercel.app`.
+3. In Convex production environment variables, confirm `JWT_PRIVATE_KEY` and
+   `JWKS` exist.
+4. Redeploy Vercel after changing `VITE_CONVEX_URL`; Vite bakes this value into
+   the built JavaScript bundle.
+5. Redeploy Convex after changing Convex Auth configuration or auth keys.
