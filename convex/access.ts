@@ -850,6 +850,74 @@ export const updateProvisionedAccountCredentials = internalMutation({
   },
 });
 
+async function syncProfileForProvisionedAccount(
+  ctx: MutationCtx,
+  account: Doc<"provisionedAccounts">,
+  userId: Id<"users">,
+) {
+  const now = Date.now();
+  const existingProfile = await ctx.db
+    .query("profiles")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .first();
+  const profilePatch = {
+    userId,
+    displayName: account.displayName,
+    firstName: account.firstName,
+    lastName: account.lastName,
+    accountNumber: account.accountNumber,
+    status: "active" as const,
+    ...profilePatchForAccount(account),
+    updatedAt: now,
+  };
+  const profileId = existingProfile
+    ? existingProfile._id
+    : await ctx.db.insert("profiles", {
+        ...profilePatch,
+        createdAt: now,
+      });
+
+  if (existingProfile) {
+    await ctx.db.patch(existingProfile._id, profilePatch);
+  }
+
+  await ctx.db.patch(account._id, {
+    userId,
+    profileId,
+    status: "active",
+    updatedAt: now,
+  });
+
+  return {
+    profileId,
+    role: profilePatch.role,
+    status: profilePatch.status,
+    accountLabel: account.accountLabel,
+  };
+}
+
+export const syncMyProvisionedProfile = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+
+    if (!userId) {
+      throw new Error("Sign in before refreshing your team profile.");
+    }
+
+    const account = await ctx.db
+      .query("provisionedAccounts")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!account || account.status !== "active") {
+      throw new Error("Your active provisioned team account was not found.");
+    }
+
+    return await syncProfileForProvisionedAccount(ctx, account, userId);
+  },
+});
+
 export const completeInitialSetup = internalMutation({
   args: {
     provisionedAccountId: v.id("provisionedAccounts"),
@@ -862,40 +930,9 @@ export const completeInitialSetup = internalMutation({
       throw new Error("Provisioned account not found.");
     }
 
-    const now = Date.now();
-    const existingProfile = await ctx.db
-      .query("profiles")
-      .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .first();
-    const profilePatch = {
-      userId: args.userId,
-      displayName: account.displayName,
-      firstName: account.firstName,
-      lastName: account.lastName,
-      accountNumber: account.accountNumber,
-      status: "active" as const,
-      ...profilePatchForAccount(account),
-      updatedAt: now,
-    };
-    const profileId = existingProfile
-      ? existingProfile._id
-      : await ctx.db.insert("profiles", {
-          ...profilePatch,
-          createdAt: now,
-        });
+    const synced = await syncProfileForProvisionedAccount(ctx, account, args.userId);
 
-    if (existingProfile) {
-      await ctx.db.patch(existingProfile._id, profilePatch);
-    }
-
-    await ctx.db.patch(args.provisionedAccountId, {
-      userId: args.userId,
-      profileId,
-      status: "active",
-      updatedAt: now,
-    });
-
-    return profileId;
+    return synced.profileId;
   },
 });
 

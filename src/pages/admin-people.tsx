@@ -18,7 +18,7 @@ import {
   Upload,
   Users,
 } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
@@ -266,6 +266,7 @@ export function AdminPeoplePage() {
   const bulkCreateProvisionedAccounts = useMutation(api.access.bulkCreateProvisionedAccounts);
   const createCredentialLink = useMutation(api.access.createCredentialLink);
   const updateProvisionedAccount = useMutation(api.access.updateProvisionedAccount);
+  const syncMyProvisionedProfile = useMutation(api.access.syncMyProvisionedProfile);
   const assignMissingAccountNumbers = useMutation(api.access.assignMissingAccountNumbers);
   const deactivateGraduationYear = useMutation(api.access.deactivateGraduationYear);
   const revokeCredentialLink = useMutation(api.access.revokeCredentialLink);
@@ -288,6 +289,8 @@ export function AdminPeoplePage() {
   const [isGraduating, setIsGraduating] = useState(false);
   const [clearingProfileId, setClearingProfileId] = useState<string | null>(null);
   const [isClearingLegacyProfiles, setIsClearingLegacyProfiles] = useState(false);
+  const [isRefreshingAdminAccess, setIsRefreshingAdminAccess] = useState(false);
+  const hasTriedAdminRefresh = useRef(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<AccountRole | "all">("all");
   const [programFilter, setProgramFilter] = useState<Program | "all">("all");
@@ -299,6 +302,10 @@ export function AdminPeoplePage() {
   const [pageSize, setPageSize] = useState("50");
   const [pageIndex, setPageIndex] = useState(0);
   const createdLinks = useMemo(() => Object.entries(generatedLinks), [generatedLinks]);
+  const canRefreshAdminAccess =
+    viewer?.provisionedAccount?.accountLabel === "admin" &&
+    viewer.provisionedAccount.status === "active" &&
+    !isAdmin;
   const accountStats = useMemo(() => {
     const list = accounts ?? [];
 
@@ -403,6 +410,33 @@ export function AdminPeoplePage() {
   );
   const pageStart = filteredAccounts.length === 0 ? 0 : safePageIndex * numericPageSize + 1;
   const pageEnd = Math.min(filteredAccounts.length, safePageIndex * numericPageSize + paginatedAccounts.length);
+
+  async function handleRefreshAdminAccess() {
+    setIsRefreshingAdminAccess(true);
+
+    try {
+      const synced = await syncMyProvisionedProfile({});
+      toast.success(
+        synced.role === "admin"
+          ? "Admin access refreshed"
+          : "Team profile refreshed",
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to refresh admin access");
+    } finally {
+      setIsRefreshingAdminAccess(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!canRefreshAdminAccess || hasTriedAdminRefresh.current) {
+      return;
+    }
+
+    hasTriedAdminRefresh.current = true;
+    void handleRefreshAdminAccess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canRefreshAdminAccess]);
 
   function openAccountSheet(provisionedAccountId: Id<"provisionedAccounts">) {
     setSelectedAccountId(provisionedAccountId);
@@ -715,9 +749,22 @@ export function AdminPeoplePage() {
               <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin access required</CardTitle>
               <CardDescription>
-                Switch back to your actual role or sign in with an admin account.
+                The server currently sees this profile as {viewer?.profile.role ?? "unknown"} /{" "}
+                {viewer?.profile.status ?? "unknown"}.
               </CardDescription>
             </CardHeader>
+            {canRefreshAdminAccess && (
+              <CardContent>
+                <Button
+                  type="button"
+                  onClick={() => void handleRefreshAdminAccess()}
+                  disabled={isRefreshingAdminAccess}
+                >
+                  <RotateCcw className="size-4" />
+                  {isRefreshingAdminAccess ? "Refreshing..." : "Refresh admin access"}
+                </Button>
+              </CardContent>
+            )}
           </Card>
         ) : (
           <div className="space-y-6">
