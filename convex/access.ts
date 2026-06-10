@@ -946,6 +946,25 @@ export const syncMyProvisionedProfile = mutation({
   },
 });
 
+export const syncProfileForUsernameSignIn = internalMutation({
+  args: {
+    username: v.string(),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const account = await ctx.db
+      .query("provisionedAccounts")
+      .withIndex("by_username", (q) => q.eq("username", args.username))
+      .first();
+
+    if (!account || account.userId !== args.userId || account.status !== "active") {
+      throw new Error("This account has not completed setup.");
+    }
+
+    return await syncProfileForProvisionedAccount(ctx, account, args.userId);
+  },
+});
+
 export const completeInitialSetup = internalMutation({
   args: {
     provisionedAccountId: v.id("provisionedAccounts"),

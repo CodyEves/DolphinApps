@@ -59,6 +59,10 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             username,
             userId: retrieved.user._id,
           });
+          await ctx.runMutation(internal.access.syncProfileForUsernameSignIn, {
+            username,
+            userId: retrieved.user._id,
+          });
 
           return { userId: retrieved.user._id };
         }
