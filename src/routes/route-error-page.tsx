@@ -23,9 +23,9 @@ export function RouteErrorPage() {
     <main className="min-h-screen bg-background px-4 py-8 text-foreground sm:px-6">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-3xl flex-col items-center justify-center text-center">
         <img
-          src="/favicon.svg"
+          src="/robot-dolphins-error.png"
           alt="Robot Dolphins"
-          className="mb-6 size-24 rounded-full border bg-primary shadow-sm"
+          className="mb-6 w-44 rounded-md border bg-primary shadow-sm sm:w-56"
         />
         <div className="mb-3 flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-sm text-muted-foreground">
           <AlertTriangle className="size-4 text-destructive" />
