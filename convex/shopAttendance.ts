@@ -337,6 +337,56 @@ async function attendanceDetails(ctx: QueryCtx | MutationCtx, item: Doc<"attenda
   };
 }
 
+async function eventAttendanceDetails(
+  ctx: QueryCtx | MutationCtx,
+  item: Doc<"eventAttendanceRecords">,
+) {
+  const user = await ctx.db.get(item.userId);
+  const event = await ctx.db.get(item.eventId);
+  const profile =
+    item.profileId
+      ? await ctx.db.get(item.profileId)
+      : await ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", item.userId))
+          .first();
+
+  return {
+    ...item,
+    eventTitle: event?.title ?? "Attendance event",
+    eventLocation: event?.location,
+    eventStartsAt: event?.startsAt,
+    eventStatus: event?.status ?? "closed",
+    studentName: displayNameFor(profile, user),
+    studentRole: profile?.role ?? "guest",
+    studentGroup: profile?.studentGroup,
+    primaryProgram: profile?.primaryProgram,
+    graduationYear: profile?.graduationYear,
+  };
+}
+
+async function eventSummary(ctx: QueryCtx | MutationCtx, event: Doc<"attendanceEvents">) {
+  const records = await ctx.db
+    .query("eventAttendanceRecords")
+    .withIndex("by_event", (q) => q.eq("eventId", event._id))
+    .collect();
+
+  return {
+    ...event,
+    attendanceCount: records.length,
+    hasCode: !!event.codeHash,
+  };
+}
+
+async function activeAttendanceEventForCodeHash(ctx: QueryCtx | MutationCtx, codeHash: string) {
+  const events = await ctx.db
+    .query("attendanceEvents")
+    .withIndex("by_code_hash", (q) => q.eq("codeHash", codeHash))
+    .collect();
+
+  return events.find((event) => event.status === "active") ?? null;
+}
+
 async function validCodeForActiveSession(
   ctx: QueryCtx | MutationCtx,
   code: string,
@@ -1160,6 +1210,364 @@ export const deleteAttendanceSession = mutation({
     }
 
     return args.attendanceSessionId;
+  },
+});
+
+export const listAttendanceEvents = query({
+  args: {
+    includeClosed: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireShopManager(ctx);
+    const events = await ctx.db.query("attendanceEvents").collect();
+
+    return await Promise.all(
+      events
+        .filter((event) => args.includeClosed || event.status === "active")
+        .sort((a, b) => (b.startsAt ?? b.createdAt) - (a.startsAt ?? a.createdAt))
+        .map((event) => eventSummary(ctx, event)),
+    );
+  },
+});
+
+export const createAttendanceEvent = mutation({
+  args: {
+    title: v.string(),
+    location: v.optional(v.string()),
+    description: v.optional(v.string()),
+    startsAt: v.optional(v.number()),
+    endsAt: v.optional(v.number()),
+    codeHash: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const manager = await requireShopManager(ctx);
+    const title = args.title.trim();
+
+    if (!title) {
+      throw new Error("Event name is required.");
+    }
+
+    if (args.startsAt && args.endsAt && args.endsAt <= args.startsAt) {
+      throw new Error("Event end time must be after the start time.");
+    }
+
+    if (args.codeHash && (await activeAttendanceEventForCodeHash(ctx, args.codeHash))) {
+      throw new Error("That event code is already used by an active event.");
+    }
+
+    const now = Date.now();
+
+    return await ctx.db.insert("attendanceEvents", {
+      title,
+      location: args.location?.trim() || undefined,
+      description: args.description?.trim() || undefined,
+      startsAt: args.startsAt,
+      endsAt: args.endsAt,
+      status: "active",
+      codeHash: args.codeHash,
+      codeUpdatedAt: args.codeHash ? now : undefined,
+      createdBy: manager.userId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const updateAttendanceEvent = mutation({
+  args: {
+    eventId: v.id("attendanceEvents"),
+    title: v.string(),
+    location: v.optional(v.string()),
+    description: v.optional(v.string()),
+    startsAt: v.optional(v.number()),
+    endsAt: v.optional(v.number()),
+    status: v.union(v.literal("active"), v.literal("closed")),
+  },
+  handler: async (ctx, args) => {
+    const manager = await requireShopManager(ctx);
+    const event = await ctx.db.get(args.eventId);
+    const title = args.title.trim();
+
+    if (!event) {
+      throw new Error("Attendance event not found.");
+    }
+
+    if (!title) {
+      throw new Error("Event name is required.");
+    }
+
+    if (args.startsAt && args.endsAt && args.endsAt <= args.startsAt) {
+      throw new Error("Event end time must be after the start time.");
+    }
+
+    await ctx.db.patch(args.eventId, {
+      title,
+      location: args.location?.trim() || undefined,
+      description: args.description?.trim() || undefined,
+      startsAt: args.startsAt,
+      endsAt: args.endsAt,
+      status: args.status,
+      closedBy: args.status === "closed" ? manager.userId : undefined,
+      closedAt: args.status === "closed" ? Date.now() : undefined,
+      updatedAt: Date.now(),
+    });
+
+    return args.eventId;
+  },
+});
+
+export const setAttendanceEventCode = mutation({
+  args: {
+    eventId: v.id("attendanceEvents"),
+    codeHash: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireShopManager(ctx);
+    const event = await ctx.db.get(args.eventId);
+    const existing = await activeAttendanceEventForCodeHash(ctx, args.codeHash);
+
+    if (!event) {
+      throw new Error("Attendance event not found.");
+    }
+
+    if (existing && existing._id !== args.eventId) {
+      throw new Error("That event code is already used by an active event.");
+    }
+
+    await ctx.db.patch(args.eventId, {
+      codeHash: args.codeHash,
+      codeUpdatedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    return args.eventId;
+  },
+});
+
+export const eventSignInWithCode = mutation({
+  args: {
+    code: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const profile = await requireActiveProfile(ctx);
+
+    if (profile.role !== "student") {
+      throw new Error("Only student accounts can check in to events.");
+    }
+
+    const normalizedCode = normalizeCode(args.code);
+
+    if (!normalizedCode) {
+      throw new Error("Enter the event code.");
+    }
+
+    const codeHash = await sha256Hex(normalizedCode);
+    const event = await activeAttendanceEventForCodeHash(ctx, codeHash);
+
+    if (!event) {
+      throw new Error("That event code is not active.");
+    }
+
+    const existing = await ctx.db
+      .query("eventAttendanceRecords")
+      .withIndex("by_event_user", (q) =>
+        q.eq("eventId", event._id).eq("userId", profile.userId),
+      )
+      .first();
+
+    if (existing) {
+      throw new Error("You are already checked in for this event.");
+    }
+
+    const now = Date.now();
+    const recordId = await ctx.db.insert("eventAttendanceRecords", {
+      eventId: event._id,
+      userId: profile.userId,
+      profileId: profile._id,
+      source: "web",
+      codeHash,
+      checkedInAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      recordId,
+      eventId: event._id,
+      eventTitle: event.title,
+      checkedInAt: now,
+    };
+  },
+});
+
+export const listEventAttendance = query({
+  args: {
+    eventId: v.id("attendanceEvents"),
+  },
+  handler: async (ctx, args) => {
+    await requireShopManager(ctx);
+    const records = await ctx.db
+      .query("eventAttendanceRecords")
+      .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
+      .collect();
+
+    return await Promise.all(
+      records
+        .sort((a, b) => a.checkedInAt - b.checkedInAt)
+        .map((record) => eventAttendanceDetails(ctx, record)),
+    );
+  },
+});
+
+export const deleteEventAttendanceRecord = mutation({
+  args: {
+    recordId: v.id("eventAttendanceRecords"),
+  },
+  handler: async (ctx, args) => {
+    await requireShopManager(ctx);
+    const record = await ctx.db.get(args.recordId);
+
+    if (!record) {
+      throw new Error("Event attendance record not found.");
+    }
+
+    await ctx.db.delete(args.recordId);
+
+    return args.recordId;
+  },
+});
+
+export const attendanceOverviewReport = query({
+  args: {
+    from: v.optional(v.number()),
+    to: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await requireShopManager(ctx);
+    const now = Date.now();
+    const from = args.from ?? 0;
+    const to = args.to ?? Number.MAX_SAFE_INTEGER;
+    const shopItems = (await ctx.db.query("attendanceSessions").collect())
+      .filter((item) => item.status !== "open" && item.status !== "void")
+      .filter((item) => item.signInAt >= from && item.signInAt <= to);
+    const eventRecords = (await ctx.db.query("eventAttendanceRecords").collect())
+      .filter((item) => item.checkedInAt >= from && item.checkedInAt <= to);
+    const shopRows = await Promise.all(shopItems.map((item) => attendanceDetails(ctx, item)));
+    const eventRows = await Promise.all(eventRecords.map((item) => eventAttendanceDetails(ctx, item)));
+    const eventIds = new Set(eventRecords.map((record) => record.eventId));
+    const events = await Promise.all(
+      [...eventIds].map(async (eventId) => {
+        const event = await ctx.db.get(eventId);
+
+        return event ? eventSummary(ctx, event) : null;
+      }),
+    );
+    const students = new Map<
+      Id<"users">,
+      {
+        userId: Id<"users">;
+        studentName: string;
+        studentGroup?: string;
+        primaryProgram?: "frc_5199" | "frc_9271";
+        graduationYear?: number;
+        shopMinutes: number;
+        completeShopMinutes: number;
+        needsReviewMinutes: number;
+        shopRecordCount: number;
+        eventCount: number;
+        lastAttendanceAt: number;
+      }
+    >();
+
+    function ensureStudent(row: {
+      userId: Id<"users">;
+      studentName: string;
+      studentGroup?: string;
+      primaryProgram?: "frc_5199" | "frc_9271";
+      graduationYear?: number;
+      at: number;
+    }) {
+      const existing =
+        students.get(row.userId) ??
+        {
+          userId: row.userId,
+          studentName: row.studentName,
+          studentGroup: row.studentGroup,
+          primaryProgram: row.primaryProgram,
+          graduationYear: row.graduationYear,
+          shopMinutes: 0,
+          completeShopMinutes: 0,
+          needsReviewMinutes: 0,
+          shopRecordCount: 0,
+          eventCount: 0,
+          lastAttendanceAt: 0,
+        };
+
+      existing.lastAttendanceAt = Math.max(existing.lastAttendanceAt, row.at);
+      students.set(row.userId, existing);
+
+      return existing;
+    }
+
+    for (const row of shopRows) {
+      const minutes = row.signOutAt
+        ? Math.max(0, Math.round((row.signOutAt - row.signInAt) / 60000))
+        : 0;
+      const student = ensureStudent({ ...row, at: row.signInAt });
+
+      student.shopMinutes += minutes;
+      student.shopRecordCount += 1;
+
+      if (row.status === "needs_review") {
+        student.needsReviewMinutes += minutes;
+      } else {
+        student.completeShopMinutes += minutes;
+      }
+    }
+
+    for (const row of eventRows) {
+      const student = ensureStudent({ ...row, at: row.checkedInAt });
+
+      student.eventCount += 1;
+    }
+
+    const studentRows = [...students.values()].sort((a, b) =>
+      a.studentName.localeCompare(b.studentName),
+    );
+    const groupMap = new Map<
+      string,
+      { label: string; studentCount: number; shopMinutes: number; eventCount: number }
+    >();
+
+    for (const row of studentRows) {
+      const label = row.studentGroup ?? row.primaryProgram ?? "Unassigned";
+      const group =
+        groupMap.get(label) ??
+        { label, studentCount: 0, shopMinutes: 0, eventCount: 0 };
+
+      group.studentCount += 1;
+      group.shopMinutes += row.shopMinutes;
+      group.eventCount += row.eventCount;
+      groupMap.set(label, group);
+    }
+
+    return {
+      range: { from, to, generatedAt: now },
+      summary: {
+        studentCount: studentRows.length,
+        shopRecordCount: shopRows.length,
+        shopMinutes: studentRows.reduce((total, row) => total + row.shopMinutes, 0),
+        needsReviewMinutes: studentRows.reduce(
+          (total, row) => total + row.needsReviewMinutes,
+          0,
+        ),
+        eventCount: events.filter(Boolean).length,
+        eventAttendanceCount: eventRows.length,
+      },
+      students: studentRows,
+      events: events.filter((event): event is NonNullable<typeof event> => !!event),
+      groups: [...groupMap.values()].sort((a, b) => b.shopMinutes - a.shopMinutes),
+    };
   },
 });
 

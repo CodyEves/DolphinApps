@@ -7,6 +7,7 @@ import {
   approvalActionValidator,
   attemptStatusValidator,
   attendanceSourceValidator,
+  attendanceEventStatusValidator,
   attendanceStatusValidator,
   catalogKindValidator,
   credentialLinkPurposeValidator,
@@ -510,6 +511,40 @@ export default defineSchema({
     .index("by_user_status", ["userId", "status"])
     .index("by_session_status", ["shopSessionId", "status"])
     .index("by_sign_in_at", ["signInAt"]),
+
+  attendanceEvents: defineTable({
+    title: v.string(),
+    location: v.optional(v.string()),
+    description: v.optional(v.string()),
+    startsAt: v.optional(v.number()),
+    endsAt: v.optional(v.number()),
+    status: attendanceEventStatusValidator,
+    codeHash: v.optional(v.string()),
+    codeUpdatedAt: v.optional(v.number()),
+    createdBy: v.id("users"),
+    closedBy: v.optional(v.id("users")),
+    closedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_starts_at", ["startsAt"])
+    .index("by_code_hash", ["codeHash"]),
+
+  eventAttendanceRecords: defineTable({
+    eventId: v.id("attendanceEvents"),
+    userId: v.id("users"),
+    profileId: v.optional(v.id("profiles")),
+    source: attendanceSourceValidator,
+    codeHash: v.optional(v.string()),
+    checkedInAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_event", ["eventId"])
+    .index("by_user", ["userId"])
+    .index("by_event_user", ["eventId", "userId"])
+    .index("by_checked_in_at", ["checkedInAt"]),
 
   slackAccountLinks: defineTable({
     slackUserId: v.string(),

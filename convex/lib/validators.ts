@@ -182,4 +182,9 @@ export const attendanceSourceValidator = v.union(
   v.literal("manual"),
 );
 
+export const attendanceEventStatusValidator = v.union(
+  v.literal("active"),
+  v.literal("closed"),
+);
+
 export const teamNumberValidator = v.union(v.literal("5199"), v.literal("9271"));

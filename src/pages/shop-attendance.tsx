@@ -4,6 +4,7 @@ import QRCode from "qrcode";
 import {
   ArrowLeftRight,
   Camera,
+  CalendarDays,
   Check,
   ClipboardList,
   Clock,
@@ -155,6 +156,10 @@ function randomShopCode() {
   crypto.getRandomValues(bytes);
 
   return [...bytes].map((byte) => alphabet[byte % alphabet.length]).join("");
+}
+
+function normalizeAttendanceCode(value: string) {
+  return value.trim().replace(/\s+/g, "").toUpperCase();
 }
 
 function shopCodeLink(code: string) {
@@ -511,6 +516,10 @@ export function ShopAttendancePage() {
     api.shopAttendance.getShopScheduleSettings,
     isAuthenticated && canManage ? {} : "skip",
   );
+  const attendanceEvents = useQuery(
+    api.shopAttendance.listAttendanceEvents,
+    isAuthenticated && canManage ? { includeClosed: true } : "skip",
+  );
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [studentSearch, setStudentSearch] = useState("");
@@ -522,6 +531,15 @@ export function ShopAttendancePage() {
     isAuthenticated && canManage && (!showReportsRoute || !!selectedStudentUserId)
       ? {
           userId: showReportsRoute ? selectedStudentUserId : undefined,
+          from: fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : undefined,
+          to: toDate ? new Date(`${toDate}T23:59:59`).getTime() : undefined,
+        }
+      : "skip",
+  );
+  const overviewReport = useQuery(
+    api.shopAttendance.attendanceOverviewReport,
+    isAuthenticated && canManage
+      ? {
           from: fromDate ? new Date(`${fromDate}T00:00:00`).getTime() : undefined,
           to: toDate ? new Date(`${toDate}T23:59:59`).getTime() : undefined,
         }
@@ -551,6 +569,11 @@ export function ShopAttendancePage() {
   const deleteAttendance = useMutation(api.shopAttendance.deleteAttendanceSession);
   const createManualAttendance = useMutation(api.shopAttendance.createManualAttendanceSession);
   const updateScheduleSettings = useMutation(api.shopAttendance.updateShopScheduleSettings);
+  const createAttendanceEvent = useMutation(api.shopAttendance.createAttendanceEvent);
+  const updateAttendanceEvent = useMutation(api.shopAttendance.updateAttendanceEvent);
+  const setAttendanceEventCode = useMutation(api.shopAttendance.setAttendanceEventCode);
+  const eventSignInWithCode = useMutation(api.shopAttendance.eventSignInWithCode);
+  const deleteEventAttendanceRecord = useMutation(api.shopAttendance.deleteEventAttendanceRecord);
   const notifyClosed = useAction(api.shopSlack.notifyShopSessionClosed);
   const [shopTitle, setShopTitle] = useState("");
   const [closingNote, setClosingNote] = useState("");
@@ -566,9 +589,25 @@ export function ShopAttendancePage() {
   const [scheduleEnabledDraft, setScheduleEnabledDraft] = useState<boolean | null>(null);
   const [scheduleDraft, setScheduleDraft] = useState<ShopScheduleEntry[] | null>(null);
   const [isSavingSchedule, setIsSavingSchedule] = useState(false);
+  const [eventTitle, setEventTitle] = useState("");
+  const [eventLocation, setEventLocation] = useState("");
+  const [eventStartsAt, setEventStartsAt] = useState("");
+  const [eventEndsAt, setEventEndsAt] = useState("");
+  const [eventDescription, setEventDescription] = useState("");
+  const [eventCodeDraft, setEventCodeDraft] = useState(randomShopCode());
+  const [recentEventCodes, setRecentEventCodes] = useState<Record<string, string>>({});
+  const [selectedEventId, setSelectedEventId] = useState<Id<"attendanceEvents"> | "">("");
+  const [isEventBusy, setIsEventBusy] = useState(false);
   const [now, setNow] = useState(0);
   const [attendanceCode, setAttendanceCode] = useState(
     searchParams.get("code")?.trim().toUpperCase() ?? "",
+  );
+  const [eventCheckInCode, setEventCheckInCode] = useState(
+    searchParams.get("eventCode")?.trim().toUpperCase() ?? "",
+  );
+  const selectedEventAttendance = useQuery(
+    api.shopAttendance.listEventAttendance,
+    isAuthenticated && canManage && selectedEventId ? { eventId: selectedEventId } : "skip",
   );
   const [isAttendanceBusy, setIsAttendanceBusy] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -917,6 +956,115 @@ export function ShopAttendancePage() {
     }
   }
 
+  async function handleCreateAttendanceEvent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const code = normalizeAttendanceCode(eventCodeDraft || randomShopCode());
+
+    setIsEventBusy(true);
+
+    try {
+      const eventId = await createAttendanceEvent({
+        title: eventTitle,
+        location: eventLocation || undefined,
+        description: eventDescription || undefined,
+        startsAt: eventStartsAt ? fromDateTimeLocal(eventStartsAt) : undefined,
+        endsAt: eventEndsAt ? fromDateTimeLocal(eventEndsAt) : undefined,
+        codeHash: await sha256Hex(code),
+      });
+
+      setRecentEventCodes((currentCodes) => ({ ...currentCodes, [eventId]: code }));
+      setSelectedEventId(eventId);
+      setEventTitle("");
+      setEventLocation("");
+      setEventStartsAt("");
+      setEventEndsAt("");
+      setEventDescription("");
+      setEventCodeDraft(randomShopCode());
+      toast.success("Attendance event created");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not create attendance event");
+    } finally {
+      setIsEventBusy(false);
+    }
+  }
+
+  async function handleGenerateEventCode(eventId: Id<"attendanceEvents">) {
+    const code = randomShopCode();
+
+    setIsEventBusy(true);
+
+    try {
+      await setAttendanceEventCode({
+        eventId,
+        codeHash: await sha256Hex(code),
+      });
+      setRecentEventCodes((currentCodes) => ({ ...currentCodes, [eventId]: code }));
+      toast.success("Event code generated");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not generate event code");
+    } finally {
+      setIsEventBusy(false);
+    }
+  }
+
+  async function handleEventStatus(
+    event: NonNullable<typeof attendanceEvents>[number],
+    status: "active" | "closed",
+  ) {
+    setIsEventBusy(true);
+
+    try {
+      await updateAttendanceEvent({
+        eventId: event._id,
+        title: event.title,
+        location: event.location,
+        description: event.description,
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        status,
+      });
+      toast.success(status === "active" ? "Event reopened" : "Event closed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update event");
+    } finally {
+      setIsEventBusy(false);
+    }
+  }
+
+  async function handleEventCheckIn() {
+    const code = normalizeAttendanceCode(eventCheckInCode);
+
+    if (!code) {
+      toast.error("Enter the event code.");
+      return;
+    }
+
+    setIsEventBusy(true);
+
+    try {
+      const result = await eventSignInWithCode({ code });
+      setEventCheckInCode("");
+      toast.success(`Checked in for ${result.eventTitle}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not check in to event");
+    } finally {
+      setIsEventBusy(false);
+    }
+  }
+
+  async function handleDeleteEventRecord(recordId: Id<"eventAttendanceRecords">) {
+    setIsEventBusy(true);
+
+    try {
+      await deleteEventAttendanceRecord({ recordId });
+      toast.success("Event attendance record deleted");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete event attendance");
+    } finally {
+      setIsEventBusy(false);
+    }
+  }
+
   async function handleBrowserFullscreen() {
     try {
       if (!document.fullscreenElement) {
@@ -1062,6 +1210,16 @@ export function ShopAttendancePage() {
 
   const reportRows = useMemo(() => report?.rows ?? [], [report?.rows]);
   const reportTotals = useMemo(() => report?.totals ?? [], [report?.totals]);
+  const attendanceEventRows = useMemo(() => attendanceEvents ?? [], [attendanceEvents]);
+  const selectedAttendanceEvent = attendanceEventRows.find((event) => event._id === selectedEventId);
+  const selectedEventRecords = useMemo(
+    () => selectedEventAttendance ?? [],
+    [selectedEventAttendance],
+  );
+  const overviewSummary = overviewReport?.summary;
+  const overviewStudents = useMemo(() => overviewReport?.students ?? [], [overviewReport?.students]);
+  const overviewEvents = useMemo(() => overviewReport?.events ?? [], [overviewReport?.events]);
+  const overviewGroups = useMemo(() => overviewReport?.groups ?? [], [overviewReport?.groups]);
   const attendanceRecords = useMemo(() => recordRows ?? [], [recordRows]);
   const recordPeopleRows = useMemo(() => recordPeople ?? [], [recordPeople]);
   const selectedStudentPerson = recordPeopleRows.find((person) => person.userId === selectedStudentUserId);
@@ -1225,7 +1383,8 @@ export function ShopAttendancePage() {
                       )}
                     </div>
                   </div>
-                  {selectedStudentUserId && (showRecordsRoute || showReportsRoute) && (
+                  {((selectedStudentUserId && (showRecordsRoute || showReportsRoute)) ||
+                    (showReportsRoute && !selectedStudentUserId)) && (
                     <>
                       <div className="grid gap-3 lg:grid-cols-[160px_160px_auto_auto] lg:items-end">
                         <div className="space-y-2">
@@ -1267,12 +1426,14 @@ export function ShopAttendancePage() {
                         >
                           Clear dates
                         </Button>
-                        <Button asChild variant="outline">
-                          <Link to={routeBase}>
-                            <Users className="size-4" />
-                            All students
-                          </Link>
-                        </Button>
+                        {selectedStudentUserId && (
+                          <Button asChild variant="outline">
+                            <Link to={routeBase}>
+                              <Users className="size-4" />
+                              All students
+                            </Link>
+                          </Button>
+                        )}
                       </div>
                     </>
                   )}
@@ -1420,6 +1581,153 @@ export function ShopAttendancePage() {
                       </div>
                     );
                   })}
+                </div>
+              ) : showReportsRoute ? (
+                <div className="space-y-5">
+                  {overviewReport === undefined && (
+                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading attendance report...</div>
+                  )}
+                  {overviewSummary && (
+                    <>
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                        <div className="rounded-md border bg-card p-4">
+                          <p className="text-sm text-muted-foreground">Students</p>
+                          <p className="mt-1 text-2xl font-semibold">{overviewSummary.studentCount}</p>
+                        </div>
+                        <div className="rounded-md border bg-card p-4">
+                          <p className="text-sm text-muted-foreground">Shop hours</p>
+                          <p className="mt-1 text-2xl font-semibold">{formatHours(overviewSummary.shopMinutes)}</p>
+                        </div>
+                        <div className="rounded-md border bg-card p-4">
+                          <p className="text-sm text-muted-foreground">Shop records</p>
+                          <p className="mt-1 text-2xl font-semibold">{overviewSummary.shopRecordCount}</p>
+                        </div>
+                        <div className="rounded-md border bg-card p-4">
+                          <p className="text-sm text-muted-foreground">Events</p>
+                          <p className="mt-1 text-2xl font-semibold">{overviewSummary.eventCount}</p>
+                        </div>
+                        <div className="rounded-md border bg-card p-4">
+                          <p className="text-sm text-muted-foreground">Event attendance</p>
+                          <p className="mt-1 text-2xl font-semibold">{overviewSummary.eventAttendanceCount}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            downloadCsv("attendance-overview.csv", [
+                              [
+                                "Student",
+                                "Shop Hours",
+                                "Shop Records",
+                                "Needs Review Hours",
+                                "Events Attended",
+                                "Group",
+                                "Program",
+                                "Graduation Year",
+                                "Last Attendance",
+                              ],
+                              ...overviewStudents.map((row) => [
+                                row.studentName,
+                                (row.shopMinutes / 60).toFixed(2),
+                                String(row.shopRecordCount),
+                                (row.needsReviewMinutes / 60).toFixed(2),
+                                String(row.eventCount),
+                                row.studentGroup ?? "",
+                                row.primaryProgram ?? "",
+                                row.graduationYear ? String(row.graduationYear) : "",
+                                row.lastAttendanceAt ? formatDateTime(row.lastAttendanceAt) : "",
+                              ]),
+                            ])
+                          }
+                        >
+                          <Download className="size-4" />
+                          Export overview CSV
+                        </Button>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="grid gap-5 xl:grid-cols-2">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Event attendance</CardTitle>
+                        <CardDescription>Events with attendance in the selected date range.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {overviewEvents.length === 0 && (
+                          <div className="rounded-md border p-4 text-sm text-muted-foreground">No event attendance in this range.</div>
+                        )}
+                        {overviewEvents.map((event) => (
+                          <div key={event._id} className="grid gap-2 rounded-md border p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{event.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {event.location || "No location"}
+                                {event.startsAt ? ` - ${formatDateTime(event.startsAt)}` : ""}
+                              </p>
+                            </div>
+                            <Badge variant="outline">{event.attendanceCount} attending</Badge>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Group breakdown</CardTitle>
+                        <CardDescription>Shop hours and event attendance by team/program group.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {overviewGroups.length === 0 && (
+                          <div className="rounded-md border p-4 text-sm text-muted-foreground">No attendance in this range.</div>
+                        )}
+                        {overviewGroups.map((group) => (
+                          <div key={group.label} className="grid gap-2 rounded-md border p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                            <p className="font-medium">{group.label}</p>
+                            <Badge variant="outline">{group.studentCount} students</Badge>
+                            <p className="text-sm font-medium">
+                              {formatHours(group.shopMinutes)} / {group.eventCount} events
+                            </p>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Student attendance</CardTitle>
+                      <CardDescription>Search above to open a student-level report.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {overviewStudents.length === 0 && (
+                        <div className="rounded-md border p-4 text-sm text-muted-foreground">No student attendance in this range.</div>
+                      )}
+                      {overviewStudents.map((student) => (
+                        <Link
+                          key={student.userId}
+                          to={`${routeBase}/${student.userId}`}
+                          className="grid gap-2 rounded-md border p-4 transition-colors hover:bg-accent hover:text-accent-foreground sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{student.studentName}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {student.studentGroup ?? "Student"}
+                              {student.graduationYear ? ` - ${student.graduationYear}` : ""}
+                            </p>
+                          </div>
+                          <Badge variant={student.needsReviewMinutes > 0 ? "secondary" : "outline"}>
+                            {formatHours(student.shopMinutes)}
+                          </Badge>
+                          <Badge variant="outline">
+                            {student.eventCount} event{student.eventCount === 1 ? "" : "s"}
+                          </Badge>
+                        </Link>
+                      ))}
+                    </CardContent>
+                  </Card>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1606,6 +1914,12 @@ export function ShopAttendancePage() {
                   Schedule
                 </TabsTrigger>
               </>
+            )}
+            {canUseStudentCheckIn && (
+              <TabsTrigger value="events">
+                <CalendarDays className="size-4" />
+                Events
+              </TabsTrigger>
             )}
             {canUseStudentCheckIn && (
               <TabsTrigger value="checkin">
@@ -1814,6 +2128,257 @@ export function ShopAttendancePage() {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+          )}
+
+          {canUseStudentCheckIn && (
+            <TabsContent value="events" className="space-y-5">
+              <Card>
+                <CardHeader>
+                  <CalendarDays className="size-5 text-primary" />
+                  <CardTitle>Event check-in</CardTitle>
+                  <CardDescription>Use the event code from a mentor to record that you attended.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+                  <div className="space-y-2">
+                    <Label htmlFor="eventCheckInCode">Event code</Label>
+                    <Input
+                      id="eventCheckInCode"
+                      value={eventCheckInCode}
+                      onChange={(event) => setEventCheckInCode(normalizeAttendanceCode(event.target.value))}
+                      placeholder="EVENT1"
+                      className="font-mono text-lg"
+                    />
+                  </div>
+                  <Button type="button" onClick={() => void handleEventCheckIn()} disabled={isEventBusy}>
+                    {isEventBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                    Check in
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {canManage && (
+                <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+                  <Card>
+                    <CardHeader>
+                      <Plus className="size-5 text-primary" />
+                      <CardTitle>Create event</CardTitle>
+                      <CardDescription>Create a simple attendance event with a shareable code.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <form onSubmit={handleCreateAttendanceEvent} className="space-y-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="eventTitle">Event name</Label>
+                          <Input
+                            id="eventTitle"
+                            value={eventTitle}
+                            onChange={(event) => setEventTitle(event.target.value)}
+                            placeholder="School demo"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="eventLocation">Location</Label>
+                          <Input
+                            id="eventLocation"
+                            value={eventLocation}
+                            onChange={(event) => setEventLocation(event.target.value)}
+                            placeholder="School or venue"
+                          />
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-2">
+                            <Label htmlFor="eventStartsAt">Starts</Label>
+                            <Input
+                              id="eventStartsAt"
+                              type="datetime-local"
+                              value={eventStartsAt}
+                              onChange={(event) => setEventStartsAt(event.target.value)}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="eventEndsAt">Ends</Label>
+                            <Input
+                              id="eventEndsAt"
+                              type="datetime-local"
+                              value={eventEndsAt}
+                              onChange={(event) => setEventEndsAt(event.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="eventCodeDraft">Code</Label>
+                          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                            <Input
+                              id="eventCodeDraft"
+                              value={eventCodeDraft}
+                              onChange={(event) => setEventCodeDraft(normalizeAttendanceCode(event.target.value))}
+                              className="font-mono"
+                            />
+                            <Button type="button" variant="outline" onClick={() => setEventCodeDraft(randomShopCode())}>
+                              Generate
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="eventDescription">Notes</Label>
+                          <Textarea
+                            id="eventDescription"
+                            value={eventDescription}
+                            onChange={(event) => setEventDescription(event.target.value)}
+                            placeholder="Optional event notes"
+                          />
+                        </div>
+                        <Button type="submit" disabled={isEventBusy}>
+                          {isEventBusy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                          Create event
+                        </Button>
+                      </form>
+                    </CardContent>
+                  </Card>
+
+                  <div className="space-y-5">
+                    <Card>
+                      <CardHeader>
+                        <CalendarDays className="size-5 text-primary" />
+                        <CardTitle>Events</CardTitle>
+                        <CardDescription>Pick an event to view attendees or regenerate its code.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {attendanceEvents === undefined && (
+                          <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading events...</div>
+                        )}
+                        {attendanceEvents && attendanceEventRows.length === 0 && (
+                          <div className="rounded-md border p-4 text-sm text-muted-foreground">No attendance events yet.</div>
+                        )}
+                        {attendanceEventRows.map((event) => (
+                          <button
+                            key={event._id}
+                            type="button"
+                            onClick={() => setSelectedEventId(event._id)}
+                            className={cn(
+                              "grid w-full gap-2 rounded-md border p-4 text-left transition-colors hover:bg-accent hover:text-accent-foreground sm:grid-cols-[1fr_auto] sm:items-center",
+                              selectedEventId === event._id && "border-primary/30 bg-primary/10",
+                            )}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate font-medium">{event.title}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {event.location || "No location"}
+                                {event.startsAt ? ` - ${formatDateTime(event.startsAt)}` : ""}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                              <Badge variant={event.status === "active" ? "default" : "outline"}>{event.status}</Badge>
+                              <Badge variant="outline">{event.attendanceCount} attending</Badge>
+                            </div>
+                          </button>
+                        ))}
+                      </CardContent>
+                    </Card>
+
+                    {selectedAttendanceEvent && (
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>{selectedAttendanceEvent.title}</CardTitle>
+                          <CardDescription>
+                            {selectedAttendanceEvent.location || "No location"}
+                            {selectedAttendanceEvent.startsAt ? ` - ${formatDateTime(selectedAttendanceEvent.startsAt)}` : ""}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-md border p-4">
+                              <p className="text-sm text-muted-foreground">Attendees</p>
+                              <p className="mt-1 text-2xl font-semibold">{selectedEventRecords.length}</p>
+                            </div>
+                            <div className="rounded-md border p-4">
+                              <p className="text-sm text-muted-foreground">Status</p>
+                              <p className="mt-1 text-2xl font-semibold capitalize">{selectedAttendanceEvent.status}</p>
+                            </div>
+                            <div className="rounded-md border p-4">
+                              <p className="text-sm text-muted-foreground">Code</p>
+                              <p className="mt-1 font-mono text-2xl font-semibold">
+                                {recentEventCodes[selectedAttendanceEvent._id] ?? (selectedAttendanceEvent.hasCode ? "Set" : "None")}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => void handleGenerateEventCode(selectedAttendanceEvent._id)}
+                              disabled={isEventBusy}
+                            >
+                              <TimerReset className="size-4" />
+                              Generate code
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() =>
+                                void handleEventStatus(
+                                  selectedAttendanceEvent,
+                                  selectedAttendanceEvent.status === "active" ? "closed" : "active",
+                                )
+                              }
+                              disabled={isEventBusy}
+                            >
+                              {selectedAttendanceEvent.status === "active" ? "Close event" : "Reopen event"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() =>
+                                downloadCsv("event-attendance.csv", [
+                                  ["Event", "Student", "Checked in", "Group", "Program", "Graduation Year"],
+                                  ...selectedEventRecords.map((record) => [
+                                    record.eventTitle,
+                                    record.studentName,
+                                    formatDateTime(record.checkedInAt),
+                                    record.studentGroup ?? "",
+                                    record.primaryProgram ?? "",
+                                    record.graduationYear ? String(record.graduationYear) : "",
+                                  ]),
+                                ])
+                              }
+                            >
+                              <Download className="size-4" />
+                              Export CSV
+                            </Button>
+                          </div>
+                          <div className="space-y-2">
+                            {selectedEventAttendance === undefined && (
+                              <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading attendees...</div>
+                            )}
+                            {selectedEventAttendance && selectedEventRecords.length === 0 && (
+                              <div className="rounded-md border p-4 text-sm text-muted-foreground">No students have checked in yet.</div>
+                            )}
+                            {selectedEventRecords.map((record) => (
+                              <div key={record._id} className="grid gap-2 rounded-md border p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                                <div className="min-w-0">
+                                  <p className="truncate font-medium">{record.studentName}</p>
+                                  <p className="text-sm text-muted-foreground">{formatDateTime(record.checkedInAt)}</p>
+                                </div>
+                                <Badge variant="outline">{record.studentGroup ?? record.primaryProgram ?? "Student"}</Badge>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => void handleDeleteEventRecord(record._id)}
+                                  disabled={isEventBusy}
+                                >
+                                  <Trash2 className="size-4" />
+                                  Delete
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+                  </div>
+                </div>
+              )}
             </TabsContent>
           )}
 
