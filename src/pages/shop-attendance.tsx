@@ -265,10 +265,6 @@ function ShopSectionNav({
   );
 }
 
-function openNativePicker(input: HTMLInputElement | null) {
-  input?.showPicker?.();
-}
-
 function EventDateTimeField({
   id,
   label,
@@ -280,8 +276,6 @@ function EventDateTimeField({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const dateRef = useRef<HTMLInputElement | null>(null);
-  const timeRef = useRef<HTMLInputElement | null>(null);
   const [datePart = "", timePart = ""] = value.split("T");
 
   function updateDate(nextDate: string) {
@@ -297,45 +291,21 @@ function EventDateTimeField({
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <div className="grid gap-2 sm:grid-cols-[1fr_1fr]">
-        <div className="grid grid-cols-[1fr_auto] gap-2">
-          <Input
-            ref={dateRef}
-            id={`${id}Date`}
-            type="date"
-            value={datePart}
-            onChange={(event) => updateDate(event.target.value)}
-            aria-label={`${label} date`}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => openNativePicker(dateRef.current)}
-            aria-label={`Open ${label.toLowerCase()} calendar`}
-          >
-            <CalendarDays className="size-4" />
-          </Button>
-        </div>
-        <div className="grid grid-cols-[1fr_auto] gap-2">
-          <Input
-            ref={timeRef}
-            id={`${id}Time`}
-            type="time"
-            value={timePart}
-            onChange={(event) => updateTime(event.target.value)}
-            aria-label={`${label} time`}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            onClick={() => openNativePicker(timeRef.current)}
-            aria-label={`Open ${label.toLowerCase()} clock`}
-          >
-            <Clock className="size-4" />
-          </Button>
-        </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Input
+          id={`${id}Date`}
+          type="date"
+          value={datePart}
+          onChange={(event) => updateDate(event.target.value)}
+          aria-label={`${label} date`}
+        />
+        <Input
+          id={`${id}Time`}
+          type="time"
+          value={timePart}
+          onChange={(event) => updateTime(event.target.value)}
+          aria-label={`${label} time`}
+        />
       </div>
     </div>
   );
