@@ -77,7 +77,7 @@ const managementNavItems: NavItem[] = [
   { href: "/management/people", label: "People", icon: Users, adminOnly: true },
   { href: "/management/lms", label: "Learning Admin", icon: BookOpen, adminOnly: true },
   { href: "/management/badges", label: "Badge Admin", icon: Award, badgeManagerOnly: true },
-  { href: "/management/team", label: "Team Info", icon: ShieldCheck, managementOnly: true },
+  { href: "/management/team", label: "Team Progress", icon: ShieldCheck, managementOnly: true },
   { href: "/management/paperwork", label: "Paperwork", icon: FileCheck, managementOnly: true },
   { href: "/management/parts", label: "Parts Admin", icon: Settings, adminOnly: true },
 ];

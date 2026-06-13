@@ -239,6 +239,47 @@ async function deleteQuizAttemptsForUserQuiz(
   return attempts.length;
 }
 
+async function collectPublishedTrackOutlines(ctx: QueryCtx | MutationCtx) {
+  const tracks = await ctx.db.query("trainingTracks").withIndex("by_order").collect();
+
+  return await Promise.all(
+    tracks
+      .filter((track) => track.isPublished)
+      .map(async (track) => {
+        const units = await ctx.db
+          .query("units")
+          .withIndex("by_track_order", (q) => q.eq("trackId", track._id))
+          .collect();
+        const unitsWithLessons = await Promise.all(
+          units.map(async (unit) => {
+            const lessons = await ctx.db
+              .query("lessons")
+              .withIndex("by_unit_order", (q) => q.eq("unitId", unit._id))
+              .collect();
+
+            return { ...unit, lessons };
+          }),
+        );
+
+        return {
+          ...track,
+          units: unitsWithLessons,
+          lessons: unitsWithLessons.flatMap((unit) =>
+            unit.lessons.map((lesson) => ({
+              ...lesson,
+              unitTitle: unit.title,
+              unitRequired: unit.isRequired,
+            })),
+          ),
+        };
+      }),
+  );
+}
+
+function recordKey(userId: Id<"users">, recordId: string) {
+  return `${userId}:${recordId}`;
+}
+
 export const getUserProgressForAdmin = query({
   args: {
     userId: v.id("users"),
@@ -389,6 +430,298 @@ export const getUserProgressForAdmin = query({
       trackProgress,
       quizAttempts: quizAttemptDetails,
       equipmentSignOffs: signOffDetails,
+    };
+  },
+});
+
+export const listTeamLearningDashboard = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireReviewer(ctx);
+
+    const students = await ctx.db
+      .query("profiles")
+      .withIndex("by_role_status", (q) => q.eq("role", "student").eq("status", "active"))
+      .collect();
+    const studentIds = new Set(students.map((student) => student.userId));
+    const tracks = await collectPublishedTrackOutlines(ctx);
+    const lessons = tracks.flatMap((track) => track.lessons);
+    const lessonIds = new Set(lessons.map((lesson) => lesson._id));
+    const lessonQuizzes = (
+      await Promise.all(
+        lessons.map(async (lesson) => {
+          const quiz = await ctx.db
+            .query("quizzes")
+            .withIndex("by_lesson", (q) => q.eq("linkedLessonId", lesson._id))
+            .first();
+
+          if (!quiz) {
+            return null;
+          }
+
+          const questions = await ctx.db
+            .query("questions")
+            .withIndex("by_quiz", (q) => q.eq("quizId", quiz._id))
+            .collect();
+
+          return {
+            lessonId: lesson._id,
+            quizId: quiz._id,
+            questionCount: questions.length,
+          };
+        }),
+      )
+    ).filter((item) => item !== null);
+    const quizByLesson = new Map(lessonQuizzes.map((item) => [item.lessonId, item]));
+    const quizIds = new Set(lessonQuizzes.map((item) => item.quizId));
+    const progress = (await ctx.db.query("lessonProgress").collect()).filter(
+      (item) => studentIds.has(item.userId) && lessonIds.has(item.lessonId),
+    );
+    const completedLessonKeys = new Set(
+      progress
+        .filter((item) => item.status === "completed")
+        .map((item) => recordKey(item.userId, item.lessonId)),
+    );
+    const startedLessonKeys = new Set(
+      progress.map((item) => recordKey(item.userId, item.lessonId)),
+    );
+    const attempts = (await ctx.db.query("quizAttempts").collect()).filter(
+      (attempt) => studentIds.has(attempt.userId) && quizIds.has(attempt.quizId),
+    );
+    const latestAttemptByUserQuiz = new Map<string, (typeof attempts)[number]>();
+
+    for (const attempt of attempts) {
+      const key = recordKey(attempt.userId, attempt.quizId);
+      const existing = latestAttemptByUserQuiz.get(key);
+      const attemptTime = attempt.completedAt ?? attempt.startedAt;
+      const existingTime = existing ? existing.completedAt ?? existing.startedAt : 0;
+
+      if (!existing || attemptTime > existingTime) {
+        latestAttemptByUserQuiz.set(key, attempt);
+      }
+    }
+
+    const submissions = (await ctx.db.query("exerciseSubmissions").collect()).filter(
+      (submission) =>
+        studentIds.has(submission.userId) &&
+        submission.lessonId !== undefined &&
+        lessonIds.has(submission.lessonId),
+    );
+    const latestSubmissionByUserLesson = new Map<string, (typeof submissions)[number]>();
+
+    for (const submission of submissions) {
+      if (!submission.lessonId) {
+        continue;
+      }
+
+      const key = recordKey(submission.userId, submission.lessonId);
+      const existing = latestSubmissionByUserLesson.get(key);
+
+      if (!existing || submission.updatedAt > existing.updatedAt) {
+        latestSubmissionByUserLesson.set(key, submission);
+      }
+    }
+
+    const rows = await Promise.all(
+      students.map(async (student) => {
+        const user = await ctx.db.get(student.userId);
+        const trackProgress = tracks.map((track) => {
+          const requiredLessons = track.lessons.filter(
+            (lesson) => lesson.unitRequired && lesson.required,
+          );
+          const completedRequired = requiredLessons.filter((lesson) =>
+            completedLessonKeys.has(recordKey(student.userId, lesson._id)),
+          );
+          const startedLessons = track.lessons.filter((lesson) => {
+            const key = recordKey(student.userId, lesson._id);
+            const quiz = quizByLesson.get(lesson._id);
+            const latestAttempt = quiz
+              ? latestAttemptByUserQuiz.get(recordKey(student.userId, quiz.quizId))
+              : null;
+            const latestSubmission = latestSubmissionByUserLesson.get(key);
+
+            return startedLessonKeys.has(key) || Boolean(latestAttempt || latestSubmission);
+          });
+          const latestSubmissions = track.lessons
+            .map((lesson) =>
+              latestSubmissionByUserLesson.get(recordKey(student.userId, lesson._id)),
+            )
+            .filter((submission) => submission !== undefined);
+          const pendingReviews = latestSubmissions.filter(
+            (submission) => submission.status === "submitted",
+          ).length;
+          const revisionsNeeded = latestSubmissions.filter(
+            (submission) => submission.status === "needs_revision",
+          ).length;
+          const nextLesson = requiredLessons.find(
+            (lesson) => !completedLessonKeys.has(recordKey(student.userId, lesson._id)),
+          );
+          const percent =
+            requiredLessons.length === 0
+              ? 100
+              : Math.round((completedRequired.length / requiredLessons.length) * 100);
+          const status =
+            requiredLessons.length > 0 && completedRequired.length === requiredLessons.length
+              ? "complete"
+              : revisionsNeeded > 0
+                ? "needs_revision"
+                : pendingReviews > 0
+                  ? "waiting_review"
+                  : startedLessons.length > 0
+                    ? "in_progress"
+                    : "not_started";
+
+          return {
+            trackId: track._id,
+            title: track.title,
+            category: track.category,
+            lessonCount: track.lessons.length,
+            requiredLessonCount: requiredLessons.length,
+            completedRequiredLessonCount: completedRequired.length,
+            missingRequiredLessonCount: Math.max(
+              0,
+              requiredLessons.length - completedRequired.length,
+            ),
+            pendingReviewCount: pendingReviews,
+            needsRevisionCount: revisionsNeeded,
+            percent,
+            status,
+            nextLesson: nextLesson
+              ? {
+                  lessonId: nextLesson._id,
+                  title: nextLesson.title,
+                  unitTitle: nextLesson.unitTitle,
+                  lessonType: nextLesson.lessonType,
+                  hasQuestions: Boolean(quizByLesson.get(nextLesson._id)?.questionCount),
+                }
+              : null,
+          };
+        });
+        const totals = trackProgress.reduce(
+          (summary, track) => ({
+            requiredLessons: summary.requiredLessons + track.requiredLessonCount,
+            completedRequiredLessons:
+              summary.completedRequiredLessons + track.completedRequiredLessonCount,
+            missingRequiredLessons:
+              summary.missingRequiredLessons + track.missingRequiredLessonCount,
+            pendingReviews: summary.pendingReviews + track.pendingReviewCount,
+            revisionsNeeded: summary.revisionsNeeded + track.needsRevisionCount,
+            completeTracks: summary.completeTracks + (track.status === "complete" ? 1 : 0),
+            activeTracks:
+              summary.activeTracks +
+              (track.status === "in_progress" ||
+              track.status === "waiting_review" ||
+              track.status === "needs_revision"
+                ? 1
+                : 0),
+          }),
+          {
+            requiredLessons: 0,
+            completedRequiredLessons: 0,
+            missingRequiredLessons: 0,
+            pendingReviews: 0,
+            revisionsNeeded: 0,
+            completeTracks: 0,
+            activeTracks: 0,
+          },
+        );
+        const priorityTrack =
+          trackProgress.find((track) => track.needsRevisionCount > 0) ??
+          trackProgress.find((track) => track.pendingReviewCount > 0) ??
+          trackProgress.find((track) => track.nextLesson !== null) ??
+          null;
+        const percent =
+          totals.requiredLessons === 0
+            ? 100
+            : Math.round((totals.completedRequiredLessons / totals.requiredLessons) * 100);
+        const status =
+          totals.requiredLessons > 0 && totals.completedRequiredLessons === totals.requiredLessons
+            ? "complete"
+            : totals.revisionsNeeded > 0
+              ? "needs_revision"
+              : totals.pendingReviews > 0
+                ? "waiting_review"
+                : totals.completedRequiredLessons > 0
+                  ? "in_progress"
+                  : "not_started";
+
+        return {
+          userId: student.userId,
+          displayName: student.displayName ?? user?.name ?? user?.email ?? "Team member",
+          email: student.email ?? user?.email,
+          studentGroup: student.studentGroup,
+          graduationYear: student.graduationYear,
+          percent,
+          status,
+          totals,
+          nextAction: priorityTrack
+            ? {
+                trackId: priorityTrack.trackId,
+                trackTitle: priorityTrack.title,
+                status: priorityTrack.status,
+                pendingReviewCount: priorityTrack.pendingReviewCount,
+                needsRevisionCount: priorityTrack.needsRevisionCount,
+                nextLesson: priorityTrack.nextLesson,
+              }
+            : null,
+          tracks: trackProgress,
+        };
+      }),
+    );
+    const summary = rows.reduce(
+      (totals, row) => ({
+        students: totals.students + 1,
+        complete: totals.complete + (row.status === "complete" ? 1 : 0),
+        inProgress:
+          totals.inProgress +
+          (row.status === "in_progress" ||
+          row.status === "waiting_review" ||
+          row.status === "needs_revision"
+            ? 1
+            : 0),
+        notStarted: totals.notStarted + (row.status === "not_started" ? 1 : 0),
+        pendingReviews: totals.pendingReviews + row.totals.pendingReviews,
+        revisionsNeeded: totals.revisionsNeeded + row.totals.revisionsNeeded,
+        missingRequiredLessons:
+          totals.missingRequiredLessons + row.totals.missingRequiredLessons,
+      }),
+      {
+        students: 0,
+        complete: 0,
+        inProgress: 0,
+        notStarted: 0,
+        pendingReviews: 0,
+        revisionsNeeded: 0,
+        missingRequiredLessons: 0,
+      },
+    );
+
+    return {
+      summary,
+      tracks: tracks.map((track) => ({
+        trackId: track._id,
+        title: track.title,
+        category: track.category,
+        lessonCount: track.lessons.length,
+        requiredLessonCount: track.lessons.filter(
+          (lesson) => lesson.unitRequired && lesson.required,
+        ).length,
+      })),
+      students: rows.sort((first, second) => {
+        const statusPriority: Record<string, number> = {
+          needs_revision: 0,
+          waiting_review: 1,
+          in_progress: 2,
+          not_started: 3,
+          complete: 4,
+        };
+
+        return (
+          statusPriority[first.status] - statusPriority[second.status] ||
+          first.percent - second.percent ||
+          first.displayName.localeCompare(second.displayName)
+        );
+      }),
     };
   },
 });

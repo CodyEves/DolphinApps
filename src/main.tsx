@@ -112,6 +112,11 @@ const TrainingTrackPage = lazy(() =>
     default: module.TrainingTrackPage,
   })),
 );
+const TeamManagementPage = lazy(() =>
+  import("@/pages/team-management").then((module) => ({
+    default: module.TeamManagementPage,
+  })),
+);
 
 const router = createBrowserRouter([
   {
@@ -161,7 +166,7 @@ const router = createBrowserRouter([
       { path: "management/people", element: <AdminPeoplePage /> },
       { path: "management/parts", element: <PartsAdminPage /> },
       { path: "management/reviews", element: <ReviewsPage /> },
-      { path: "management/team", element: <ManagementPlaceholderPage /> },
+      { path: "management/team", element: <TeamManagementPage /> },
       { path: "admin", element: <AdminPage /> },
       { path: "admin/badges", element: <AdminBadgesPage /> },
       { path: "admin/lms", element: <AdminLmsPage /> },

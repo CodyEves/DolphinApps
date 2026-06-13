@@ -1,6 +1,7 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
+  ArrowRight,
   CheckCircle2,
   Clock,
   Layers3,
@@ -56,6 +57,22 @@ export function TrainingPage() {
         track.lessons.filter((lesson) => completedLessonIds.has(lesson._id)).length,
       0,
     ) ?? 0;
+  const nextRequiredLesson = visibleTracks
+    ?.flatMap((track) =>
+      track.units.flatMap((unit) =>
+        unit.lessons.map((lesson) => ({
+          track,
+          unit,
+          lesson,
+        })),
+      ),
+    )
+    .find(
+      (item) =>
+        item.unit.isRequired &&
+        item.lesson.required &&
+        !completedLessonIds.has(item.lesson._id),
+    );
 
   async function handleDeleteTrack() {
     if (!trackPendingDelete) {
@@ -135,6 +152,38 @@ export function TrainingPage() {
               </div>
             </div>
           </div>
+
+          {nextRequiredLesson && (
+            <div className="rounded-md border bg-card px-5 py-4 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
+                    <ArrowRight className="size-5" />
+                  </span>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="secondary">Next required</Badge>
+                      <Badge variant="outline">{nextRequiredLesson.track.title}</Badge>
+                    </div>
+                    <h2 className="font-semibold">{nextRequiredLesson.lesson.title}</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {nextRequiredLesson.unit.title}
+                      {nextRequiredLesson.lesson.lessonType === "video_assignment" ||
+                      nextRequiredLesson.lesson.lessonType === "exam"
+                        ? " / assignment due"
+                        : " / lesson to complete"}
+                    </p>
+                  </div>
+                </div>
+                <Button asChild>
+                  <Link to={`/training/lessons/${nextRequiredLesson.lesson._id}`}>
+                    <ArrowRight className="size-4" />
+                    Open next step
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {visibleTracks === undefined && (

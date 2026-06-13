@@ -145,14 +145,14 @@ export function AdminPage() {
               <Card>
                 <CardHeader>
                   <ShieldCheck className="size-5 text-primary" />
-                  <CardTitle>Team information</CardTitle>
+                  <CardTitle>Team progress</CardTitle>
                   <CardDescription>
-                    Manage teams, programs, seasons, graduation groups, and roster structure.
+                    Track student learning status, missing assignments, and next actions.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Button asChild variant="outline">
-                    <Link to="/management/team">Open team info</Link>
+                    <Link to="/management/team">Open team progress</Link>
                   </Button>
                 </CardContent>
               </Card>
