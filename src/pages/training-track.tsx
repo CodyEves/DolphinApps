@@ -15,6 +15,7 @@ import { Link, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { PageHeading } from "@/components/page-heading";
+import { MissionGraphic } from "@/components/mission-graphic";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -184,6 +185,7 @@ export function TrainingTrackPage() {
       <div className="space-y-5">
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="rounded-md border bg-card p-5 shadow-sm">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-stretch">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{visibleTrack.level}</Badge>
@@ -218,6 +220,8 @@ export function TrainingTrackPage() {
                   </Link>
                 </Button>
               </div>
+            </div>
+            <MissionGraphic variant={nextLesson ? "track" : "celebration"} />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2 text-sm lg:grid-cols-1">

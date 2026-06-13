@@ -16,6 +16,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
+import { MissionGraphic } from "@/components/mission-graphic";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -192,7 +193,7 @@ export function TeamManagementPage() {
         <div className="space-y-5">
           <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="rounded-md border bg-card p-5 shadow-sm">
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-stretch">
                 <div className="space-y-3">
                   <Badge variant="secondary">
                     <ShieldCheck className="size-3" />
@@ -209,13 +210,14 @@ export function TeamManagementPage() {
                       students toward their next required lesson.
                     </p>
                   </div>
+                  <Button asChild className="w-full sm:w-auto">
+                    <Link to="/management/reviews">
+                      <ClipboardCheck className="size-4" />
+                      Open review queue
+                    </Link>
+                  </Button>
                 </div>
-                <Button asChild className="w-full lg:w-auto">
-                  <Link to="/management/reviews">
-                    <ClipboardCheck className="size-4" />
-                    Open review queue
-                  </Link>
-                </Button>
+                <MissionGraphic variant="team" />
               </div>
             </div>
 

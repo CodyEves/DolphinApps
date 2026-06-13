@@ -11,6 +11,7 @@ import {
 import { Link } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
+import { MissionGraphic } from "@/components/mission-graphic";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -169,7 +170,7 @@ export function DashboardPage() {
         <div className="space-y-5">
         <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
           <div className="rounded-md border bg-card p-5 shadow-sm">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-stretch">
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="secondary">
@@ -203,19 +204,20 @@ export function DashboardPage() {
                     <Progress value={nextTrack.percent} />
                   </div>
                 )}
+                <Button asChild size="lg" className="w-full sm:w-auto">
+                  <Link
+                    to={
+                      nextLearningItem
+                        ? `/training/lessons/${nextLearningItem.lesson._id}`
+                        : "/training"
+                    }
+                  >
+                    <ArrowRight className="size-4" />
+                    {nextLearningItem ? "Open next lesson" : "Open learning"}
+                  </Link>
+                </Button>
               </div>
-              <Button asChild size="lg" className="w-full lg:w-auto">
-                <Link
-                  to={
-                    nextLearningItem
-                      ? `/training/lessons/${nextLearningItem.lesson._id}`
-                      : "/training"
-                  }
-                >
-                  <ArrowRight className="size-4" />
-                  {nextLearningItem ? "Open next lesson" : "Open learning"}
-                </Link>
-              </Button>
+              <MissionGraphic variant="learning" />
             </div>
           </div>
 

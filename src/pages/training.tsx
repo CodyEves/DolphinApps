@@ -15,6 +15,7 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 
 import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
+import { MissionGraphic } from "@/components/mission-graphic";
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -132,7 +133,8 @@ export function TrainingPage() {
         <div className="space-y-5">
           <section className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_360px]">
             <div className="rounded-md border bg-card p-5 shadow-sm">
-              <div className="flex h-full flex-col justify-between gap-6">
+              <div className="grid h-full gap-5 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-stretch">
+                <div className="flex flex-col justify-between gap-6">
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary">Next required</Badge>
@@ -181,6 +183,8 @@ export function TrainingPage() {
                     </Link>
                   </Button>
                 </div>
+                </div>
+                <MissionGraphic variant="learning" />
               </div>
             </div>
 
