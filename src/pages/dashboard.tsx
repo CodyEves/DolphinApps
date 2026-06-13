@@ -5,7 +5,7 @@ import {
   Award,
   BookOpen,
   ClipboardCheck,
-  ShieldCheck,
+  Target,
   Wrench,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -96,6 +96,17 @@ export function DashboardPage() {
   const nextTrack =
     trackProgress.find((track) => track.isStarted && !track.isComplete) ??
     trackProgress.find((track) => !track.isComplete && track.totalLessons > 0);
+  const nextLearningItem = visibleTracks
+    ?.flatMap((track) =>
+      track.units.flatMap((unit) =>
+        unit.lessons.map((lesson) => ({
+          track,
+          unit,
+          lesson,
+        })),
+      ),
+    )
+    .find((item) => !completedLessonIds.has(item.lesson._id));
   const completedTrackCount = trackProgress.filter((track) => track.isComplete).length;
   const totalTrackCount = trackProgress.filter((track) => track.totalLessons > 0).length;
   const earnedVisibleBadgeCount =
@@ -133,8 +144,8 @@ export function DashboardPage() {
     <div className="mx-auto max-w-6xl">
       <PageHeading
         eyebrow="Dashboard"
-        title="Your team workspace"
-        description="Continue learning, clear equipment approvals, and keep an eye on recognition progress."
+        title="Command center"
+        description="Start with the next action, then check readiness, reviews, and recognition."
         actions={<Badge variant="outline">Current role: {role}</Badge>}
       />
 
@@ -155,19 +166,117 @@ export function DashboardPage() {
       </Unauthenticated>
 
       <Authenticated>
-        <div className="space-y-4">
+        <div className="space-y-5">
+        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
+          <div className="rounded-md border bg-card p-5 shadow-sm">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">
+                    <Target className="size-3" />
+                    Start here
+                  </Badge>
+                  {nextLearningItem && (
+                    <Badge variant="outline">{nextLearningItem.track.title}</Badge>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-semibold sm:text-3xl">
+                    {nextLearningItem
+                      ? nextLearningItem.lesson.title
+                      : visibleTracks === undefined
+                        ? "Loading your next action"
+                        : "All assigned learning is complete"}
+                  </h2>
+                  <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                    {nextLearningItem
+                      ? `${nextLearningItem.unit.title} is the next lesson in your learning plan. Open it, finish the work, then return here for the next step.`
+                      : "Use the readiness cards to review equipment approvals, badges, and any available tracks."}
+                  </p>
+                </div>
+                {nextTrack && (
+                  <div className="max-w-xl space-y-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{nextTrack.title}</span>
+                      <span>{nextTrack.percent}% complete</span>
+                    </div>
+                    <Progress value={nextTrack.percent} />
+                  </div>
+                )}
+              </div>
+              <Button asChild size="lg" className="w-full lg:w-auto">
+                <Link
+                  to={
+                    nextLearningItem
+                      ? `/training/lessons/${nextLearningItem.lesson._id}`
+                      : "/training"
+                  }
+                >
+                  <ArrowRight className="size-4" />
+                  {nextLearningItem ? "Open next lesson" : "Open learning"}
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+            <ProgressLink
+              to="/training"
+              label="Learning"
+              badge={
+                <Badge variant="secondary">
+                  <BookOpen className="size-3" />
+                  {completedTrackCount}/{totalTrackCount}
+                </Badge>
+              }
+            >
+              <p className="mt-2 text-xs text-muted-foreground">Completed tracks</p>
+            </ProgressLink>
+            <ProgressLink
+              to="/equipment"
+              label="Equipment"
+              badge={
+                <Badge
+                  variant={
+                    equipmentApprovalSummary && equipmentApprovalSummary.pending > 0
+                      ? "outline"
+                      : "secondary"
+                  }
+                >
+                  <Wrench className="size-3" />
+                  {equipmentApprovalLabel}
+                </Badge>
+              }
+            >
+              <p className="mt-2 text-xs text-muted-foreground">Hands-on approvals</p>
+            </ProgressLink>
+            <ProgressLink
+              to="/badges"
+              label="Badges"
+              badge={
+                <Badge>
+                  <Award className="size-3" />
+                  {isLoadingBadges ? "..." : earnedVisibleBadgeCount}
+                </Badge>
+              }
+            >
+              <p className="mt-2 text-xs text-muted-foreground">Earned recognition</p>
+            </ProgressLink>
+          </div>
+        </section>
+
         {canReview && (
-          <Card>
-            <CardHeader>
+          <Card className="py-0">
+            <CardHeader className="border-b bg-muted/25 px-5 py-4">
               <CardTitle className="flex items-center gap-2">
                 <ClipboardCheck className="size-5 text-primary" />
-                Needs review
+                Mentor review queue
               </CardTitle>
               <CardDescription>
                 Student submissions and hands-on demonstrations waiting for attention.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-3">
+            <CardContent className="grid gap-3 px-5 py-5 sm:grid-cols-3">
               <ProgressLink
                 to="/reviews"
                 label="Open reviews"
@@ -198,91 +307,6 @@ export function DashboardPage() {
             </CardContent>
           </Card>
         )}
-
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <Card className="overflow-hidden py-0">
-            <CardHeader className="border-b bg-muted/25 px-5 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="size-5 text-primary" />
-                    Next learning step
-                  </CardTitle>
-                  <CardDescription>
-                    The fastest path back into your training.
-                  </CardDescription>
-                </div>
-                {nextTrack && <Badge variant="outline">{nextTrack.percent}%</Badge>}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4 px-5 py-5">
-              {visibleTracks === undefined || progress === undefined ? (
-                <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                  Loading your next step.
-                </div>
-              ) : nextTrack ? (
-                <ProgressLink
-                  to={`/training/tracks/${nextTrack.id}`}
-                  label={nextTrack.title}
-                  badge={<ArrowRight className="size-4 text-primary" />}
-                >
-                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      {nextTrack.completedLessons} of {nextTrack.totalLessons} lessons complete
-                    </span>
-                    <span>{nextTrack.percent}%</span>
-                  </div>
-                  <Progress value={nextTrack.percent} className="mt-2" />
-                </ProgressLink>
-              ) : (
-                <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
-                  All available learning tracks are complete.
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="py-0">
-            <CardHeader className="border-b bg-muted/25 px-5 py-4">
-              <CardTitle className="flex items-center gap-2">
-                <ShieldCheck className="size-5 text-primary" />
-                Readiness
-              </CardTitle>
-              <CardDescription>Training, approvals, and badges.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 px-5 py-5 text-sm">
-              <ProgressLink
-                to="/training"
-                label="Learning tracks"
-                badge={
-                  <Badge variant="secondary">
-                    {completedTrackCount} of {totalTrackCount}
-                  </Badge>
-                }
-              />
-              <ProgressLink
-                to="/equipment"
-                label="Equipment approvals"
-                badge={
-                  <Badge
-                    variant={
-                      equipmentApprovalSummary && equipmentApprovalSummary.pending > 0
-                        ? "outline"
-                        : "secondary"
-                    }
-                  >
-                    {equipmentApprovalLabel}
-                  </Badge>
-                }
-              />
-              <ProgressLink
-                to="/badges"
-                label="Badges earned"
-                badge={<Badge>{isLoadingBadges ? "..." : earnedVisibleBadgeCount}</Badge>}
-              />
-            </CardContent>
-          </Card>
-        </section>
 
         <Card className="py-0">
           <CardHeader>

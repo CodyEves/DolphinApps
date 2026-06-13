@@ -2,9 +2,10 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import {
   ArrowRight,
+  AlertTriangle,
+  BookOpen,
   CheckCircle2,
   ClipboardCheck,
-  GraduationCap,
   LockKeyhole,
   Search,
   ShieldCheck,
@@ -139,6 +140,15 @@ export function TeamManagementPage() {
       }) ?? []
     );
   }, [dashboard?.students, searchTerm, statusFilter, trackFilter]);
+  const revisionStudents =
+    dashboard?.students.filter((student) => student.status === "needs_revision").slice(0, 4) ??
+    [];
+  const reviewStudents =
+    dashboard?.students.filter((student) => student.status === "waiting_review").slice(0, 4) ??
+    [];
+  const notStartedStudents =
+    dashboard?.students.filter((student) => student.status === "not_started").slice(0, 4) ??
+    [];
 
   if (isLoading) {
     return (
@@ -180,62 +190,171 @@ export function TeamManagementPage() {
         </Card>
       ) : (
         <div className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Users className="size-4" />
-                Students
+          <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="rounded-md border bg-card p-5 shadow-sm">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div className="space-y-3">
+                  <Badge variant="secondary">
+                    <ShieldCheck className="size-3" />
+                    Mentor command center
+                  </Badge>
+                  <div>
+                    <h2 className="text-2xl font-semibold sm:text-3xl">
+                      {dashboard?.summary.pendingReviews || dashboard?.summary.revisionsNeeded
+                        ? "Students need attention"
+                        : "Team learning is on track"}
+                    </h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                      Start with revisions and review items, then use the roster to coach
+                      students toward their next required lesson.
+                    </p>
+                  </div>
+                </div>
+                <Button asChild className="w-full lg:w-auto">
+                  <Link to="/management/reviews">
+                    <ClipboardCheck className="size-4" />
+                    Open review queue
+                  </Link>
+                </Button>
               </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {dashboard?.summary.students ?? "..."}
-              </p>
             </div>
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <UserRoundCheck className="size-4" />
-                Complete
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="size-4" />
+                  Students
+                </div>
+                <p className="mt-1 text-2xl font-semibold">
+                  {dashboard?.summary.students ?? "..."}
+                </p>
               </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {dashboard?.summary.complete ?? "..."}
-              </p>
-            </div>
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <GraduationCap className="size-4" />
-                Active
+              <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <UserRoundCheck className="size-4" />
+                  Complete
+                </div>
+                <p className="mt-1 text-2xl font-semibold">
+                  {dashboard?.summary.complete ?? "..."}
+                </p>
               </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {dashboard?.summary.inProgress ?? "..."}
-              </p>
-            </div>
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <ShieldCheck className="size-4" />
-                Not started
+              <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <ClipboardCheck className="size-4" />
+                  Reviews
+                </div>
+                <p className="mt-1 text-2xl font-semibold">
+                  {dashboard?.summary.pendingReviews ?? "..."}
+                </p>
               </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {dashboard?.summary.notStarted ?? "..."}
-              </p>
-            </div>
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <ClipboardCheck className="size-4" />
-                Reviews
+              <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <ArrowRight className="size-4" />
+                  Missing
+                </div>
+                <p className="mt-1 text-2xl font-semibold">
+                  {dashboard?.summary.missingRequiredLessons ?? "..."}
+                </p>
               </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {dashboard?.summary.pendingReviews ?? "..."}
-              </p>
             </div>
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <ArrowRight className="size-4" />
-                Missing
-              </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {dashboard?.summary.missingRequiredLessons ?? "..."}
-              </p>
-            </div>
-          </div>
+          </section>
+
+          <section className="grid gap-4 xl:grid-cols-3">
+            <Card className="py-0">
+              <CardHeader className="border-b bg-muted/25 px-5 py-4">
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="size-5 text-primary" />
+                  Needs revision
+                </CardTitle>
+                <CardDescription>Students with returned work.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 px-5 py-5">
+                {revisionStudents.length === 0 && (
+                  <div className="rounded-md border border-dashed bg-muted/20 p-3 text-sm text-muted-foreground">
+                    No revisions waiting.
+                  </div>
+                )}
+                {revisionStudents.map((student) => (
+                  <Link
+                    key={student.userId}
+                    to={
+                      student.nextAction?.nextLesson
+                        ? `/training/lessons/${student.nextAction.nextLesson.lessonId}`
+                        : "/management/team"
+                    }
+                    className="block rounded-md border p-3 text-sm transition-colors hover:bg-accent"
+                  >
+                    <p className="font-medium">{student.displayName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {nextActionText(student.nextAction)}
+                    </p>
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="py-0">
+              <CardHeader className="border-b bg-muted/25 px-5 py-4">
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardCheck className="size-5 text-primary" />
+                  Waiting review
+                </CardTitle>
+                <CardDescription>Work mentors can unblock.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 px-5 py-5">
+                {reviewStudents.length === 0 && (
+                  <div className="rounded-md border border-dashed bg-muted/20 p-3 text-sm text-muted-foreground">
+                    Review queue is clear.
+                  </div>
+                )}
+                {reviewStudents.map((student) => (
+                  <Link
+                    key={student.userId}
+                    to="/management/reviews"
+                    className="block rounded-md border p-3 text-sm transition-colors hover:bg-accent"
+                  >
+                    <p className="font-medium">{student.displayName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {student.nextAction?.pendingReviewCount ?? 0} item(s) ready to review
+                    </p>
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+
+            <Card className="py-0">
+              <CardHeader className="border-b bg-muted/25 px-5 py-4">
+                <CardTitle className="flex items-center gap-2">
+                  <BookOpen className="size-5 text-primary" />
+                  Not started
+                </CardTitle>
+                <CardDescription>Students who need a first step.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 px-5 py-5">
+                {notStartedStudents.length === 0 && (
+                  <div className="rounded-md border border-dashed bg-muted/20 p-3 text-sm text-muted-foreground">
+                    Everyone has started assigned learning.
+                  </div>
+                )}
+                {notStartedStudents.map((student) => (
+                  <Link
+                    key={student.userId}
+                    to={
+                      student.nextAction?.nextLesson
+                        ? `/training/lessons/${student.nextAction.nextLesson.lessonId}`
+                        : "/training"
+                    }
+                    className="block rounded-md border p-3 text-sm transition-colors hover:bg-accent"
+                  >
+                    <p className="font-medium">{student.displayName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {student.nextAction?.trackTitle ?? "Open learning plan"}
+                    </p>
+                  </Link>
+                ))}
+              </CardContent>
+            </Card>
+          </section>
 
           <Card className="overflow-hidden py-0">
             <CardHeader className="border-b bg-muted/25 px-5 py-4">

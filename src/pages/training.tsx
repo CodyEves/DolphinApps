@@ -57,6 +57,10 @@ export function TrainingPage() {
         track.lessons.filter((lesson) => completedLessonIds.has(lesson._id)).length,
       0,
     ) ?? 0;
+  const overallProgressPercent =
+    totalVisibleLessons === 0
+      ? 0
+      : Math.round((completedVisibleLessons / totalVisibleLessons) * 100);
   const nextRequiredLesson = visibleTracks
     ?.flatMap((track) =>
       track.units.flatMap((unit) =>
@@ -96,8 +100,8 @@ export function TrainingPage() {
     <div className="mx-auto max-w-6xl">
       <PageHeading
         eyebrow={activeProgramMeta.trainingTitle}
-        title="Learning tracks"
-        description={activeProgramMeta.trainingDescription}
+        title="Learning plan"
+        description="Follow the next required step, then use tracks to understand the full path."
         actions={
           <Authenticated>
             {isAdmin && (
@@ -126,66 +130,88 @@ export function TrainingPage() {
 
       <Authenticated>
         <div className="space-y-5">
-          <div className="rounded-md border bg-card px-5 py-4 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h2 className="font-semibold">Course dashboard</h2>
-                <p className="text-sm text-muted-foreground">
-                  Pick up where you left off or open a track to see the next lesson.
-                </p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <div className="rounded-md border bg-background px-3 py-2 text-sm">
-                  <div className="font-semibold">{visibleTracks?.length ?? 0}</div>
-                  <div className="text-xs text-muted-foreground">Tracks</div>
-                </div>
-                <div className="rounded-md border bg-background px-3 py-2 text-sm">
-                  <div className="font-semibold">{totalVisibleLessons}</div>
-                  <div className="text-xs text-muted-foreground">Lessons</div>
-                </div>
-                <div className="rounded-md border bg-background px-3 py-2 text-sm">
-                  <div className="font-semibold">
-                    {completedVisibleLessons}/{totalVisibleLessons}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Complete</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {nextRequiredLesson && (
-            <div className="rounded-md border bg-card px-5 py-4 shadow-sm">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="flex items-start gap-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-                    <ArrowRight className="size-5" />
-                  </span>
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary">Next required</Badge>
+          <section className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_360px]">
+            <div className="rounded-md border bg-card p-5 shadow-sm">
+              <div className="flex h-full flex-col justify-between gap-6">
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">Next required</Badge>
+                    {nextRequiredLesson && (
                       <Badge variant="outline">{nextRequiredLesson.track.title}</Badge>
-                    </div>
-                    <h2 className="font-semibold">{nextRequiredLesson.lesson.title}</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {nextRequiredLesson.unit.title}
-                      {nextRequiredLesson.lesson.lessonType === "video_assignment" ||
-                      nextRequiredLesson.lesson.lessonType === "exam"
-                        ? " / assignment due"
-                        : " / lesson to complete"}
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <h2 className="text-2xl font-semibold sm:text-3xl">
+                      {nextRequiredLesson
+                        ? nextRequiredLesson.lesson.title
+                        : visibleTracks === undefined
+                          ? "Loading your plan"
+                          : "Required learning is complete"}
+                    </h2>
+                    <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                      {nextRequiredLesson
+                        ? `${nextRequiredLesson.unit.title} / ${
+                            nextRequiredLesson.lesson.lessonType === "video_assignment" ||
+                            nextRequiredLesson.lesson.lessonType === "exam"
+                              ? "assignment due"
+                              : "lesson to complete"
+                          }`
+                        : "Use the track list below to review completed work or open optional lessons."}
                     </p>
                   </div>
                 </div>
-                <Button asChild>
-                  <Link to={`/training/lessons/${nextRequiredLesson.lesson._id}`}>
-                    <ArrowRight className="size-4" />
-                    Open next step
-                  </Link>
-                </Button>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Overall learning progress</span>
+                      <span>{overallProgressPercent}%</span>
+                    </div>
+                    <Progress value={overallProgressPercent} />
+                  </div>
+                  <Button asChild className="w-full sm:w-auto">
+                    <Link
+                      to={
+                        nextRequiredLesson
+                          ? `/training/lessons/${nextRequiredLesson.lesson._id}`
+                          : "/dashboard"
+                      }
+                    >
+                      <ArrowRight className="size-4" />
+                      {nextRequiredLesson ? "Start next step" : "Back to dashboard"}
+                    </Link>
+                  </Button>
+                </div>
               </div>
             </div>
-          )}
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+              <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+                <div className="font-semibold">{visibleTracks?.length ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Tracks available</div>
+              </div>
+              <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+                <div className="font-semibold">{totalVisibleLessons}</div>
+                <div className="text-xs text-muted-foreground">Lessons assigned</div>
+              </div>
+              <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+                <div className="font-semibold">
+                  {completedVisibleLessons}/{totalVisibleLessons}
+                </div>
+                <div className="text-xs text-muted-foreground">Lessons complete</div>
+              </div>
+            </div>
+          </section>
+
+          <div>
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">Track roadmap</h2>
+                <p className="text-sm text-muted-foreground">
+                  Open a track to see units, lessons, and completion actions.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {visibleTracks === undefined && (
               <div className="rounded-md border p-5 text-sm text-muted-foreground">
                 Loading tracks...
@@ -222,14 +248,14 @@ export function TrainingPage() {
                         <Layers3 className="size-5" />
                       </span>
                       <div className="flex flex-wrap justify-end gap-2">
-                      {!track.isPublished && <Badge variant="secondary">Draft</Badge>}
-                      <Badge variant="outline">{track.level}</Badge>
-                      {isComplete && (
-                        <Badge>
-                          <CheckCircle2 className="size-3" />
-                          Complete
-                        </Badge>
-                      )}
+                        {!track.isPublished && <Badge variant="secondary">Draft</Badge>}
+                        <Badge variant="outline">{track.level}</Badge>
+                        {isComplete && (
+                          <Badge>
+                            <CheckCircle2 className="size-3" />
+                            Complete
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -286,6 +312,7 @@ export function TrainingPage() {
                 </article>
               );
             })}
+            </div>
           </div>
         </div>
       </Authenticated>

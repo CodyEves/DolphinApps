@@ -83,6 +83,16 @@ export function TrainingTrackPage() {
   const estimatedMinutes =
     visibleTrack?.lessons.reduce((sum, lesson) => sum + lesson.estimatedMinutes, 0) ??
     0;
+  const nextLesson = visibleTrack?.units
+    .flatMap((unit) =>
+      unit.lessons.map((lesson) => ({
+        unit,
+        lesson,
+      })),
+    )
+    .find((item) => item.lesson.required && !completedLessonIds.has(item.lesson._id));
+  const requiredLessons =
+    visibleTrack?.lessons.filter((lesson) => lesson.required).length ?? 0;
 
   async function handleCompleteLesson(lessonId: string) {
     try {
@@ -172,38 +182,59 @@ export function TrainingTrackPage() {
       />
 
       <div className="space-y-5">
-        <div className="rounded-md border bg-card px-5 py-4 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="rounded-md border bg-card p-5 shadow-sm">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{visibleTrack.level}</Badge>
                 {!visibleTrack.isPublished && <Badge variant="secondary">Draft</Badge>}
+                {requiredLessons > 0 && <Badge variant="secondary">{requiredLessons} required</Badge>}
               </div>
-              <h2 className="font-semibold">Track progress</h2>
-              <div className="max-w-xl space-y-2">
+              <h2 className="text-2xl font-semibold">
+                {nextLesson ? `Continue: ${nextLesson.lesson.title}` : "Track complete"}
+              </h2>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                {nextLesson
+                  ? `${nextLesson.unit.title} is the next required item in this track.`
+                  : "Every lesson in this track has been completed."}
+              </p>
+              <div className="max-w-2xl space-y-2 pt-2">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{completedLessons} of {totalLessons} lessons complete</span>
                   <span>{progressPercent}%</span>
                 </div>
                 <Progress value={progressPercent} />
               </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 text-sm">
-              <div className="rounded-md border bg-background px-3 py-2">
-                <div className="font-semibold">{visibleTrack.units.length}</div>
-                <div className="text-xs text-muted-foreground">Units</div>
-              </div>
-              <div className="rounded-md border bg-background px-3 py-2">
-                <div className="font-semibold">{totalLessons}</div>
-                <div className="text-xs text-muted-foreground">Lessons</div>
-              </div>
-              <div className="rounded-md border bg-background px-3 py-2">
-                <div className="font-semibold">{estimatedMinutes}</div>
-                <div className="text-xs text-muted-foreground">Minutes</div>
+              <div className="pt-3">
+                <Button asChild className="w-full sm:w-auto">
+                  <Link
+                    to={
+                      nextLesson
+                        ? `/training/lessons/${nextLesson.lesson._id}`
+                        : "/training"
+                    }
+                  >
+                    {nextLesson ? "Open next lesson" : "Back to learning"}
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
-        </div>
+          <div className="grid grid-cols-3 gap-2 text-sm lg:grid-cols-1">
+            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+              <div className="font-semibold">{visibleTrack.units.length}</div>
+              <div className="text-xs text-muted-foreground">Units</div>
+            </div>
+            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+              <div className="font-semibold">{totalLessons}</div>
+              <div className="text-xs text-muted-foreground">Lessons</div>
+            </div>
+            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+              <div className="font-semibold">{estimatedMinutes}</div>
+              <div className="text-xs text-muted-foreground">Minutes</div>
+            </div>
+          </div>
+        </section>
 
         {visibleTrack.units.length === 0 && (
           <Card className="border-dashed">
@@ -217,11 +248,23 @@ export function TrainingTrackPage() {
           </Card>
         )}
 
+        <section className="space-y-4">
+          <div>
+            <h2 className="font-semibold">Unit roadmap</h2>
+            <p className="text-sm text-muted-foreground">
+              Work through required lessons in order. Assignments and exams complete inside the lesson.
+            </p>
+          </div>
+
         {visibleTrack.units.map((unit, unitIndex) => (
           <Card key={unit._id} className="overflow-hidden py-0">
             <CardHeader className="border-b bg-muted/25 px-5 py-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+                    {unitIndex + 1}
+                  </span>
+                  <div>
                   <div className="mb-2 flex flex-wrap items-center gap-2">
                     <Badge variant="outline">Unit {unitIndex + 1}</Badge>
                     {unit.isRequired && <Badge variant="secondary">Required</Badge>}
@@ -230,6 +273,7 @@ export function TrainingTrackPage() {
                   {unit.description && (
                     <CardDescription>{unit.description}</CardDescription>
                   )}
+                  </div>
                 </div>
                 <Badge variant="outline">{unit.lessons.length} lessons</Badge>
               </div>
@@ -252,8 +296,12 @@ export function TrainingTrackPage() {
                         className="min-w-0 flex-1 rounded-md outline-none transition-colors hover:text-primary focus-visible:ring-ring/50 focus-visible:ring-[3px]"
                       >
                         <div className="flex items-start gap-3">
-                          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-                            <LessonTypeIcon type={lesson.lessonType} />
+                          <span className="relative flex size-10 shrink-0 items-center justify-center rounded-full border bg-card text-secondary-foreground">
+                            {isComplete ? (
+                              <CheckCircle2 className="size-5 text-primary" />
+                            ) : (
+                              <LessonTypeIcon type={lesson.lessonType} />
+                            )}
                           </span>
                           <div className="min-w-0 space-y-2">
                             <div className="flex flex-wrap items-center gap-2">
@@ -313,6 +361,7 @@ export function TrainingTrackPage() {
             </CardContent>
           </Card>
         ))}
+        </section>
       </div>
     </div>
   );
