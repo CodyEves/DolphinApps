@@ -36,6 +36,9 @@ export function BadgesPage() {
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const canManageBadgeRecords = canManageBadges(effectiveRole);
   const earnedAwards = new Map(awards?.map((award) => [award.badgeId, award]));
+  const activeBadgeCount = badges?.filter((badge) => badge?.isActive).length ?? 0;
+  const earnedBadgeCount =
+    badges?.filter((badge) => badge && earnedAwards.has(badge._id)).length ?? 0;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -95,7 +98,38 @@ export function BadgesPage() {
       </Unauthenticated>
 
       <Authenticated>
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Award className="size-4" />
+                Available
+              </div>
+              <p className="mt-1 text-2xl font-semibold">
+                {badges === undefined ? "..." : activeBadgeCount}
+              </p>
+            </div>
+            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="size-4" />
+                Earned
+              </div>
+              <p className="mt-1 text-2xl font-semibold">
+                {badges === undefined || awards === undefined ? "..." : earnedBadgeCount}
+              </p>
+            </div>
+            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users className="size-4" />
+                Managed
+              </div>
+              <p className="mt-1 text-2xl font-semibold">
+                {canManageBadgeRecords ? "On" : "Off"}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {badges === undefined && (
             <Card className="md:col-span-2 xl:col-span-3">
               <CardHeader>
@@ -170,6 +204,7 @@ export function BadgesPage() {
               </Card>
             );
           })}
+          </div>
         </div>
       </Authenticated>
     </div>

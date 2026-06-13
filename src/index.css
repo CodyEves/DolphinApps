@@ -34,53 +34,53 @@
 
 :root {
   --radius: 0.5rem;
-  --brand-navy: #062b49;
-  --brand-blue: #0693e3;
-  --brand-aqua: #00c2de;
-  --brand-orange: #ff6900;
-  --background: #f5fbff;
-  --foreground: #082033;
+  --brand-navy: #0f2742;
+  --brand-blue: #1769aa;
+  --brand-aqua: #18a9c7;
+  --brand-orange: #d97706;
+  --background: #f7f9fc;
+  --foreground: #111827;
   --card: #ffffff;
-  --card-foreground: #082033;
+  --card-foreground: #111827;
   --popover: #ffffff;
-  --popover-foreground: #082033;
-  --primary: #0676b8;
+  --popover-foreground: #111827;
+  --primary: #155e91;
   --primary-foreground: #ffffff;
-  --secondary: #e3f6fc;
-  --secondary-foreground: #062b49;
-  --muted: #edf7fb;
-  --muted-foreground: #4b6577;
-  --accent: #d7f3fb;
-  --accent-foreground: #062b49;
-  --destructive: #c62828;
-  --border: #cbe5ef;
-  --input: #bedce8;
-  --ring: #00a9d6;
+  --secondary: #eaf1f7;
+  --secondary-foreground: #17324d;
+  --muted: #eef2f6;
+  --muted-foreground: #5d6b7c;
+  --accent: #e8f5f8;
+  --accent-foreground: #102a43;
+  --destructive: #b42318;
+  --border: #d8e1ea;
+  --input: #cbd7e3;
+  --ring: #2d8bb8;
 }
 
 .dark {
-  --brand-navy: #041827;
-  --brand-blue: #38bdf8;
-  --brand-aqua: #22d3ee;
-  --brand-orange: #ff8a3d;
-  --background: #041827;
-  --foreground: #edfaff;
-  --card: #08233a;
-  --card-foreground: #edfaff;
-  --popover: #092a45;
-  --popover-foreground: #edfaff;
-  --primary: #38bdf8;
-  --primary-foreground: #03121f;
-  --secondary: #12324a;
-  --secondary-foreground: #dff8ff;
-  --muted: #102d43;
-  --muted-foreground: #a8c4d3;
-  --accent: #114965;
-  --accent-foreground: #ecfbff;
+  --brand-navy: #091522;
+  --brand-blue: #60a5fa;
+  --brand-aqua: #2dd4bf;
+  --brand-orange: #f59e0b;
+  --background: #0b1119;
+  --foreground: #f4f7fb;
+  --card: #101923;
+  --card-foreground: #f4f7fb;
+  --popover: #121d29;
+  --popover-foreground: #f4f7fb;
+  --primary: #60a5fa;
+  --primary-foreground: #07111d;
+  --secondary: #182536;
+  --secondary-foreground: #e6edf5;
+  --muted: #172231;
+  --muted-foreground: #a8b4c2;
+  --accent: #15313c;
+  --accent-foreground: #e9fbff;
   --destructive: #f87171;
-  --border: rgb(171 221 238 / 18%);
-  --input: rgb(171 221 238 / 24%);
-  --ring: #22d3ee;
+  --border: rgb(209 221 232 / 16%);
+  --input: rgb(209 221 232 / 22%);
+  --ring: #5eead4;
 }
 
 @layer base {
@@ -91,11 +91,21 @@
   body {
     @apply bg-background text-foreground antialiased;
     background:
-      linear-gradient(180deg, color-mix(in srgb, var(--brand-blue) 12%, transparent), transparent 18rem),
-      linear-gradient(135deg, var(--background), color-mix(in srgb, var(--brand-aqua) 8%, var(--background)));
+      linear-gradient(180deg, color-mix(in srgb, var(--brand-blue) 5%, transparent), transparent 18rem),
+      var(--background);
     font-family:
       Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
       "Segoe UI", sans-serif;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: color-mix(in srgb, var(--foreground) 94%, var(--brand-navy));
+  }
+
+  a {
+    text-underline-offset: 0.18em;
   }
 
   ::selection {

@@ -65,7 +65,7 @@ export function RootLayout() {
         <ProgramOnboarding />
         {!isSuiteLanding && <Sidebar />}
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-40 border-b bg-background/90 backdrop-blur">
+          <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85">
             <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
               {!isSuiteLanding && <MobileNav />}
               <div className={isSuiteLanding ? "min-w-0" : "hidden min-w-0 lg:block"}>
@@ -82,7 +82,7 @@ export function RootLayout() {
               </div>
             </div>
           </header>
-          <main className={isSuiteLanding ? "flex-1 p-4 sm:p-8" : "flex-1 p-4 sm:p-6"}>
+          <main className={isSuiteLanding ? "flex-1 p-4 sm:p-8" : "flex-1 p-4 sm:p-6 lg:p-8"}>
             <Suspense
               fallback={
                 <div className="rounded-md border bg-card p-6 text-sm text-muted-foreground">

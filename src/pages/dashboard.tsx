@@ -1,5 +1,13 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import {
+  ArrowRight,
+  Award,
+  BookOpen,
+  ClipboardCheck,
+  ShieldCheck,
+  Wrench,
+} from "lucide-react";
 import { Link } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
@@ -85,6 +93,9 @@ export function DashboardPage() {
   const inProgressTracks = trackProgress.filter(
     (track) => track.isStarted && !track.isComplete,
   );
+  const nextTrack =
+    trackProgress.find((track) => track.isStarted && !track.isComplete) ??
+    trackProgress.find((track) => !track.isComplete && track.totalLessons > 0);
   const completedTrackCount = trackProgress.filter((track) => track.isComplete).length;
   const totalTrackCount = trackProgress.filter((track) => track.totalLessons > 0).length;
   const earnedVisibleBadgeCount =
@@ -122,8 +133,8 @@ export function DashboardPage() {
     <div className="mx-auto max-w-6xl">
       <PageHeading
         eyebrow="Dashboard"
-        title="Learning overview"
-        description="Review your training, equipment approvals, and badge progress."
+        title="Your team workspace"
+        description="Continue learning, clear equipment approvals, and keep an eye on recognition progress."
         actions={<Badge variant="outline">Current role: {role}</Badge>}
       />
 
@@ -148,7 +159,10 @@ export function DashboardPage() {
         {canReview && (
           <Card>
             <CardHeader>
-              <CardTitle>Needs review</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardCheck className="size-5 text-primary" />
+                Needs review
+              </CardTitle>
               <CardDescription>
                 Student submissions and hands-on demonstrations waiting for attention.
               </CardDescription>
@@ -185,11 +199,96 @@ export function DashboardPage() {
           </Card>
         )}
 
-        <Card>
+        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <Card className="overflow-hidden py-0">
+            <CardHeader className="border-b bg-muted/25 px-5 py-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <BookOpen className="size-5 text-primary" />
+                    Next learning step
+                  </CardTitle>
+                  <CardDescription>
+                    The fastest path back into your training.
+                  </CardDescription>
+                </div>
+                {nextTrack && <Badge variant="outline">{nextTrack.percent}%</Badge>}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 px-5 py-5">
+              {visibleTracks === undefined || progress === undefined ? (
+                <div className="rounded-md border p-4 text-sm text-muted-foreground">
+                  Loading your next step.
+                </div>
+              ) : nextTrack ? (
+                <ProgressLink
+                  to={`/training/tracks/${nextTrack.id}`}
+                  label={nextTrack.title}
+                  badge={<ArrowRight className="size-4 text-primary" />}
+                >
+                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      {nextTrack.completedLessons} of {nextTrack.totalLessons} lessons complete
+                    </span>
+                    <span>{nextTrack.percent}%</span>
+                  </div>
+                  <Progress value={nextTrack.percent} className="mt-2" />
+                </ProgressLink>
+              ) : (
+                <div className="rounded-md border border-dashed bg-muted/20 p-4 text-sm text-muted-foreground">
+                  All available learning tracks are complete.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="py-0">
+            <CardHeader className="border-b bg-muted/25 px-5 py-4">
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="size-5 text-primary" />
+                Readiness
+              </CardTitle>
+              <CardDescription>Training, approvals, and badges.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-3 px-5 py-5 text-sm">
+              <ProgressLink
+                to="/training"
+                label="Learning tracks"
+                badge={
+                  <Badge variant="secondary">
+                    {completedTrackCount} of {totalTrackCount}
+                  </Badge>
+                }
+              />
+              <ProgressLink
+                to="/equipment"
+                label="Equipment approvals"
+                badge={
+                  <Badge
+                    variant={
+                      equipmentApprovalSummary && equipmentApprovalSummary.pending > 0
+                        ? "outline"
+                        : "secondary"
+                    }
+                  >
+                    {equipmentApprovalLabel}
+                  </Badge>
+                }
+              />
+              <ProgressLink
+                to="/badges"
+                label="Badges earned"
+                badge={<Badge>{isLoadingBadges ? "..." : earnedVisibleBadgeCount}</Badge>}
+              />
+            </CardContent>
+          </Card>
+        </section>
+
+        <Card className="py-0">
           <CardHeader>
-            <CardTitle>My progress</CardTitle>
+            <CardTitle>Progress detail</CardTitle>
             <CardDescription>
-              Your training, equipment, and badge progress in one place.
+              Active tracks and supporting records in one place.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
@@ -230,16 +329,17 @@ export function DashboardPage() {
               <div className="grid gap-3 text-sm sm:grid-cols-3 lg:grid-cols-1">
                 <ProgressLink
                   to="/training"
-                  label="Learning tracks completed"
+                  label="Training"
                   badge={
                     <Badge variant="secondary">
+                      <BookOpen className="size-3" />
                       {completedTrackCount} of {totalTrackCount}
                     </Badge>
                   }
                 />
                 <ProgressLink
                   to="/equipment"
-                  label="Equipment approvals"
+                  label="Equipment"
                   badge={
                     <Badge
                       variant={
@@ -248,14 +348,20 @@ export function DashboardPage() {
                           : "secondary"
                       }
                     >
+                      <Wrench className="size-3" />
                       {equipmentApprovalLabel}
                     </Badge>
                   }
                 />
                 <ProgressLink
                   to="/badges"
-                  label="Badges earned"
-                  badge={<Badge>{isLoadingBadges ? "..." : earnedVisibleBadgeCount}</Badge>}
+                  label="Badges"
+                  badge={
+                    <Badge>
+                      <Award className="size-3" />
+                      {isLoadingBadges ? "..." : earnedVisibleBadgeCount}
+                    </Badge>
+                  }
                 />
               </div>
             </div>

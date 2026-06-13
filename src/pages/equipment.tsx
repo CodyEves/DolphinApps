@@ -50,6 +50,24 @@ export function EquipmentPage() {
   const visibleEquipment = isAdmin
     ? equipment
     : equipment?.filter((item) => item.isActive);
+  const activeEquipmentCount =
+    visibleEquipment?.filter((item) => item.isActive).length ?? 0;
+  const completeEquipmentCount =
+    visibleEquipment?.filter((item) => {
+      const mySignOff = item.signOffs.find(
+        (signOff) => signOff.userId === viewer?.user._id,
+      );
+      const hasPassedSafetyTest = item.latestQuizAttempt?.status === "passed";
+      const hasCompletedVideo = item.videoProgress?.status === "completed";
+      const videoRequirementComplete = !item.videoUrl || hasCompletedVideo;
+      const safetyRequirementComplete = !item.quiz || hasPassedSafetyTest;
+      const handsOnRequirementComplete =
+        !item.instructorApprovalRequired || mySignOff?.status === "approved";
+
+      return videoRequirementComplete && safetyRequirementComplete && handsOnRequirementComplete;
+    }).length ?? 0;
+  const handsOnRequiredCount =
+    visibleEquipment?.filter((item) => item.instructorApprovalRequired).length ?? 0;
 
   async function handleCreateEquipment() {
     try {
@@ -103,7 +121,38 @@ export function EquipmentPage() {
       </Unauthenticated>
 
       <Authenticated>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-5">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Wrench className="size-4" />
+                Active tools
+              </div>
+              <p className="mt-1 text-2xl font-semibold">
+                {visibleEquipment === undefined ? "..." : activeEquipmentCount}
+              </p>
+            </div>
+            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="size-4" />
+                Ready
+              </div>
+              <p className="mt-1 text-2xl font-semibold">
+                {visibleEquipment === undefined ? "..." : completeEquipmentCount}
+              </p>
+            </div>
+            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <ShieldCheck className="size-4" />
+                Hands-on
+              </div>
+              <p className="mt-1 text-2xl font-semibold">
+                {visibleEquipment === undefined ? "..." : handsOnRequiredCount}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {visibleEquipment === undefined && (
             <Card className="md:col-span-2 xl:col-span-3">
               <CardHeader>
@@ -240,6 +289,7 @@ export function EquipmentPage() {
               </Link>
             );
           })}
+          </div>
         </div>
       </Authenticated>
     </div>

@@ -1,14 +1,17 @@
 # Dolphin Apps
 
-Dolphin Apps is the shared web app suite for Team 5199, currently including Dolphin Training and Dolphin Parts. It combines a React front end with Convex data, authentication, role-aware admin tools, training content, badge tracking, and equipment sign-off workflows.
+Dolphin Apps is the shared operations suite for robotics teams. It combines student learning, equipment readiness, shop attendance, robot parts tracking, badges, and mentor/admin management in one React + Convex application.
 
 ## What It Does
 
-- Student dashboard for assigned training, badge progress, and equipment status
+- Student dashboard for assigned training, badge progress, equipment status, and next steps
 - Training tracks with units, lessons, quizzes, reading, video, and exercise workflows
 - Equipment catalog with safety tests, SOP uploads, and hands-on sign-off requests
 - Badge catalog and admin-managed badge awards
-- Admin tools for users, Dolphin Training content, badge definitions, reviews, and progress resets
+- Shop attendance with live sessions, check-in codes, event attendance, corrections, reports, and Slack linking
+- Robot parts workspace with part numbers, BOMs, manufacturing status, transmissions, and order requests
+- Mentor dashboard for team learning progress, missing work, pending reviews, and student next actions
+- Admin tools for users, learning content, badge definitions, reviews, and progress resets
 - Admin-provisioned username/password accounts with one-time setup and reset links
 
 ## Tech Stack
@@ -92,15 +95,22 @@ bun run preview
 | `/reviews` | Instructor/admin review queue |
 | `/badges` | Badge catalog and earned badges |
 | `/badges/awards` | Admin badge award records |
-| `/admin` | Admin landing page |
-| `/admin/lms` | Training and progress management |
-| `/admin/badges` | Badge management |
-| `/admin/people` | User and role management |
+| `/parts` | Robot parts workspace |
+| `/parts/dashboard` | Parts, fab, order, and transmission overview |
+| `/shop` | Shop attendance overview and student check-in |
+| `/shop/display` | Kiosk/display code view |
+| `/shop/review` | Attendance correction review |
+| `/shop/reports` | Hours reporting |
+| `/management` | Management landing page |
+| `/management/team` | Team learning progress and next-action dashboard |
+| `/management/lms` | Training and progress management |
+| `/management/badges` | Badge management |
+| `/management/people` | User and role management |
 | `/auth` | Username/password sign in |
 | `/auth/setup` | One-time password setup link |
 | `/auth/reset` | One-time password reset link |
 
-Editor routes also exist for training tracks, lessons, and badges. They require the appropriate authenticated role.
+Editor routes also exist for training tracks, lessons, badges, equipment, and parts records. They require the appropriate authenticated role.
 
 ## Authentication and Roles
 
@@ -116,6 +126,7 @@ Supported profile roles:
 - `instructor`
 - `mentor`
 - `guest`
+- `kiosk`
 - `admin`
 
 For first-admin bootstrap, use the Convex dashboard or CLI to run this mutation
@@ -153,6 +164,8 @@ convex/
   equipment.ts   Equipment, SOP, safety test, and sign-off functions
   badges.ts      Badge catalog and award functions
   adminLms.ts    Admin progress and review functions
+  shopAttendance.ts Shop sessions, attendance, reports, and events
+  parts.ts       Robot part records and lifecycle events
 
 src/
   components/    App shell and shared UI components
@@ -165,7 +178,7 @@ src/
 
 ## Data Rules
 
-Convex is the source of truth for persisted Dolphin Apps data: users, profiles, training tracks, units, lessons, progress, quizzes, submissions, badges, equipment, SOP files, sign-offs, and approvals.
+Convex is the source of truth for persisted Dolphin Apps data: users, profiles, training tracks, units, lessons, progress, quizzes, submissions, badges, equipment, SOP files, sign-offs, shop attendance, robot parts, order requests, and approvals.
 
 Zustand is only for temporary interface state such as sidebar state, selected local UI tabs, and selected training items. Do not copy Convex query results into Zustand.
 

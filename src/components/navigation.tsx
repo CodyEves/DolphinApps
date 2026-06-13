@@ -158,7 +158,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "sticky top-0 hidden h-screen shrink-0 border-r bg-card/90 p-3 shadow-[0_0_40px_rgba(6,43,73,0.08)] backdrop-blur transition-[width] lg:block",
+        "sticky top-0 hidden h-screen shrink-0 border-r bg-card p-3 shadow-[1px_0_0_rgba(15,39,66,0.03)] transition-[width] lg:block",
         collapsed ? "w-[4.5rem]" : "w-64",
       )}
     >
