@@ -107,16 +107,19 @@ This is the highest-value area since it directly powers the application/intervie
 ## C. Sign-out reminders & notifications
 
 You specifically want students reminded to sign out, and to be notified yourself when they
-don't — right now only the second half exists.
+don't. Both sides now get an after-the-fact notification when someone's auto-flagged (C1) —
+what's still missing is a proactive heads-up *before* the shop closes (C2).
 
-- [ ] **C1. Notify the student, not just the admin, when they're auto-flagged.** When a
-  session closes and someone's left signed in, `closeShopSession` already flags their
-  record as `needs_review` and (as of the last round of fixes) Slack gets their name. The
-  student themselves currently has no way to know — there's no in-app or Slack signal to
-  them that their hours are pending review because they forgot to sign out. Since accounts
-  are admin-provisioned usernames (no email requirement), the notification channel is
-  probably in-app (the existing notification bell, currently reviewer-only) or Slack if
-  they're linked.
+- [x] **C1. Notify the student, not just the admin, when they're auto-flagged.** Used the
+  in-app notification bell (it already rendered for every signed-in user, it just always
+  returned empty for non-reviewers). `listMine` now also returns a personal "You forgot to
+  sign out" notification scoped to the viewer's own `needs_review` records, regardless of
+  role — shown alongside the existing reviewer-facing notifications for anyone who has both
+  (e.g. a mentor who forgot their own sign-out sees both). The "Open review queue" footer
+  link is now gated to reviewers only, since students can't open that page. Verified live:
+  an account with a real `needs_review` record now shows "You forgot to sign out" in its
+  bell. Didn't add a proactive pre-close warning (that's C2, a different mechanism — a
+  heads-up before the shop closes rather than a flag after).
 
 - [ ] **C2. Add a proactive "shop closes soon" warning, not just an after-the-fact flag.**
   Today the only signal is retroactive: the session auto-closes at the 5:00 AM cutoff (or
