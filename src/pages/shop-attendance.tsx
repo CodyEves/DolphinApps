@@ -1658,7 +1658,7 @@ export function ShopAttendancePage() {
                                 <span className="min-w-0">
                                   <span className="block truncate font-medium">{person.name}</span>
                                   <span className="block truncate text-xs text-muted-foreground">
-                                    {person.studentGroup ?? "Student"}
+                                    {person.studentGroup ?? person.role}
                                     {person.graduationYear ? ` - ${person.graduationYear}` : ""}
                                   </span>
                                 </span>
@@ -2271,7 +2271,7 @@ export function ShopAttendancePage() {
                       <div className="min-w-0">
                         <p className="truncate font-medium">{person.name}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                          <span>{person.studentGroup ?? "Student"}</span>
+                          <span>{person.studentGroup ?? person.role}</span>
                           {person.graduationYear && <span>{person.graduationYear}</span>}
                         </div>
                       </div>
@@ -2435,6 +2435,15 @@ export function ShopAttendancePage() {
                 <TabsTrigger value="live" className="shrink-0">
                   <Users className="size-4" />
                   Live
+                </TabsTrigger>
+                <TabsTrigger value="review" className="shrink-0">
+                  <ShieldCheck className="size-4" />
+                  Review queue
+                  {reviewRows.length > 0 && (
+                    <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[11px]">
+                      {reviewRows.length}
+                    </Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="schedule" className="shrink-0">
                   <Clock className="size-4" />

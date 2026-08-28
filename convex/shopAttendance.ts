@@ -1054,8 +1054,7 @@ export const listAttendanceRecordPeople = query({
   handler: async (ctx) => {
     await requireShopManager(ctx);
     const profiles = (await ctx.db.query("profiles").collect()).filter(
-      (profile) =>
-        profile.status === "active" && (profile.role === "student" || profile.role === "lead"),
+      (profile) => profile.status === "active",
     );
 
     return await Promise.all(
