@@ -203,6 +203,7 @@ export const notifyShopSessionClosed = action({
     completedCount: v.number(),
     flaggedCount: v.number(),
     closedAt: v.number(),
+    flaggedStudentNames: v.optional(v.array(v.string())),
   },
   handler: async (_ctx, args) => {
     const token = process.env.SLACK_BOT_TOKEN;
@@ -212,11 +213,14 @@ export const notifyShopSessionClosed = action({
       return { sent: false };
     }
 
+    const names = args.flaggedStudentNames ?? [];
     const text = [
       `Shop session closed at ${new Date(args.closedAt).toLocaleString()}.`,
       `${args.completedCount} completed attendance record${args.completedCount === 1 ? "" : "s"}.`,
       args.flaggedCount > 0
-        ? `${args.flaggedCount} student${args.flaggedCount === 1 ? "" : "s"} left signed in and need review.`
+        ? `${args.flaggedCount} student${args.flaggedCount === 1 ? "" : "s"} left signed in and need review${
+            names.length > 0 ? `: ${names.join(", ")}` : ""
+          }.`
         : "No attendance records need review.",
     ].join(" ");
 

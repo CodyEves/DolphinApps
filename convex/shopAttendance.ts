@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import { internalMutation, mutation, query } from "./_generated/server";
+import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { attendanceStatusValidator } from "./lib/validators";
@@ -279,6 +280,20 @@ async function closeShopSession(
     )
     .collect();
 
+  const flaggedStudentNames = await Promise.all(
+    openAttendance.map(async (item) => {
+      const user = await ctx.db.get(item.userId);
+      const profile = item.profileId
+        ? await ctx.db.get(item.profileId)
+        : await ctx.db
+            .query("profiles")
+            .withIndex("by_user", (q) => q.eq("userId", item.userId))
+            .first();
+
+      return displayNameFor(profile, user);
+    }),
+  );
+
   for (const item of openAttendance) {
     await ctx.db.patch(item._id, {
       status: "needs_review",
@@ -310,6 +325,7 @@ async function closeShopSession(
     closedAt: args.closedAt,
     completedCount: completed.length,
     flaggedCount: openAttendance.length,
+    flaggedStudentNames,
   };
 }
 
@@ -981,11 +997,18 @@ export const runShopAutomation = internalMutation({
     let autoStarted = false;
 
     if (active && now >= shopAutoCloseAt(active.openedAt)) {
-      await closeShopSession(ctx, {
+      const result = await closeShopSession(ctx, {
         session: active,
         closedAt: now,
         note: "Auto-closed at the 5:00 AM shop cutoff.",
         reviewNote: "Auto-closed at the 5:00 AM shop cutoff.",
+      });
+
+      await ctx.scheduler.runAfter(0, api.shopSlack.notifyShopSessionClosed, {
+        completedCount: result.completedCount,
+        flaggedCount: result.flaggedCount,
+        closedAt: result.closedAt,
+        flaggedStudentNames: result.flaggedStudentNames,
       });
       autoClosed = true;
       active = null;

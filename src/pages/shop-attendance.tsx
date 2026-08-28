@@ -899,7 +899,7 @@ export function ShopAttendancePage() {
       void notifyClosed(result);
       toast.success(
         result.flaggedCount > 0
-          ? `Shop closed. ${result.flaggedCount} record needs review.`
+          ? `Shop closed. Forgot to sign out: ${result.flaggedStudentNames.join(", ")}.`
           : "Shop session closed",
       );
     } catch (error) {
