@@ -1671,6 +1671,36 @@ export const deleteEventAttendanceRecord = mutation({
   },
 });
 
+export const listStudentEventAttendance = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    await requireShopManager(ctx);
+    const records = await ctx.db
+      .query("eventAttendanceRecords")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+
+    return await Promise.all(
+      records
+        .sort((a, b) => b.checkedInAt - a.checkedInAt)
+        .map(async (record) => {
+          const event = await ctx.db.get(record.eventId);
+
+          return {
+            recordId: record._id,
+            eventId: record.eventId,
+            eventTitle: event?.title ?? "Attendance event",
+            eventLocation: event?.location,
+            eventStartsAt: event?.startsAt,
+            checkedInAt: record.checkedInAt,
+          };
+        }),
+    );
+  },
+});
+
 export const listPeopleForEventCheckIn = query({
   args: {},
   handler: async (ctx) => {

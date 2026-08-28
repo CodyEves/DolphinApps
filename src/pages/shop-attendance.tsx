@@ -601,6 +601,12 @@ export function ShopAttendancePage() {
         }
       : "skip",
   );
+  const studentEventAttendance = useQuery(
+    api.shopAttendance.listStudentEventAttendance,
+    isAuthenticated && canManage && showReportsRoute && selectedStudentUserId
+      ? { userId: selectedStudentUserId }
+      : "skip",
+  );
   const overviewReport = useQuery(
     api.shopAttendance.attendanceOverviewReport,
     isAuthenticated && canManage
@@ -1357,6 +1363,7 @@ export function ShopAttendancePage() {
 
   const reportRows = useMemo(() => report?.rows ?? [], [report?.rows]);
   const reportTotals = useMemo(() => report?.totals ?? [], [report?.totals]);
+  const studentEventRows = useMemo(() => studentEventAttendance ?? [], [studentEventAttendance]);
   const attendanceEventRows = useMemo(() => attendanceEvents ?? [], [attendanceEvents]);
   const selectedAttendanceEvent = attendanceEventRows.find((event) => event._id === selectedEventId);
   const selectedEventRecords = useMemo(
@@ -1754,7 +1761,7 @@ export function ShopAttendancePage() {
                     </div>
                   )}
                   {selectedStudentUserId && showReportsRoute && (
-                    <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <div className="rounded-md border p-4">
                         <p className="text-sm text-muted-foreground">Records</p>
                         <p className="mt-1 text-2xl font-semibold">{reportRows.length}</p>
@@ -1768,6 +1775,10 @@ export function ShopAttendancePage() {
                         <p className="mt-1 text-2xl font-semibold">
                           {formatHours(reportTotals.reduce((total, row) => total + row.needsReviewMinutes, 0))}
                         </p>
+                      </div>
+                      <div className="rounded-md border p-4">
+                        <p className="text-sm text-muted-foreground">Events attended</p>
+                        <p className="mt-1 text-2xl font-semibold">{studentEventRows.length}</p>
                       </div>
                     </div>
                   )}
@@ -1815,56 +1826,105 @@ export function ShopAttendancePage() {
                   ))}
                 </div>
               ) : selectedStudentUserId && showReportsRoute ? (
-                <div className="space-y-3">
-                  {report === undefined && (
-                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading report...</div>
-                  )}
-                  {report && reportRows.length === 0 && (
-                    <div className="rounded-md border p-4 text-sm text-muted-foreground">No report records match these filters.</div>
-                  )}
-                  {reportRows.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        downloadCsv("shop-student-hours.csv", [
-                          ["Student", "Status", "Source", "Sign in", "Sign out", "Minutes", "Hours"],
-                          ...reportRows.map((row) => {
-                            const minutes = minutesBetween(row.signInAt, row.signOutAt);
+                <div className="space-y-5">
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-muted-foreground">Shop hours</h3>
+                    {report === undefined && (
+                      <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading report...</div>
+                    )}
+                    {report && reportRows.length === 0 && (
+                      <div className="rounded-md border p-4 text-sm text-muted-foreground">No report records match these filters.</div>
+                    )}
+                    {reportRows.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          downloadCsv("shop-student-hours.csv", [
+                            ["Student", "Status", "Source", "Sign in", "Sign out", "Minutes", "Hours"],
+                            ...reportRows.map((row) => {
+                              const minutes = minutesBetween(row.signInAt, row.signOutAt);
 
-                            return [
-                              row.studentName,
-                              row.status,
-                              row.source,
-                              formatDateTime(row.signInAt),
-                              formatDateTime(row.signOutAt),
-                              String(minutes),
-                              (minutes / 60).toFixed(2),
-                            ];
-                          }),
-                        ])
-                      }
-                    >
-                      <Download className="size-4" />
-                      Export CSV
-                    </Button>
-                  )}
-                  {reportRows.map((row) => {
-                    const minutes = minutesBetween(row.signInAt, row.signOutAt);
+                              return [
+                                row.studentName,
+                                row.status,
+                                row.source,
+                                formatDateTime(row.signInAt),
+                                formatDateTime(row.signOutAt),
+                                String(minutes),
+                                (minutes / 60).toFixed(2),
+                              ];
+                            }),
+                          ])
+                        }
+                      >
+                        <Download className="size-4" />
+                        Export CSV
+                      </Button>
+                    )}
+                    {reportRows.map((row) => {
+                      const minutes = minutesBetween(row.signInAt, row.signOutAt);
 
-                    return (
-                      <div key={row._id} className="grid gap-2 rounded-md border bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{formatDateTime(row.signInAt)}</p>
-                          <p className="text-sm text-muted-foreground">{formatDateTime(row.signOutAt)}</p>
+                      return (
+                        <div key={row._id} className="grid gap-2 rounded-md border bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{formatDateTime(row.signInAt)}</p>
+                            <p className="text-sm text-muted-foreground">{formatDateTime(row.signOutAt)}</p>
+                          </div>
+                          <Badge variant={row.status === "needs_review" ? "secondary" : "outline"}>
+                            {row.status.replace("_", " ")}
+                          </Badge>
+                          <p className="text-sm font-medium">{formatHours(minutes)}</p>
                         </div>
-                        <Badge variant={row.status === "needs_review" ? "secondary" : "outline"}>
-                          {row.status.replace("_", " ")}
-                        </Badge>
-                        <p className="text-sm font-medium">{formatHours(minutes)}</p>
+                      );
+                    })}
+                  </div>
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-muted-foreground">Events attended</h3>
+                    {studentEventAttendance === undefined && (
+                      <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading events...</div>
+                    )}
+                    {studentEventAttendance && studentEventRows.length === 0 && (
+                      <div className="rounded-md border p-4 text-sm text-muted-foreground">No events attended yet.</div>
+                    )}
+                    {studentEventRows.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          downloadCsv("student-event-attendance.csv", [
+                            ["Event", "Location", "Event date", "Checked in"],
+                            ...studentEventRows.map((row) => [
+                              row.eventTitle,
+                              row.eventLocation ?? "",
+                              row.eventStartsAt ? formatDateTime(row.eventStartsAt) : "",
+                              formatDateTime(row.checkedInAt),
+                            ]),
+                          ])
+                        }
+                      >
+                        <Download className="size-4" />
+                        Export CSV
+                      </Button>
+                    )}
+                    {studentEventRows.map((row) => (
+                      <div
+                        key={row.recordId}
+                        className="grid gap-2 rounded-md border bg-card p-4 sm:grid-cols-[1fr_auto] sm:items-center"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{row.eventTitle}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {row.eventLocation || "No location"}
+                            {row.eventStartsAt ? ` · ${formatDateTime(row.eventStartsAt)}` : ""}
+                          </p>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Checked in {formatDateTime(row.checkedInAt)}
+                        </p>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
               ) : showReportsRoute ? (
                 <div className="space-y-5">
