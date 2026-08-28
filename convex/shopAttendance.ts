@@ -1141,6 +1141,78 @@ export const createManualAttendanceSession = mutation({
   },
 });
 
+export const adminSignInPerson = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const manager = await requireShopManager(ctx);
+    const profile = await activeProfileForUser(ctx, args.userId);
+    const session = await activeShopSession(ctx);
+
+    if (!session) {
+      throw new Error("There is no active shop session.");
+    }
+
+    const existing = await ctx.db
+      .query("attendanceSessions")
+      .withIndex("by_user_status", (q) => q.eq("userId", args.userId).eq("status", "open"))
+      .first();
+
+    if (existing) {
+      throw new Error("This person is already signed in to the shop.");
+    }
+
+    const now = Date.now();
+    const attendanceSessionId = await ctx.db.insert("attendanceSessions", {
+      shopSessionId: session._id,
+      userId: args.userId,
+      profileId: profile._id,
+      source: "manual",
+      status: "open",
+      signInAt: now,
+      reviewedBy: manager.userId,
+      reviewedAt: now,
+      reviewNote: "Signed in manually by an admin.",
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { attendanceSessionId, sessionId: session._id, signedInAt: now };
+  },
+});
+
+export const adminSignOutPerson = mutation({
+  args: {
+    attendanceSessionId: v.id("attendanceSessions"),
+  },
+  handler: async (ctx, args) => {
+    const manager = await requireShopManager(ctx);
+    const item = await ctx.db.get(args.attendanceSessionId);
+
+    if (!item || item.status !== "open") {
+      throw new Error("This attendance record is not currently open.");
+    }
+
+    const now = Date.now();
+
+    await ctx.db.patch(args.attendanceSessionId, {
+      status: "complete",
+      signOutAt: now,
+      reviewedBy: manager.userId,
+      reviewedAt: now,
+      reviewNote: item.reviewNote ?? "Signed out manually by an admin.",
+      updatedAt: now,
+    });
+
+    return {
+      attendanceSessionId: args.attendanceSessionId,
+      signedOutAt: now,
+      minutes: Math.max(0, Math.round((now - item.signInAt) / 60000)),
+    };
+  },
+});
+
 export const reviewAttendanceSession = mutation({
   args: {
     attendanceSessionId: v.id("attendanceSessions"),

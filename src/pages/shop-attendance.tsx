@@ -613,6 +613,8 @@ export function ShopAttendancePage() {
   const reviewAttendance = useMutation(api.shopAttendance.reviewAttendanceSession);
   const deleteAttendance = useMutation(api.shopAttendance.deleteAttendanceSession);
   const createManualAttendance = useMutation(api.shopAttendance.createManualAttendanceSession);
+  const adminSignInPerson = useMutation(api.shopAttendance.adminSignInPerson);
+  const adminSignOutPerson = useMutation(api.shopAttendance.adminSignOutPerson);
   const updateScheduleSettings = useMutation(api.shopAttendance.updateShopScheduleSettings);
   const createAttendanceEvent = useMutation(api.shopAttendance.createAttendanceEvent);
   const updateAttendanceEvent = useMutation(api.shopAttendance.updateAttendanceEvent);
@@ -627,6 +629,8 @@ export function ShopAttendancePage() {
   const [isGeneratingCode, setIsGeneratingCode] = useState(false);
   const [busyRecordId, setBusyRecordId] = useState<string | null>(null);
   const [manualUserId, setManualUserId] = useState("");
+  const [liveSignInUserId, setLiveSignInUserId] = useState("");
+  const [isLiveSignInBusy, setIsLiveSignInBusy] = useState(false);
   const [manualIn, setManualIn] = useState("");
   const [manualOut, setManualOut] = useState("");
   const [manualNote, setManualNote] = useState("");
@@ -937,6 +941,38 @@ export function ShopAttendancePage() {
       toast.success("Manual attendance added");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not add attendance");
+    }
+  }
+
+  async function handleLiveSignIn() {
+    if (!liveSignInUserId) {
+      toast.error("Choose a person to sign in.");
+      return;
+    }
+
+    setIsLiveSignInBusy(true);
+
+    try {
+      await adminSignInPerson({ userId: liveSignInUserId as Id<"users"> });
+      setLiveSignInUserId("");
+      toast.success("Signed in to the shop");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not sign in this person");
+    } finally {
+      setIsLiveSignInBusy(false);
+    }
+  }
+
+  async function handleLiveSignOut(attendanceSessionId: Id<"attendanceSessions">) {
+    setBusyRecordId(attendanceSessionId);
+
+    try {
+      await adminSignOutPerson({ attendanceSessionId });
+      toast.success("Signed out of the shop");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not sign out this person");
+    } finally {
+      setBusyRecordId(null);
     }
   }
 
@@ -1288,6 +1324,13 @@ export function ShopAttendancePage() {
     );
   }, [recordPeopleRows, studentSearch]);
   const openRows = useMemo(() => liveAttendance ?? [], [liveAttendance]);
+  const peopleNotSignedIn = useMemo(() => {
+    const openUserIds = new Set(
+      openRows.filter((row) => row.status === "open").map((row) => row.userId),
+    );
+
+    return (people ?? []).filter((person) => !openUserIds.has(person.userId));
+  }, [people, openRows]);
   const reviewRows = useMemo(() => reviewQueue ?? [], [reviewQueue]);
   const filteredReviewRows = useMemo(
     () =>
@@ -2473,18 +2516,59 @@ export function ShopAttendancePage() {
                   <CardTitle>Currently signed in</CardTitle>
                   <CardDescription>{current?.session ? "Live shop roster." : "No active shop session."}</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 rounded-md border bg-muted/30 p-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                    <div className="space-y-2">
+                      <Label>Add student without a code</Label>
+                      <Select value={liveSignInUserId} onValueChange={setLiveSignInUserId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose person" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {peopleNotSignedIn.map((person) => (
+                            <SelectItem key={person.userId} value={person.userId}>
+                              {person.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={() => void handleLiveSignIn()}
+                      disabled={isLiveSignInBusy || !current?.session || !liveSignInUserId}
+                    >
+                      {isLiveSignInBusy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                      Sign in
+                    </Button>
+                  </div>
                   {openRows.length === 0 && (
                     <div className="rounded-md border p-4 text-sm text-muted-foreground">No students are currently signed in.</div>
                   )}
                   {openRows.map((row) => (
-                    <div key={row._id} className="grid gap-3 rounded-md border p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                    <div key={row._id} className="grid gap-3 rounded-md border p-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-center">
                       <div className="min-w-0">
                         <p className="truncate font-medium">{row.studentName}</p>
                         <p className="text-sm text-muted-foreground">{row.studentGroup ?? row.studentRole}</p>
                       </div>
                       <Badge variant={row.status === "needs_review" ? "secondary" : "outline"}>{row.status === "open" ? "Signed in" : "Needs review"}</Badge>
                       <span className="text-sm text-muted-foreground">{formatTime(row.signInAt)}</span>
+                      {row.status === "open" && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handleLiveSignOut(row._id)}
+                          disabled={busyRecordId === row._id}
+                        >
+                          {busyRecordId === row._id ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <ArrowLeftRight className="size-4" />
+                          )}
+                          Sign out
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </CardContent>
