@@ -1561,16 +1561,7 @@ export const useAttendanceCode = mutation({
       .first();
 
     if (openShopAttendance) {
-      const result = await signOutUser(ctx, {
-        userId: profile.userId,
-        code: normalizedCode,
-      });
-
-      return {
-        kind: "shop" as const,
-        action: "signed_out" as const,
-        ...result,
-      };
+      throw new Error("You're already signed in to the shop. Use the Sign out button instead of a code.");
     }
 
     const result = await signInUser(ctx, {
@@ -1583,6 +1574,39 @@ export const useAttendanceCode = mutation({
       kind: "shop" as const,
       action: "signed_in" as const,
       ...result,
+    };
+  },
+});
+
+export const signOutOfShop = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const profile = await requireActiveProfile(ctx);
+    const existing = await ctx.db
+      .query("attendanceSessions")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", profile.userId).eq("status", "open"),
+      )
+      .first();
+
+    if (!existing) {
+      throw new Error("You do not have an open shop sign-in.");
+    }
+
+    const now = Date.now();
+
+    await ctx.db.patch(existing._id, {
+      status: "complete",
+      signOutAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      attendanceSessionId: existing._id,
+      sessionId: existing.shopSessionId,
+      signedInAt: existing.signInAt,
+      signedOutAt: now,
+      minutes: Math.max(0, Math.round((now - existing.signInAt) / 60000)),
     };
   },
 });

@@ -612,6 +612,7 @@ export function ShopAttendancePage() {
   const endShopSession = useMutation(api.shopAttendance.endShopSession);
   const generateCode = useMutation(api.shopAttendance.generateOrReadCurrentCode);
   const submitAttendanceCode = useMutation(api.shopAttendance.useAttendanceCode);
+  const signOutOfShop = useMutation(api.shopAttendance.signOutOfShop);
   const reviewAttendance = useMutation(api.shopAttendance.reviewAttendanceSession);
   const deleteAttendance = useMutation(api.shopAttendance.deleteAttendanceSession);
   const createManualAttendance = useMutation(api.shopAttendance.createManualAttendanceSession);
@@ -759,7 +760,11 @@ export function ShopAttendancePage() {
       window.clearTimeout(timeout);
       window.clearInterval(interval);
     };
-  }, [current, generateCode]);
+    // Only restart the rotation timer when the active session or display
+    // permission changes, not on every reactive update of `current` (e.g.
+    // every sign-in/out), which previously forced a new code on every use.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.session?._id, current?.canDisplay, generateCode]);
 
   useEffect(() => {
     if (!isScanning) {
@@ -1037,13 +1042,24 @@ export function ShopAttendancePage() {
 
       if (result.kind === "event") {
         toast.success(`Checked in for ${result.eventTitle}`);
-      } else if (result.action === "signed_out") {
-        toast.success("Signed out of the shop");
       } else {
         toast.success("Signed in to the shop");
       }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update attendance");
+    } finally {
+      setIsAttendanceBusy(false);
+    }
+  }
+
+  async function handleSignOutOfShop() {
+    setIsAttendanceBusy(true);
+
+    try {
+      await signOutOfShop({});
+      toast.success("Signed out of the shop");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not sign out");
     } finally {
       setIsAttendanceBusy(false);
     }
@@ -2608,14 +2624,35 @@ export function ShopAttendancePage() {
           )}
 
           {canUseStudentCheckIn && (
-            <TabsContent value="checkin">
+            <TabsContent value="checkin" className="space-y-5">
+              {myAttendance && (
+                <Card>
+                  <CardHeader>
+                    <Clock className="size-5 text-primary" />
+                    <CardTitle>Signed in to the shop</CardTitle>
+                    <CardDescription>
+                      Signed in since {formatTime(myAttendance.signInAt)}. No code needed to sign out.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button
+                      type="button"
+                      onClick={() => void handleSignOutOfShop()}
+                      disabled={isAttendanceBusy}
+                    >
+                      {isAttendanceBusy ? <Loader2 className="size-4 animate-spin" /> : <ArrowLeftRight className="size-4" />}
+                      Sign out
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
               <Card>
                 <CardHeader>
                   <QrCode className="size-5 text-primary" />
                   <CardTitle>Attendance code</CardTitle>
                   <CardDescription>
                     {myAttendance
-                      ? `Signed in to the shop since ${formatTime(myAttendance.signInAt)}. Enter the next shop code to sign out.`
+                      ? "Have an event code? Enter it here to check in to an event."
                       : "Scan or type a shop code or event code."}
                   </CardDescription>
                 </CardHeader>
@@ -2654,7 +2691,9 @@ export function ShopAttendancePage() {
                     </div>
                   )}
                   <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                    Shop codes clock you in or out. Event codes mark you attended.
+                    {myAttendance
+                      ? "Event codes mark you attended. Shop codes sign you in when you're not already signed in."
+                      : "Shop codes sign you in. Event codes mark you attended."}
                   </div>
                 </CardContent>
               </Card>
