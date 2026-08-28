@@ -1,6 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { Bell, ClipboardCheck, Clock, Wrench } from "lucide-react";
+import { Bell, ClipboardCheck, Clock, LogOut, Wrench } from "lucide-react";
 import { Link } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
@@ -16,12 +16,17 @@ import {
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 
-type NotificationKind = "lesson_review" | "hands_on_review" | "attendance_review";
+type NotificationKind =
+  | "lesson_review"
+  | "hands_on_review"
+  | "attendance_review"
+  | "my_attendance_review";
 
 const kindIcons: Record<NotificationKind, LucideIcon> = {
   lesson_review: ClipboardCheck,
   hands_on_review: Wrench,
   attendance_review: Clock,
+  my_attendance_review: LogOut,
 };
 
 function countLabel(count: number) {
@@ -97,7 +102,7 @@ export function NotificationMenu() {
           )}
           {feed !== undefined && notifications.length === 0 && (
             <div className="px-3 py-8 text-center text-sm text-muted-foreground">
-              Nothing needs review right now.
+              You're all caught up.
             </div>
           )}
           {notifications.map((notification) => {
@@ -126,7 +131,7 @@ export function NotificationMenu() {
             );
           })}
         </div>
-        {notifications.length > 0 && (
+        {feed?.canReview && notifications.length > 0 && (
           <>
             <DropdownMenuSeparator className="m-0" />
             <DropdownMenuItem asChild className="cursor-pointer">

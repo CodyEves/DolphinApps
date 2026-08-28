@@ -6,7 +6,7 @@ import type { QueryCtx } from "./_generated/server";
 
 type NotificationItem = {
   id: string;
-  kind: "lesson_review" | "hands_on_review" | "attendance_review";
+  kind: "lesson_review" | "hands_on_review" | "attendance_review" | "my_attendance_review";
   title: string;
   summary: string;
   detail: string;
@@ -194,31 +194,69 @@ async function attendanceReviewNotifications(ctx: QueryCtx): Promise<Notificatio
   );
 }
 
+async function myAttendanceNotifications(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<NotificationItem[]> {
+  const items = await ctx.db
+    .query("attendanceSessions")
+    .withIndex("by_user_status", (q) => q.eq("userId", userId).eq("status", "needs_review"))
+    .collect();
+
+  return await Promise.all(
+    items.map(async (item) => {
+      const shopSession = await ctx.db.get(item.shopSessionId);
+      const minutes = item.signOutAt
+        ? Math.max(0, Math.round((item.signOutAt - item.signInAt) / 60000))
+        : 0;
+
+      return {
+        id: `my_attendance_review:${item._id}`,
+        kind: "my_attendance_review" as const,
+        title: "You forgot to sign out",
+        summary: `Your ${shopSession?.title ?? "shop"} session on ${new Date(item.signInAt).toLocaleDateString()} needs a mentor to review it.`,
+        detail: `${minutes} min recorded`,
+        href: "/shop",
+        createdAt: item.updatedAt,
+      };
+    }),
+  );
+}
+
 export const listMine = query({
   args: {},
   handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
     const profile = await currentProfile(ctx);
 
-    if (!canReview(profile)) {
+    if (!userId || !profile) {
       return {
         unreadCount: 0,
         notifications: [],
+        canReview: false,
       };
     }
 
-    const notifications = (
-      await Promise.all([
-        lessonReviewNotifications(ctx),
-        handsOnReviewNotifications(ctx),
-        attendanceReviewNotifications(ctx),
-      ])
-    )
-      .flat()
-      .sort((a, b) => b.createdAt - a.createdAt);
+    const personal = await myAttendanceNotifications(ctx, userId);
+    const isReviewer = canReview(profile);
+    const reviewerNotifications = isReviewer
+      ? (
+          await Promise.all([
+            lessonReviewNotifications(ctx),
+            handsOnReviewNotifications(ctx),
+            attendanceReviewNotifications(ctx),
+          ])
+        ).flat()
+      : [];
+
+    const notifications = [...personal, ...reviewerNotifications].sort(
+      (a, b) => b.createdAt - a.createdAt,
+    );
 
     return {
       unreadCount: notifications.length,
       notifications: notifications.slice(0, 50),
+      canReview: isReviewer,
     };
   },
 });
