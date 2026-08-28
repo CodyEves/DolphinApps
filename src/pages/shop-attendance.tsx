@@ -3,9 +3,14 @@ import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from
 import QRCode from "qrcode";
 import {
   ArrowLeftRight,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Camera,
   CalendarDays,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ClipboardList,
   Clock,
   Download,
@@ -578,6 +583,14 @@ export function ShopAttendancePage() {
   const [isStudentSearchOpen, setIsStudentSearchOpen] = useState(false);
   const [recordFromDate, setRecordFromDate] = useState("");
   const [recordToDate, setRecordToDate] = useState("");
+  const [studentTableSearch, setStudentTableSearch] = useState("");
+  const [maxHoursFilter, setMaxHoursFilter] = useState("");
+  const [studentTableSortBy, setStudentTableSortBy] = useState<
+    "name" | "hours" | "needsReview" | "events" | "lastAttendance"
+  >("name");
+  const [studentTableSortDir, setStudentTableSortDir] = useState<"asc" | "desc">("asc");
+  const [studentTablePageIndex, setStudentTablePageIndex] = useState(0);
+  const [studentTablePageSize, setStudentTablePageSize] = useState("25");
   const report = useQuery(
     api.shopAttendance.listHoursReport,
     isAuthenticated && canManage && (!showReportsRoute || !!selectedStudentUserId)
@@ -1379,6 +1392,89 @@ export function ShopAttendancePage() {
   }, [eventCheckInEligiblePeople, eventCheckInSearch]);
   const overviewSummary = overviewReport?.summary;
   const overviewStudents = useMemo(() => overviewReport?.students ?? [], [overviewReport?.students]);
+  const studentTableRows = useMemo(() => {
+    const term = studentTableSearch.trim().toLowerCase();
+    const maxHours = maxHoursFilter.trim() ? Number(maxHoursFilter) : null;
+    const direction = studentTableSortDir === "asc" ? 1 : -1;
+
+    return overviewStudents
+      .filter((student) => {
+        if (term) {
+          const searchable = [
+            student.studentName,
+            student.studentGroup,
+            student.primaryProgram,
+            student.graduationYear ? String(student.graduationYear) : "",
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+
+          if (!searchable.includes(term)) {
+            return false;
+          }
+        }
+
+        if (maxHours !== null && !Number.isNaN(maxHours) && student.shopMinutes / 60 >= maxHours) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        if (studentTableSortBy === "name") {
+          return direction * a.studentName.localeCompare(b.studentName);
+        }
+
+        if (studentTableSortBy === "hours") {
+          return direction * (a.shopMinutes - b.shopMinutes);
+        }
+
+        if (studentTableSortBy === "needsReview") {
+          return direction * (a.needsReviewMinutes - b.needsReviewMinutes);
+        }
+
+        if (studentTableSortBy === "events") {
+          return direction * (a.eventCount - b.eventCount);
+        }
+
+        return direction * (a.lastAttendanceAt - b.lastAttendanceAt);
+      });
+  }, [overviewStudents, studentTableSearch, maxHoursFilter, studentTableSortBy, studentTableSortDir]);
+  const studentTableNumericPageSize = Number(studentTablePageSize);
+  const studentTablePageCount = Math.max(
+    1,
+    Math.ceil(studentTableRows.length / studentTableNumericPageSize),
+  );
+  const studentTableSafePageIndex = Math.min(studentTablePageIndex, studentTablePageCount - 1);
+  const paginatedStudentTableRows = studentTableRows.slice(
+    studentTableSafePageIndex * studentTableNumericPageSize,
+    studentTableSafePageIndex * studentTableNumericPageSize + studentTableNumericPageSize,
+  );
+
+  function toggleStudentTableSort(column: typeof studentTableSortBy) {
+    setStudentTablePageIndex(0);
+
+    if (studentTableSortBy === column) {
+      setStudentTableSortDir((direction) => (direction === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setStudentTableSortBy(column);
+    setStudentTableSortDir("asc");
+  }
+
+  function studentTableSortIcon(column: typeof studentTableSortBy) {
+    if (studentTableSortBy !== column) {
+      return <ArrowUpDown className="size-3.5 text-muted-foreground/60" />;
+    }
+
+    return studentTableSortDir === "asc" ? (
+      <ArrowUp className="size-3.5" />
+    ) : (
+      <ArrowDown className="size-3.5" />
+    );
+  }
   const overviewEvents = useMemo(() => overviewReport?.events ?? [], [overviewReport?.events]);
   const overviewGroups = useMemo(() => overviewReport?.groups ?? [], [overviewReport?.groups]);
   const attendanceRecords = useMemo(() => recordRows ?? [], [recordRows]);
@@ -1887,33 +1983,214 @@ export function ShopAttendancePage() {
                   <Card>
                     <CardHeader>
                       <CardTitle>Student attendance</CardTitle>
-                      <CardDescription>Search above to open a student-level report.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {overviewStudents.length === 0 && (
-                        <div className="rounded-md border p-4 text-sm text-muted-foreground">No student attendance in this range.</div>
-                      )}
-                      {overviewStudents.map((student) => (
-                        <Link
-                          key={student.userId}
-                          to={`${routeBase}/${student.userId}`}
-                          className="grid gap-2 rounded-md border p-4 transition-colors hover:bg-accent hover:text-accent-foreground sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                      <CardDescription>
+                        {studentTableRows.length} of {overviewStudents.length} students shown.
+                        Click a column to sort, or a row to open that student's report.
+                      </CardDescription>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_200px_auto] sm:items-end">
+                        <div className="space-y-2">
+                          <Label htmlFor="studentTableSearch">Search</Label>
+                          <Input
+                            id="studentTableSearch"
+                            value={studentTableSearch}
+                            onChange={(event) => {
+                              setStudentTableSearch(event.target.value);
+                              setStudentTablePageIndex(0);
+                            }}
+                            placeholder="Name, team, program, or graduation year"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="maxHoursFilter">Below hours</Label>
+                          <Input
+                            id="maxHoursFilter"
+                            type="number"
+                            min={0}
+                            value={maxHoursFilter}
+                            onChange={(event) => {
+                              setMaxHoursFilter(event.target.value);
+                              setStudentTablePageIndex(0);
+                            }}
+                            placeholder="e.g. 10"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            downloadCsv("student-attendance-filtered.csv", [
+                              [
+                                "Student",
+                                "Shop Hours",
+                                "Shop Records",
+                                "Needs Review Hours",
+                                "Events Attended",
+                                "Group",
+                                "Program",
+                                "Graduation Year",
+                                "Last Attendance",
+                              ],
+                              ...studentTableRows.map((row) => [
+                                row.studentName,
+                                (row.shopMinutes / 60).toFixed(2),
+                                String(row.shopRecordCount),
+                                (row.needsReviewMinutes / 60).toFixed(2),
+                                String(row.eventCount),
+                                row.studentGroup ?? "",
+                                row.primaryProgram ?? "",
+                                row.graduationYear ? String(row.graduationYear) : "",
+                                row.lastAttendanceAt ? formatDateTime(row.lastAttendanceAt) : "",
+                              ]),
+                            ])
+                          }
                         >
-                          <div className="min-w-0">
-                            <p className="truncate font-medium">{student.studentName}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {student.studentGroup ?? "Student"}
-                              {student.graduationYear ? ` - ${student.graduationYear}` : ""}
-                            </p>
+                          <Download className="size-4" />
+                          Export this view
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      {overviewStudents.length === 0 ? (
+                        <div className="m-5 rounded-md border p-4 text-sm text-muted-foreground">
+                          No student attendance in this range.
+                        </div>
+                      ) : studentTableRows.length === 0 ? (
+                        <div className="m-5 rounded-md border p-4 text-sm text-muted-foreground">
+                          No students match the current filters.
+                        </div>
+                      ) : (
+                        <>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                                <tr>
+                                  <th className="px-4 py-3 font-medium">
+                                    <button
+                                      type="button"
+                                      className="flex items-center gap-1"
+                                      onClick={() => toggleStudentTableSort("name")}
+                                    >
+                                      Student {studentTableSortIcon("name")}
+                                    </button>
+                                  </th>
+                                  <th className="px-4 py-3 font-medium">Group</th>
+                                  <th className="px-4 py-3 font-medium">
+                                    <button
+                                      type="button"
+                                      className="flex items-center gap-1"
+                                      onClick={() => toggleStudentTableSort("hours")}
+                                    >
+                                      Shop hours {studentTableSortIcon("hours")}
+                                    </button>
+                                  </th>
+                                  <th className="px-4 py-3 font-medium">
+                                    <button
+                                      type="button"
+                                      className="flex items-center gap-1"
+                                      onClick={() => toggleStudentTableSort("needsReview")}
+                                    >
+                                      Needs review {studentTableSortIcon("needsReview")}
+                                    </button>
+                                  </th>
+                                  <th className="px-4 py-3 font-medium">
+                                    <button
+                                      type="button"
+                                      className="flex items-center gap-1"
+                                      onClick={() => toggleStudentTableSort("events")}
+                                    >
+                                      Events {studentTableSortIcon("events")}
+                                    </button>
+                                  </th>
+                                  <th className="px-4 py-3 font-medium">
+                                    <button
+                                      type="button"
+                                      className="flex items-center gap-1"
+                                      onClick={() => toggleStudentTableSort("lastAttendance")}
+                                    >
+                                      Last attendance {studentTableSortIcon("lastAttendance")}
+                                    </button>
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                {paginatedStudentTableRows.map((student) => (
+                                  <tr
+                                    key={student.userId}
+                                    className="cursor-pointer transition-colors hover:bg-muted/35"
+                                    onClick={() => navigate(`${routeBase}/${student.userId}`)}
+                                  >
+                                    <td className="px-4 py-3 font-medium">{student.studentName}</td>
+                                    <td className="px-4 py-3 text-muted-foreground">
+                                      {student.studentGroup ?? "Student"}
+                                      {student.graduationYear ? ` · ${student.graduationYear}` : ""}
+                                    </td>
+                                    <td className="px-4 py-3">{formatHours(student.shopMinutes)}</td>
+                                    <td className="px-4 py-3">
+                                      {student.needsReviewMinutes > 0 ? (
+                                        <Badge variant="secondary">{formatHours(student.needsReviewMinutes)}</Badge>
+                                      ) : (
+                                        <span className="text-muted-foreground">-</span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3">{student.eventCount}</td>
+                                    <td className="px-4 py-3 text-muted-foreground">
+                                      {student.lastAttendanceAt ? formatDateTime(student.lastAttendanceAt) : "-"}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
-                          <Badge variant={student.needsReviewMinutes > 0 ? "secondary" : "outline"}>
-                            {formatHours(student.shopMinutes)}
-                          </Badge>
-                          <Badge variant="outline">
-                            {student.eventCount} event{student.eventCount === 1 ? "" : "s"}
-                          </Badge>
-                        </Link>
-                      ))}
+                          <div className="flex flex-col gap-3 border-t px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-sm text-muted-foreground">
+                              Page {studentTableSafePageIndex + 1} of {studentTablePageCount}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor="studentTablePageSize" className="sr-only">Rows per page</Label>
+                              <Select
+                                value={studentTablePageSize}
+                                onValueChange={(value) => {
+                                  setStudentTablePageSize(value);
+                                  setStudentTablePageIndex(0);
+                                }}
+                              >
+                                <SelectTrigger id="studentTablePageSize" className="w-28">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="25">25 rows</SelectItem>
+                                  <SelectItem value="50">50 rows</SelectItem>
+                                  <SelectItem value="100">100 rows</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setStudentTablePageIndex(Math.max(0, studentTableSafePageIndex - 1))}
+                                disabled={studentTableSafePageIndex === 0}
+                              >
+                                <ChevronLeft className="size-4" />
+                                Previous
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setStudentTablePageIndex(
+                                    Math.min(studentTablePageCount - 1, studentTableSafePageIndex + 1),
+                                  )
+                                }
+                                disabled={studentTableSafePageIndex >= studentTablePageCount - 1}
+                              >
+                                Next
+                                <ChevronRight className="size-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
                 </div>

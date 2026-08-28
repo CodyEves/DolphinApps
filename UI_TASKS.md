@@ -38,19 +38,18 @@ free to jump around.
 
 This is the highest-value area since it directly powers the application/interview decisions.
 
-- [ ] **A1. Turn the "Records" page into an all-students table, not a search-then-click
-  flow.** Today, `/shop/records` makes you search for and click into one student at a time
-  to see their hours (`listAttendanceRecords` in `shopAttendance.ts`, shop-only — it doesn't
-  even include event attendance). For 150 students, the default view should be a single
-  sortable/filterable table: name, shop hours (range), event count, last attendance,
-  graduation year/team — so "who's behind on hours" or "who's the most active" is a glance,
-  not 150 clicks. `attendanceOverviewReport` already computes almost exactly this shape of
-  data for the Reports tab — that's the right query to build this table on top of.
-
-- [ ] **A2. Make that table sortable by hours/events, not just alphabetical.** Every list on
-  this page (`recordPeopleRows`, `overviewStudents`, etc.) is currently name-sorted only.
-  Sorting by "fewest hours" is exactly the view an admin needs before an application
-  deadline.
+- [x] **A1/A2/A4. Turn the Reports "Student attendance" list into a real sortable/
+  filterable table.** Implemented on the Reports tab's existing "Student attendance" list
+  (not the `/shop/records` route — that one's a different, still-search-then-click per-
+  student lookup and was left alone; the Reports tab already had all-students data with
+  both shop hours *and* event counts via `attendanceOverviewReport`, which `/shop/records`
+  doesn't have). It's now a real `<table>` (matching the admin-people.tsx data-table
+  pattern) with click-to-sort columns (Student/Shop hours/Needs review/Events/Last
+  attendance), a name/team/program/grad-year search box, a "below N hours" threshold
+  filter for exactly the application-season use case, pagination (25/50/100 rows), and a
+  second CSV export button ("Export this view") that respects the current filter/sort so
+  you can filter to "under 10 hours" and export just that list. The original "Export
+  overview CSV" button (unfiltered, full range) is unchanged.
 
 - [ ] **A3. Add a real per-student profile view that merges shop + events + status.** Right
   now shop hours (Records) and event attendance (only visible in the aggregate Reports
@@ -58,11 +57,6 @@ This is the highest-value area since it directly powers the application/intervie
   should get one page: total shop hours, sessions list, events attended, maybe badges/
   training completion too, since that's plausibly also part of "how much have they
   contributed."
-
-- [ ] **A4. Add an hours-threshold filter for application season.** A single control like
-  "show students under N hours this season" (or below a required minimum) directly answers
-  "who doesn't qualify yet" — the actual question being asked when this data gets used for
-  decisions. Pairs naturally with A1's table.
 
 - [ ] **A5. Paginate or virtualize every unbounded list on this page.** Nothing on
   `/shop/records`, `/shop/review`, `/shop/reports`, or the Events tab paginates today —
