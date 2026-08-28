@@ -630,6 +630,8 @@ export function ShopAttendancePage() {
   const [busyRecordId, setBusyRecordId] = useState<string | null>(null);
   const [manualUserId, setManualUserId] = useState("");
   const [liveSignInUserId, setLiveSignInUserId] = useState("");
+  const [liveSignInSearch, setLiveSignInSearch] = useState("");
+  const [isLiveSignInSearchOpen, setIsLiveSignInSearchOpen] = useState(false);
   const [isLiveSignInBusy, setIsLiveSignInBusy] = useState(false);
   const [manualIn, setManualIn] = useState("");
   const [manualOut, setManualOut] = useState("");
@@ -955,6 +957,7 @@ export function ShopAttendancePage() {
     try {
       await adminSignInPerson({ userId: liveSignInUserId as Id<"users"> });
       setLiveSignInUserId("");
+      setLiveSignInSearch("");
       toast.success("Signed in to the shop");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not sign in this person");
@@ -1331,6 +1334,26 @@ export function ShopAttendancePage() {
 
     return (people ?? []).filter((person) => !openUserIds.has(person.userId));
   }, [people, openRows]);
+  const liveSignInSelected = peopleNotSignedIn.find((person) => person.userId === liveSignInUserId);
+  const liveSignInResults = useMemo(() => {
+    const term = liveSignInSearch.trim().toLowerCase();
+
+    if (!term) {
+      return peopleNotSignedIn;
+    }
+
+    return peopleNotSignedIn.filter((person) =>
+      [
+        person.name,
+        person.studentGroup,
+        person.graduationYear ? String(person.graduationYear) : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [peopleNotSignedIn, liveSignInSearch]);
   const reviewRows = useMemo(() => reviewQueue ?? [], [reviewQueue]);
   const filteredReviewRows = useMemo(
     () =>
@@ -2518,20 +2541,50 @@ export function ShopAttendancePage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid gap-3 rounded-md border bg-muted/30 p-4 sm:grid-cols-[1fr_auto] sm:items-end">
-                    <div className="space-y-2">
-                      <Label>Add student without a code</Label>
-                      <Select value={liveSignInUserId} onValueChange={setLiveSignInUserId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Choose person" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {peopleNotSignedIn.map((person) => (
-                            <SelectItem key={person.userId} value={person.userId}>
-                              {person.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="relative space-y-2">
+                      <Label htmlFor="liveSignInSearch">Add student without a code</Label>
+                      <Input
+                        id="liveSignInSearch"
+                        value={liveSignInSearch}
+                        onChange={(event) => {
+                          setLiveSignInSearch(event.target.value);
+                          setLiveSignInUserId("");
+                          setIsLiveSignInSearchOpen(true);
+                        }}
+                        onFocus={() => setIsLiveSignInSearchOpen(true)}
+                        onBlur={() => window.setTimeout(() => setIsLiveSignInSearchOpen(false), 120)}
+                        placeholder="Search by name, team, or graduation year"
+                        autoComplete="off"
+                      />
+                      {isLiveSignInSearchOpen && (
+                        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
+                          {liveSignInResults.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">No students found.</div>
+                          ) : (
+                            liveSignInResults.map((person) => (
+                              <button
+                                key={person.userId}
+                                type="button"
+                                className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                onMouseDown={(event) => event.preventDefault()}
+                                onClick={() => {
+                                  setLiveSignInUserId(person.userId);
+                                  setLiveSignInSearch(person.name);
+                                  setIsLiveSignInSearchOpen(false);
+                                }}
+                              >
+                                <span className="min-w-0">
+                                  <span className="block truncate font-medium">{person.name}</span>
+                                  <span className="block truncate text-xs text-muted-foreground">
+                                    {person.studentGroup ?? person.role}
+                                    {person.graduationYear ? ` - ${person.graduationYear}` : ""}
+                                  </span>
+                                </span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
                     </div>
                     <Button
                       type="button"
@@ -2542,6 +2595,11 @@ export function ShopAttendancePage() {
                       Sign in
                     </Button>
                   </div>
+                  {liveSignInSelected && (
+                    <p className="text-sm text-muted-foreground">
+                      Selected: <span className="font-medium text-foreground">{liveSignInSelected.name}</span>
+                    </p>
+                  )}
                   {openRows.length === 0 && (
                     <div className="rounded-md border p-4 text-sm text-muted-foreground">No students are currently signed in.</div>
                   )}
