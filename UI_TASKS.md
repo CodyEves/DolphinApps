@@ -51,12 +51,13 @@ This is the highest-value area since it directly powers the application/intervie
   you can filter to "under 10 hours" and export just that list. The original "Export
   overview CSV" button (unfiltered, full range) is unchanged.
 
-- [ ] **A3. Add a real per-student profile view that merges shop + events + status.** Right
-  now shop hours (Records) and event attendance (only visible in the aggregate Reports
-  table) live in different places for a given student. Someone reviewing one applicant
-  should get one page: total shop hours, sessions list, events attended, maybe badges/
-  training completion too, since that's plausibly also part of "how much have they
-  contributed."
+- [x] **A3. Add a real per-student profile view that merges shop + events + status.** Added
+  `listStudentEventAttendance` (new query, off the existing `eventAttendanceRecords.by_user`
+  index) and an "Events attended" section on the per-student Reports page, alongside the
+  existing shop-hours list — plus an event count in the stat row and its own CSV export.
+  Reviewing one applicant's shop hours *and* events is now one page. Didn't pull in badges/
+  training completion — that would mean reaching into `badges.ts`/`training.ts` data models,
+  which felt like its own separate task rather than part of "attendance."
 
 - [ ] **A5. Paginate or virtualize every unbounded list on this page.** Nothing on
   `/shop/records`, `/shop/review`, `/shop/reports`, or the Events tab paginates today —
