@@ -17,56 +17,48 @@ admin/lead session + event creation flows, since that's the most-used page today
 
 ## Open tasks
 
-- [ ] **1. Duplicate/misleading "Display" nav item.** There are two different navigation
-  bars stacked on `/shop`: the outer route nav (Overview / Display / Records / Review /
-  Reports, from `ShopSectionNav`) and an inner tab bar (Display / Live / Schedule / Events /
-  Check in/out). Both have an item literally called "Display" but they go to different
-  places — the outer one opens the full kiosk view at `/shop/display`, the inner tab just
-  shows the code inline on the Overview page. Rename one of them (e.g. inner tab → "Code")
-  so they're not identical labels pointing at different things.
+_None right now — everything below has shipped. Add new ones here as you spot them._
 
-- [ ] **2. Two stacked pill-nav rows eat the whole screen on mobile.** On a phone, the
-  outer route nav + inner tab nav together wrap to 3 lines of buttons before any real
-  content appears (verified at 375px width). Shop Attendance is the page mentors/students
-  use most on their phones. Worth collapsing to one navigation level, or turning the inner
-  tabs into a dropdown/select on small screens.
+---
 
-- [ ] **3. Raw enum value leaking into the student list UI.** In the Records/Review/Reports
-  student picker (`shop-attendance.tsx` ~line 1935), a student row shows both
-  `studentGroup` ("5199 Student") AND the raw `primaryProgram` enum value ("frc_5199")
-  side by side — e.g. "5199 Student · 2028 · frc_5199". The `frc_5199`/`frc_9271` value
-  should never be shown to a user directly; drop it or map it to a friendly label, and
-  it's redundant with `studentGroup` anyway.
+## Completed
 
-- [ ] **4. Top header repeats "Shop Attendance" instead of the sub-page name.** On
-  `/shop/records`, `/shop/review`, and `/shop/reports`, the small breadcrumb-style header
-  at the top of the app shows "Shop Attendance" / "Shop Attendance" (both lines the same).
-  Root cause: `shopNavItems` in `src/components/navigation.tsx` only lists `/shop` and
-  `/shop/display`, so the header's `current?.label ?? appLabel` fallback (line ~237) can't
-  find a match for those routes and falls back to the generic app label twice. Add entries
-  for Records/Review/Reports (or otherwise fix the fallback) so it shows the actual
-  sub-page name.
+- [x] **1. Duplicate/misleading "Display" nav item.** Renamed the inner tab (the one that
+  just shows the code inline on Overview) from "Display" to "Code," so it no longer shares
+  a label with the outer route nav's "Display" link that opens the full kiosk view.
 
-- [ ] **5. Admin/lead forms stack vertically until very wide screens.** The "Create event"
-  form and event list use a two-column layout (`xl:grid-cols-[420px_1fr]`), which only
-  kicks in at 1280px+. On a typical laptop (1024–1279px) or tablet, it's a single long
-  scrolling column even though there's room for two. Drop the breakpoint to `lg:` (or
-  check other similar grids on this page for the same issue).
+- [x] **2. Two stacked pill-nav rows eat the whole screen on mobile.** Both nav bars
+  (outer `ShopSectionNav` and the inner `TabsList`) now scroll horizontally as a single
+  line below the `sm` breakpoint instead of wrapping to 2–3 lines, and wrap normally on
+  larger screens same as before.
 
-- [ ] **6. "Start session" input has no persistent label.** The shop-session-title field
-  only has a placeholder ("Optional session title"), no actual `<Label>` — the hint
-  disappears the moment you start typing. Minor, but worth a pass to check other
-  placeholder-only inputs on this page for the same gap.
+- [x] **3. Raw enum value leaking into the student list UI.** Dropped the raw
+  `primaryProgram` ("frc_5199") display from the Records/Review/Reports student list and
+  from the event-attendee badge fallback — both now rely on `studentGroup` alone, which
+  already reads correctly ("5199 Student").
 
-- [ ] **7. "Add student without a code" search stays fully interactive with no active
-  session.** On the Live tab, when there's no active shop session, the search input and
-  "Sign in" button are still shown as if usable (the button is technically disabled once
-  you pick someone, but there's no explanation why). Either disable the whole control or
-  show inline text like "Start a shop session first."
+- [x] **4. Top header repeats "Shop Attendance" instead of the sub-page name.** Added
+  Records/Review/Reports entries to `shopNavItems` in `src/components/navigation.tsx`
+  (gated to managers, matching the in-page tabs). Fixes the duplicate header text and, as
+  a bonus, they now also show up as real links in the sidebar/mobile nav sheet, consistent
+  with how Training/Parts/Management already list their sub-pages.
 
-- [ ] **8. "Sign out" button icon doesn't read as sign-out.** Both the shop live-roster
-  sign-out button and the student's own sign-out button use `ArrowLeftRight`, which doesn't
-  intuitively communicate "sign out." Consider a `LogOut`-style icon instead.
+- [x] **5. Admin/lead forms stack vertically until very wide screens.** Dropped four
+  `xl:grid-cols-*` breakpoints to `lg:` (Events tab, Display tab, and the two Reports
+  summary grids) so they go two-column starting at a normal laptop width. Left the
+  6-column `EditableAttendanceRecord` row at `xl:` since going wider there would overflow
+  before 1280px rather than help.
+
+- [x] **6. "Start session" input has no persistent label.** Added a real `<Label>` above
+  the shop-session-title field instead of relying on the placeholder alone.
+
+- [x] **7. "Add student without a code" search stays fully interactive with no active
+  session.** The search input is now disabled and shows "Start a shop session first."
+  when there's no active session, instead of looking usable with no explanation.
+
+- [x] **8. "Sign out" button icon doesn't read as sign-out.** Swapped `ArrowLeftRight` for
+  `LogOut` on both sign-out buttons (shop live roster row, and the student's own sign-out
+  button). Left `ArrowLeftRight` on the unrelated "Link to Slack account" button as-is.
 
 ---
 

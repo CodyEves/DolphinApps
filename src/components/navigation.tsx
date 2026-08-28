@@ -5,6 +5,8 @@ import {
   BookOpen,
   Clock,
   ClipboardCheck,
+  ClipboardList,
+  Download,
   Factory,
   FileCheck,
   Gauge,
@@ -85,6 +87,9 @@ const managementNavItems: NavItem[] = [
 const shopNavItems: NavItem[] = [
   { href: "/shop", label: "Overview", icon: Clock },
   { href: "/shop/display", label: "Display", icon: Monitor },
+  { href: "/shop/records", label: "Records", icon: ClipboardList, managementOnly: true },
+  { href: "/shop/review", label: "Review", icon: ShieldCheck, managementOnly: true },
+  { href: "/shop/reports", label: "Reports", icon: Download, managementOnly: true },
 ];
 
 function navItemsForPath(pathname: string) {

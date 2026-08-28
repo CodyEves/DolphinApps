@@ -13,6 +13,7 @@ import {
   Link as LinkIcon,
   Loader2,
   LockKeyhole,
+  LogOut,
   Maximize2,
   Monitor,
   PictureInPicture,
@@ -235,7 +236,10 @@ function ShopSectionNav({
   ];
 
   return (
-    <nav className="mb-5 flex flex-wrap gap-2" aria-label="Shop Attendance navigation">
+    <nav
+      className="mb-5 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0"
+      aria-label="Shop Attendance navigation"
+    >
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = shopNavActive(pathname, item.href);
@@ -246,7 +250,7 @@ function ShopSectionNav({
             asChild
             variant={isActive ? "secondary" : "outline"}
             className={cn(
-              "h-10 justify-start gap-2",
+              "h-10 shrink-0 justify-start gap-2",
               isActive && "border-primary/20 bg-primary/10 text-primary hover:bg-primary/15",
             )}
           >
@@ -1773,7 +1777,7 @@ export function ShopAttendancePage() {
                   )}
                   {overviewSummary && (
                     <>
-                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                         <div className="rounded-md border bg-card p-4">
                           <p className="text-sm text-muted-foreground">Students</p>
                           <p className="mt-1 text-2xl font-semibold">{overviewSummary.studentCount}</p>
@@ -1833,7 +1837,7 @@ export function ShopAttendancePage() {
                     </>
                   )}
 
-                  <div className="grid gap-5 xl:grid-cols-2">
+                  <div className="grid gap-5 lg:grid-cols-2">
                     <Card>
                       <CardHeader>
                         <CardTitle>Event attendance</CardTitle>
@@ -1932,7 +1936,6 @@ export function ShopAttendancePage() {
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                           <span>{person.studentGroup ?? "Student"}</span>
                           {person.graduationYear && <span>{person.graduationYear}</span>}
-                          {person.primaryProgram && <span>{person.primaryProgram}</span>}
                         </div>
                       </div>
                       <Badge variant="outline">
@@ -2083,33 +2086,33 @@ export function ShopAttendancePage() {
           defaultValue={canDisplayRole ? "display" : canManageEvents ? "events" : "checkin"}
           className="space-y-5"
         >
-          <TabsList className="flex h-auto w-full flex-wrap justify-start">
+          <TabsList className="flex h-auto w-full flex-nowrap justify-start overflow-x-auto sm:flex-wrap sm:overflow-visible">
             {canDisplayRole && (
-              <TabsTrigger value="display">
+              <TabsTrigger value="display" className="shrink-0">
                 <Monitor className="size-4" />
-                Display
+                Code
               </TabsTrigger>
             )}
             {canManage && (
               <>
-                <TabsTrigger value="live">
+                <TabsTrigger value="live" className="shrink-0">
                   <Users className="size-4" />
                   Live
                 </TabsTrigger>
-                <TabsTrigger value="schedule">
+                <TabsTrigger value="schedule" className="shrink-0">
                   <Clock className="size-4" />
                   Schedule
                 </TabsTrigger>
               </>
             )}
             {canManageEvents && (
-              <TabsTrigger value="events">
+              <TabsTrigger value="events" className="shrink-0">
                 <CalendarDays className="size-4" />
                 Events
               </TabsTrigger>
             )}
             {canUseStudentCheckIn && (
-              <TabsTrigger value="checkin">
+              <TabsTrigger value="checkin" className="shrink-0">
                 <QrCode className="size-4" />
                 Check in/out
               </TabsTrigger>
@@ -2118,7 +2121,7 @@ export function ShopAttendancePage() {
 
           {canDisplayRole && (
             <TabsContent value="display" className="space-y-5">
-              <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
+              <div className="grid gap-5 lg:grid-cols-[1fr_360px]">
                 <section className="space-y-5">
                   <Card>
                     <CardHeader>
@@ -2133,12 +2136,16 @@ export function ShopAttendancePage() {
                     <CardContent className="space-y-4">
                       {!current?.session ? (
                         canManage ? (
-                          <form onSubmit={handleStartSession} className="flex flex-col gap-3 sm:flex-row">
-                            <Input
-                              value={shopTitle}
-                              onChange={(event) => setShopTitle(event.target.value)}
-                              placeholder="Optional session title"
-                            />
+                          <form onSubmit={handleStartSession} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                            <div className="flex-1 space-y-2">
+                              <Label htmlFor="shopSessionTitle">Session title</Label>
+                              <Input
+                                id="shopSessionTitle"
+                                value={shopTitle}
+                                onChange={(event) => setShopTitle(event.target.value)}
+                                placeholder="Optional session title"
+                              />
+                            </div>
                             <Button type="submit">
                               <Clock className="size-4" />
                               Start session
@@ -2320,7 +2327,7 @@ export function ShopAttendancePage() {
 
           {canManageEvents && (
             <TabsContent value="events" className="space-y-5">
-              <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
+              <div className="grid gap-5 lg:grid-cols-[420px_1fr]">
                   <Card>
                     <CardHeader>
                       <Plus className="size-5 text-primary" />
@@ -2601,7 +2608,7 @@ export function ShopAttendancePage() {
                                   <p className="truncate font-medium">{record.studentName}</p>
                                   <p className="text-sm text-muted-foreground">{formatDateTime(record.checkedInAt)}</p>
                                 </div>
-                                <Badge variant="outline">{record.studentGroup ?? record.primaryProgram ?? "Student"}</Badge>
+                                <Badge variant="outline">{record.studentGroup ?? "Student"}</Badge>
                                 <Button
                                   type="button"
                                   size="sm"
@@ -2640,7 +2647,7 @@ export function ShopAttendancePage() {
                       onClick={() => void handleSignOutOfShop()}
                       disabled={isAttendanceBusy}
                     >
-                      {isAttendanceBusy ? <Loader2 className="size-4 animate-spin" /> : <ArrowLeftRight className="size-4" />}
+                      {isAttendanceBusy ? <Loader2 className="size-4 animate-spin" /> : <LogOut className="size-4" />}
                       Sign out
                     </Button>
                   </CardContent>
@@ -2724,7 +2731,11 @@ export function ShopAttendancePage() {
                         onBlur={() => window.setTimeout(() => setIsLiveSignInSearchOpen(false), 120)}
                         placeholder="Search by name, team, or graduation year"
                         autoComplete="off"
+                        disabled={!current?.session}
                       />
+                      {!current?.session && (
+                        <p className="text-xs text-muted-foreground">Start a shop session first.</p>
+                      )}
                       {isLiveSignInSearchOpen && (
                         <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
                           {liveSignInResults.length === 0 ? (
@@ -2791,7 +2802,7 @@ export function ShopAttendancePage() {
                           {busyRecordId === row._id ? (
                             <Loader2 className="size-4 animate-spin" />
                           ) : (
-                            <ArrowLeftRight className="size-4" />
+                            <LogOut className="size-4" />
                           )}
                           Sign out
                         </Button>
