@@ -71,7 +71,7 @@ function userProfileFields(user: Doc<"users"> | null) {
 }
 
 function accountLabelForProfile(profile: {
-  role?: "student" | "instructor" | "mentor" | "guest" | "kiosk" | "admin";
+  role?: "student" | "instructor" | "mentor" | "guest" | "kiosk" | "admin" | "lead";
   primaryProgram?: "frc_5199" | "frc_9271";
   studentGroup?: string;
 }) {
@@ -89,6 +89,10 @@ function accountLabelForProfile(profile: {
 
   if (profile.role === "kiosk") {
     return "kiosk" as const;
+  }
+
+  if (profile.role === "lead") {
+    return programForProfile(profile) === "frc_9271" ? ("lead_9271" as const) : ("lead_5199" as const);
   }
 
   if (programForProfile(profile) === "frc_9271") {
@@ -357,13 +361,21 @@ export const setAccountLabel = mutation({
             ? { role: "guest" as const, studentGroup: undefined }
             : args.accountLabel === "kiosk"
               ? { role: "kiosk" as const, studentGroup: undefined, primaryProgram: undefined }
-              : {
-                  role: "student" as const,
-                  primaryProgram:
-                    args.accountLabel === "jv_9271" ? "frc_9271" as const : "frc_5199" as const,
-                  studentGroup:
-                    args.accountLabel === "jv_9271" ? "9271 Student" : "5199 Student",
-                };
+              : args.accountLabel === "lead_5199" || args.accountLabel === "lead_9271"
+                ? {
+                    role: "lead" as const,
+                    primaryProgram:
+                      args.accountLabel === "lead_9271" ? "frc_9271" as const : "frc_5199" as const,
+                    studentGroup:
+                      args.accountLabel === "lead_9271" ? "9271 Lead" : "5199 Lead",
+                  }
+                : {
+                    role: "student" as const,
+                    primaryProgram:
+                      args.accountLabel === "jv_9271" ? "frc_9271" as const : "frc_5199" as const,
+                    studentGroup:
+                      args.accountLabel === "jv_9271" ? "9271 Student" : "5199 Student",
+                  };
 
     if (existing) {
       await ctx.db.patch(existing._id, {

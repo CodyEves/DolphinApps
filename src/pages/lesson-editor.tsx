@@ -46,6 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { canManageTrainingContent } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -867,10 +868,10 @@ export function LessonEditorPage() {
   const lessonId = params.lessonId as Id<"lessons"> | undefined;
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isAdmin = effectiveRole === "admin";
+  const canEditContent = canManageTrainingContent(effectiveRole);
   const lessonRecord = useQuery(
     api.training.getLessonForEdit,
-    isAuthenticated && isAdmin && lessonId ? { lessonId } : "skip",
+    isAuthenticated && canEditContent && lessonId ? { lessonId } : "skip",
   );
   const saveLesson = useMutation(api.training.saveLesson);
   const [form, setForm] = useState<LessonForm>(emptyLessonForm);
@@ -1412,7 +1413,7 @@ export function LessonEditorPage() {
     );
   }
 
-  if (viewer === undefined || (isAdmin && lessonId && lessonRecord === undefined)) {
+  if (viewer === undefined || (canEditContent && lessonId && lessonRecord === undefined)) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
@@ -1424,13 +1425,13 @@ export function LessonEditorPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canEditContent) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
           eyebrow="Learning"
           title="Admin access required"
-          description="Only admins can edit lessons."
+          description="Only admins and leads can edit lessons."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">

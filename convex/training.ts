@@ -96,6 +96,24 @@ async function requireAdmin(ctx: QueryCtx | MutationCtx) {
   return profile;
 }
 
+function canPreviewUnpublished(profile: Awaited<ReturnType<typeof currentProfile>>) {
+  return (
+    !!profile &&
+    profile.status === "active" &&
+    (profile.role === "admin" || profile.role === "lead")
+  );
+}
+
+async function requireContentEditor(ctx: QueryCtx | MutationCtx) {
+  const profile = await currentProfile(ctx);
+
+  if (!canPreviewUnpublished(profile)) {
+    throw new Error("Only admins and leads can manage learning tracks.");
+  }
+
+  return profile!;
+}
+
 async function requireActiveProfile(ctx: QueryCtx | MutationCtx) {
   const profile = await currentProfile(ctx);
 
@@ -447,9 +465,9 @@ export const listTrainingTracks = query({
   args: {},
   handler: async (ctx) => {
     const profile = await currentProfile(ctx);
-    const isAdmin = profile?.role === "admin" && profile.status === "active";
+    const canSeeAllTracks = canPreviewUnpublished(profile);
     const tracks = await ctx.db.query("trainingTracks").withIndex("by_order").collect();
-    const visibleTracks = isAdmin ? tracks : tracks.filter((track) => track.isPublished);
+    const visibleTracks = canSeeAllTracks ? tracks : tracks.filter((track) => track.isPublished);
 
     return await Promise.all(
       visibleTracks.map(async (track) => {
@@ -470,7 +488,7 @@ export const getTrainingTrackForEdit = query({
     trackId: v.id("trainingTracks"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     return await collectTrackTree(ctx, args.trackId);
   },
@@ -489,7 +507,7 @@ export const getTrainingTrackForStudent = query({
 
     const profile = await currentProfile(ctx);
 
-    if (!trackTree.isPublished && (profile?.role !== "admin" || profile.status !== "active")) {
+    if (!trackTree.isPublished && !canPreviewUnpublished(profile)) {
       return null;
     }
 
@@ -502,7 +520,7 @@ export const getLessonForEdit = query({
     lessonId: v.id("lessons"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     return await collectLessonContent(ctx, args.lessonId);
   },
@@ -521,7 +539,7 @@ export const getLessonForStudent = query({
 
     const profile = await currentProfile(ctx);
 
-    if (!content.track.isPublished && (profile?.role !== "admin" || profile.status !== "active")) {
+    if (!content.track.isPublished && !canPreviewUnpublished(profile)) {
       return null;
     }
 
@@ -560,7 +578,7 @@ export const submitLessonQuiz = mutation({
     }
 
     if (!content.track.isPublished) {
-      if (profile?.role !== "admin") {
+      if (!canPreviewUnpublished(profile)) {
         throw new Error("This lesson is not available yet.");
       }
     }
@@ -706,7 +724,7 @@ export const saveTrackDetails = mutation({
     level: trainingLevelValidator,
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     const title = args.title.trim();
     const description = args.description.trim();
@@ -767,7 +785,7 @@ export const createUnit = mutation({
     trackId: v.id("trainingTracks"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     const track = await ctx.db.get(args.trackId);
 
@@ -802,7 +820,7 @@ export const updateUnit = mutation({
     isRequired: v.boolean(),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     const unit = await ctx.db.get(args.unitId);
 
@@ -833,7 +851,7 @@ export const reorderUnits = mutation({
     unitIds: v.array(v.id("units")),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     const track = await ctx.db.get(args.trackId);
 
@@ -875,7 +893,7 @@ export const deleteUnit = mutation({
     unitId: v.id("units"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     const unit = await ctx.db.get(args.unitId);
 
@@ -902,7 +920,7 @@ export const createLesson = mutation({
     unitId: v.id("units"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     const unit = await ctx.db.get(args.unitId);
 
@@ -945,7 +963,7 @@ export const saveLesson = mutation({
     questions: v.array(questionInputValidator),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     const lesson = await ctx.db.get(args.lessonId);
 
@@ -1201,7 +1219,7 @@ export const deleteLessonFromUnit = mutation({
     lessonId: v.id("lessons"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     const lesson = await ctx.db.get(args.lessonId);
 
@@ -1262,7 +1280,7 @@ export const saveLearningTrackDraft = mutation({
     units: v.array(unitInputValidator),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     const title = args.title.trim();
     const description = args.description.trim();
@@ -1441,7 +1459,7 @@ export const publishLearningTrack = mutation({
     trackId: v.id("trainingTracks"),
   },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    await requireContentEditor(ctx);
 
     const trackTree = await collectTrackTree(ctx, args.trackId);
 

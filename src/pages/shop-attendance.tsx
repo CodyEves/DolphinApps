@@ -54,6 +54,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
+import { canManageAttendanceEvents } from "@/lib/role-access";
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -530,6 +531,7 @@ export function ShopAttendancePage() {
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const canManage =
     effectiveRole === "admin" || effectiveRole === "mentor" || effectiveRole === "instructor";
+  const canManageEvents = canManageAttendanceEvents(effectiveRole);
   const canDisplayRole = canManage || effectiveRole === "kiosk";
   const canUseStudentCheckIn = effectiveRole !== "kiosk";
   const showRecordsRoute = location.pathname.startsWith("/shop/records");
@@ -564,7 +566,7 @@ export function ShopAttendancePage() {
   );
   const attendanceEvents = useQuery(
     api.shopAttendance.listAttendanceEvents,
-    isAuthenticated && canManage ? { includeClosed: true } : "skip",
+    isAuthenticated && canManageEvents ? { includeClosed: true } : "skip",
   );
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -620,6 +622,7 @@ export function ShopAttendancePage() {
   const updateAttendanceEvent = useMutation(api.shopAttendance.updateAttendanceEvent);
   const setAttendanceEventCode = useMutation(api.shopAttendance.setAttendanceEventCode);
   const deleteEventAttendanceRecord = useMutation(api.shopAttendance.deleteEventAttendanceRecord);
+  const adminCheckInToEvent = useMutation(api.shopAttendance.adminCheckInToEvent);
   const notifyClosed = useAction(api.shopSlack.notifyShopSessionClosed);
   const [shopTitle, setShopTitle] = useState("");
   const [closingNote, setClosingNote] = useState("");
@@ -648,13 +651,21 @@ export function ShopAttendancePage() {
   const [selectedEventCodeDraft, setSelectedEventCodeDraft] = useState("");
   const [selectedEventId, setSelectedEventId] = useState<Id<"attendanceEvents"> | "">("");
   const [isEventBusy, setIsEventBusy] = useState(false);
+  const [eventCheckInUserId, setEventCheckInUserId] = useState("");
+  const [eventCheckInSearch, setEventCheckInSearch] = useState("");
+  const [isEventCheckInSearchOpen, setIsEventCheckInSearchOpen] = useState(false);
+  const [isEventCheckInBusy, setIsEventCheckInBusy] = useState(false);
   const [now, setNow] = useState(0);
   const [attendanceCode, setAttendanceCode] = useState(
     searchParams.get("code")?.trim().toUpperCase() ?? "",
   );
   const selectedEventAttendance = useQuery(
     api.shopAttendance.listEventAttendance,
-    isAuthenticated && canManage && selectedEventId ? { eventId: selectedEventId } : "skip",
+    isAuthenticated && canManageEvents && selectedEventId ? { eventId: selectedEventId } : "skip",
+  );
+  const eventCheckInPeople = useQuery(
+    api.shopAttendance.listPeopleForEventCheckIn,
+    isAuthenticated && canManageEvents && selectedEventId ? {} : "skip",
   );
   const [isAttendanceBusy, setIsAttendanceBusy] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -1148,6 +1159,26 @@ export function ShopAttendancePage() {
     }
   }
 
+  async function handleEventCheckIn(eventId: Id<"attendanceEvents">) {
+    if (!eventCheckInUserId) {
+      toast.error("Choose a person to check in.");
+      return;
+    }
+
+    setIsEventCheckInBusy(true);
+
+    try {
+      await adminCheckInToEvent({ eventId, userId: eventCheckInUserId as Id<"users"> });
+      setEventCheckInUserId("");
+      setEventCheckInSearch("");
+      toast.success("Checked in to the event");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not check in this person");
+    } finally {
+      setIsEventCheckInBusy(false);
+    }
+  }
+
   async function handleBrowserFullscreen() {
     try {
       if (!document.fullscreenElement) {
@@ -1299,6 +1330,33 @@ export function ShopAttendancePage() {
     () => selectedEventAttendance ?? [],
     [selectedEventAttendance],
   );
+  const eventCheckInEligiblePeople = useMemo(() => {
+    const checkedInUserIds = new Set(selectedEventRecords.map((record) => record.userId));
+
+    return (eventCheckInPeople ?? []).filter((person) => !checkedInUserIds.has(person.userId));
+  }, [eventCheckInPeople, selectedEventRecords]);
+  const eventCheckInSelected = eventCheckInEligiblePeople.find(
+    (person) => person.userId === eventCheckInUserId,
+  );
+  const eventCheckInResults = useMemo(() => {
+    const term = eventCheckInSearch.trim().toLowerCase();
+
+    if (!term) {
+      return eventCheckInEligiblePeople;
+    }
+
+    return eventCheckInEligiblePeople.filter((person) =>
+      [
+        person.name,
+        person.studentGroup,
+        person.graduationYear ? String(person.graduationYear) : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [eventCheckInEligiblePeople, eventCheckInSearch]);
   const overviewSummary = overviewReport?.summary;
   const overviewStudents = useMemo(() => overviewReport?.students ?? [], [overviewReport?.students]);
   const overviewEvents = useMemo(() => overviewReport?.events ?? [], [overviewReport?.events]);
@@ -2005,7 +2063,10 @@ export function ShopAttendancePage() {
             </div>
           </div>
         ) : (
-        <Tabs defaultValue={canDisplayRole ? "display" : "checkin"} className="space-y-5">
+        <Tabs
+          defaultValue={canDisplayRole ? "display" : canManageEvents ? "events" : "checkin"}
+          className="space-y-5"
+        >
           <TabsList className="flex h-auto w-full flex-wrap justify-start">
             {canDisplayRole && (
               <TabsTrigger value="display">
@@ -2025,7 +2086,7 @@ export function ShopAttendancePage() {
                 </TabsTrigger>
               </>
             )}
-            {canManage && (
+            {canManageEvents && (
               <TabsTrigger value="events">
                 <CalendarDays className="size-4" />
                 Events
@@ -2241,7 +2302,7 @@ export function ShopAttendancePage() {
             </TabsContent>
           )}
 
-          {canManage && (
+          {canManageEvents && (
             <TabsContent value="events" className="space-y-5">
               <div className="grid gap-5 xl:grid-cols-[420px_1fr]">
                   <Card>
@@ -2333,7 +2394,11 @@ export function ShopAttendancePage() {
                           <button
                             key={event._id}
                             type="button"
-                            onClick={() => setSelectedEventId(event._id)}
+                            onClick={() => {
+                              setSelectedEventId(event._id);
+                              setEventCheckInUserId("");
+                              setEventCheckInSearch("");
+                            }}
                             className={cn(
                               "grid w-full gap-2 rounded-md border p-4 text-left transition-colors hover:bg-accent hover:text-accent-foreground sm:grid-cols-[1fr_auto] sm:items-center",
                               selectedEventId === event._id && "border-primary/30 bg-primary/10",
@@ -2442,6 +2507,71 @@ export function ShopAttendancePage() {
                               Export CSV
                             </Button>
                           </div>
+                          <div className="grid gap-3 rounded-md border bg-muted/30 p-4 sm:grid-cols-[1fr_auto] sm:items-end">
+                            <div className="relative space-y-2">
+                              <Label htmlFor="eventCheckInSearch">Check in without a code</Label>
+                              <Input
+                                id="eventCheckInSearch"
+                                value={eventCheckInSearch}
+                                onChange={(event) => {
+                                  setEventCheckInSearch(event.target.value);
+                                  setEventCheckInUserId("");
+                                  setIsEventCheckInSearchOpen(true);
+                                }}
+                                onFocus={() => setIsEventCheckInSearchOpen(true)}
+                                onBlur={() => window.setTimeout(() => setIsEventCheckInSearchOpen(false), 120)}
+                                placeholder="Search by name, team, or graduation year"
+                                autoComplete="off"
+                                disabled={selectedAttendanceEvent.status !== "active"}
+                              />
+                              {isEventCheckInSearchOpen && (
+                                <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
+                                  {eventCheckInResults.length === 0 ? (
+                                    <div className="px-3 py-2 text-sm text-muted-foreground">No people found.</div>
+                                  ) : (
+                                    eventCheckInResults.map((person) => (
+                                      <button
+                                        key={person.userId}
+                                        type="button"
+                                        className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                        onMouseDown={(event) => event.preventDefault()}
+                                        onClick={() => {
+                                          setEventCheckInUserId(person.userId);
+                                          setEventCheckInSearch(person.name);
+                                          setIsEventCheckInSearchOpen(false);
+                                        }}
+                                      >
+                                        <span className="min-w-0">
+                                          <span className="block truncate font-medium">{person.name}</span>
+                                          <span className="block truncate text-xs text-muted-foreground">
+                                            {person.studentGroup ?? person.role}
+                                            {person.graduationYear ? ` - ${person.graduationYear}` : ""}
+                                          </span>
+                                        </span>
+                                      </button>
+                                    ))
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <Button
+                              type="button"
+                              onClick={() => void handleEventCheckIn(selectedAttendanceEvent._id)}
+                              disabled={
+                                isEventCheckInBusy ||
+                                selectedAttendanceEvent.status !== "active" ||
+                                !eventCheckInUserId
+                              }
+                            >
+                              {isEventCheckInBusy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                              Check in
+                            </Button>
+                          </div>
+                          {eventCheckInSelected && (
+                            <p className="text-sm text-muted-foreground">
+                              Selected: <span className="font-medium text-foreground">{eventCheckInSelected.name}</span>
+                            </p>
+                          )}
                           <div className="space-y-2">
                             {selectedEventAttendance === undefined && (
                               <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading attendees...</div>
@@ -2463,8 +2593,8 @@ export function ShopAttendancePage() {
                                   onClick={() => void handleDeleteEventRecord(record._id)}
                                   disabled={isEventBusy}
                                 >
-                                  <Trash2 className="size-4" />
-                                  Delete
+                                  <ArrowLeftRight className="size-4" />
+                                  Check out
                                 </Button>
                               </div>
                             ))}

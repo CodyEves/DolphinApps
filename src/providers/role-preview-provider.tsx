@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 
-type Role = "student" | "instructor" | "mentor" | "guest" | "kiosk" | "admin";
+type Role = "student" | "instructor" | "mentor" | "guest" | "kiosk" | "admin" | "lead";
 export type RoleView = "actual" | "student" | "mentor" | "admin";
 export type VisibleRoleView = "student" | "mentor" | "admin";
 

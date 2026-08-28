@@ -60,8 +60,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 
-type AccountLabel = "varsity_5199" | "jv_9271" | "mentor" | "guest" | "kiosk" | "admin";
-type AccountRole = "student" | "mentor" | "guest" | "kiosk" | "admin";
+type AccountLabel =
+  | "varsity_5199"
+  | "jv_9271"
+  | "lead_5199"
+  | "lead_9271"
+  | "mentor"
+  | "guest"
+  | "kiosk"
+  | "admin";
+type AccountRole = "student" | "lead" | "mentor" | "guest" | "kiosk" | "admin";
 type Program = "frc_5199" | "frc_9271";
 type AccountStatusFilter = "all" | "pending_setup" | "active" | "inactive";
 type AccountSort = "displayName" | "accountNumber" | "username" | "program" | "graduationYear" | "status";
@@ -76,6 +84,8 @@ type GeneratedCredentialLink = {
 const accountLabelText: Record<AccountLabel, string> = {
   varsity_5199: "5199 Student",
   jv_9271: "9271 Student",
+  lead_5199: "5199 Lead",
+  lead_9271: "9271 Lead",
   mentor: "Mentor",
   guest: "Guest",
   kiosk: "Shop Kiosk",
@@ -88,6 +98,10 @@ const programText: Record<Program, string> = {
 };
 
 function roleForAccountLabel(accountLabel: AccountLabel): AccountRole {
+  if (accountLabel === "lead_5199" || accountLabel === "lead_9271") {
+    return "lead";
+  }
+
   if (
     accountLabel === "mentor" ||
     accountLabel === "guest" ||
@@ -101,11 +115,13 @@ function roleForAccountLabel(accountLabel: AccountLabel): AccountRole {
 }
 
 function programForAccountLabel(accountLabel: AccountLabel): Program {
-  return accountLabel === "jv_9271" ? "frc_9271" : "frc_5199";
+  return accountLabel === "jv_9271" || accountLabel === "lead_9271" ? "frc_9271" : "frc_5199";
 }
 
 function programTextForAccountLabel(accountLabel: AccountLabel): string {
-  if (roleForAccountLabel(accountLabel) !== "student") {
+  const role = roleForAccountLabel(accountLabel);
+
+  if (role !== "student" && role !== "lead") {
     return "";
   }
 
@@ -115,6 +131,10 @@ function programTextForAccountLabel(accountLabel: AccountLabel): string {
 function accountLabelFor(role: AccountRole, program: Program): AccountLabel {
   if (role === "student") {
     return program === "frc_9271" ? "jv_9271" : "varsity_5199";
+  }
+
+  if (role === "lead") {
+    return program === "frc_9271" ? "lead_9271" : "lead_5199";
   }
 
   return role;
@@ -133,7 +153,13 @@ function normalizeProgram(value: string | undefined): Program {
 function normalizeRole(value: string | undefined, accountLabel: AccountLabel): AccountRole {
   const normalized = (value ?? "").trim().toLowerCase();
 
-  if (normalized === "mentor" || normalized === "guest" || normalized === "kiosk" || normalized === "admin") {
+  if (
+    normalized === "mentor" ||
+    normalized === "guest" ||
+    normalized === "kiosk" ||
+    normalized === "admin" ||
+    normalized === "lead"
+  ) {
     return normalized;
   }
 
@@ -908,6 +934,7 @@ export function AdminPeoplePage() {
                         <SelectContent>
                           <SelectItem value="all">All roles</SelectItem>
                           <SelectItem value="student">Students</SelectItem>
+                          <SelectItem value="lead">Leads</SelectItem>
                           <SelectItem value="mentor">Mentors</SelectItem>
                           <SelectItem value="guest">Guests</SelectItem>
                           <SelectItem value="kiosk">Shop kiosks</SelectItem>
@@ -1126,7 +1153,7 @@ export function AdminPeoplePage() {
                                       <Badge variant="secondary">{accountLabelText[accountLabel]}</Badge>
                                     </td>
                                     <td className="px-4 py-3">
-                                      {role === "student" ? programText[programLabel] : "-"}
+                                      {role === "student" || role === "lead" ? programText[programLabel] : "-"}
                                     </td>
                                     <td className="px-4 py-3">
                                       {account.graduationYear ?? "-"}
@@ -1337,6 +1364,7 @@ export function AdminPeoplePage() {
                                       </SelectTrigger>
                                       <SelectContent>
                                         <SelectItem value="student">Student</SelectItem>
+                                        <SelectItem value="lead">Lead</SelectItem>
                                         <SelectItem value="mentor">Mentor</SelectItem>
                                         <SelectItem value="guest">Guest</SelectItem>
                                         <SelectItem value="kiosk">Shop Kiosk</SelectItem>
@@ -1350,10 +1378,13 @@ export function AdminPeoplePage() {
                                       value={programLabel}
                                       onValueChange={(value: Program) =>
                                         void handleUpdateProvisionedAccount(selectedAccount._id, {
-                                          accountLabel: accountLabelFor("student", value),
+                                          accountLabel: accountLabelFor(role, value),
                                         })
                                       }
-                                      disabled={role !== "student" || busyAccountId === selectedAccount._id}
+                                      disabled={
+                                        (role !== "student" && role !== "lead") ||
+                                        busyAccountId === selectedAccount._id
+                                      }
                                     >
                                       <SelectTrigger>
                                         <SelectValue />
@@ -1524,6 +1555,7 @@ export function AdminPeoplePage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="student">Student</SelectItem>
+                              <SelectItem value="lead">Lead</SelectItem>
                               <SelectItem value="mentor">Mentor</SelectItem>
                               <SelectItem value="guest">Guest</SelectItem>
                               <SelectItem value="kiosk">Shop Kiosk</SelectItem>
@@ -1536,7 +1568,7 @@ export function AdminPeoplePage() {
                           <Select
                             value={program}
                             onValueChange={(value: Program) => setProgram(value)}
-                            disabled={accountRole !== "student"}
+                            disabled={accountRole !== "student" && accountRole !== "lead"}
                           >
                             <SelectTrigger>
                               <SelectValue />
@@ -1729,6 +1761,8 @@ export function AdminPeoplePage() {
                             <SelectContent>
                               <SelectItem value="varsity_5199">5199 Student</SelectItem>
                               <SelectItem value="jv_9271">9271 Student</SelectItem>
+                              <SelectItem value="lead_5199">5199 Lead</SelectItem>
+                              <SelectItem value="lead_9271">9271 Lead</SelectItem>
                               <SelectItem value="mentor">Mentor</SelectItem>
                               <SelectItem value="guest">Guest</SelectItem>
                               <SelectItem value="kiosk">Shop Kiosk</SelectItem>

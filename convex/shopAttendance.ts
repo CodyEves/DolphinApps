@@ -227,6 +227,20 @@ function canManageShop(profile: Doc<"profiles"> | null) {
   );
 }
 
+function canManageEvents(profile: Doc<"profiles"> | null) {
+  return canManageShop(profile) || (profile?.status === "active" && profile.role === "lead");
+}
+
+async function requireEventManager(ctx: QueryCtx | MutationCtx) {
+  const profile = await requireActiveProfile(ctx);
+
+  if (!canManageEvents(profile)) {
+    throw new Error("Only mentors, instructors, admins, and leads can manage attendance events.");
+  }
+
+  return profile;
+}
+
 function canDisplayShopCode(profile: Doc<"profiles"> | null) {
   return canManageShop(profile) || (profile?.status === "active" && profile.role === "kiosk");
 }
@@ -1017,7 +1031,8 @@ export const listAttendanceRecordPeople = query({
   handler: async (ctx) => {
     await requireShopManager(ctx);
     const profiles = (await ctx.db.query("profiles").collect()).filter(
-      (profile) => profile.status === "active" && profile.role === "student",
+      (profile) =>
+        profile.status === "active" && (profile.role === "student" || profile.role === "lead"),
     );
 
     return await Promise.all(
@@ -1290,7 +1305,7 @@ export const listAttendanceEvents = query({
     includeClosed: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    await requireShopManager(ctx);
+    await requireEventManager(ctx);
     const events = await ctx.db.query("attendanceEvents").collect();
 
     return await Promise.all(
@@ -1313,7 +1328,7 @@ export const createAttendanceEvent = mutation({
     codeHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const manager = await requireShopManager(ctx);
+    const manager = await requireEventManager(ctx);
     const title = args.title.trim();
     const eventCode = args.code ? normalizeCode(args.code) : undefined;
     const codeHash = eventCode ? await sha256Hex(eventCode) : args.codeHash;
@@ -1360,7 +1375,7 @@ export const updateAttendanceEvent = mutation({
     status: v.union(v.literal("active"), v.literal("closed")),
   },
   handler: async (ctx, args) => {
-    const manager = await requireShopManager(ctx);
+    const manager = await requireEventManager(ctx);
     const event = await ctx.db.get(args.eventId);
     const title = args.title.trim();
 
@@ -1399,7 +1414,7 @@ export const setAttendanceEventCode = mutation({
     codeHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    await requireShopManager(ctx);
+    await requireEventManager(ctx);
     const event = await ctx.db.get(args.eventId);
     const eventCode = args.code ? normalizeCode(args.code) : undefined;
     const codeHash = eventCode ? await sha256Hex(eventCode) : args.codeHash;
@@ -1577,7 +1592,7 @@ export const listEventAttendance = query({
     eventId: v.id("attendanceEvents"),
   },
   handler: async (ctx, args) => {
-    await requireShopManager(ctx);
+    await requireEventManager(ctx);
     const records = await ctx.db
       .query("eventAttendanceRecords")
       .withIndex("by_event", (q) => q.eq("eventId", args.eventId))
@@ -1596,7 +1611,7 @@ export const deleteEventAttendanceRecord = mutation({
     recordId: v.id("eventAttendanceRecords"),
   },
   handler: async (ctx, args) => {
-    await requireShopManager(ctx);
+    await requireEventManager(ctx);
     const record = await ctx.db.get(args.recordId);
 
     if (!record) {
@@ -1606,6 +1621,79 @@ export const deleteEventAttendanceRecord = mutation({
     await ctx.db.delete(args.recordId);
 
     return args.recordId;
+  },
+});
+
+export const listPeopleForEventCheckIn = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireEventManager(ctx);
+    const profiles = (await ctx.db.query("profiles").collect())
+      .filter((profile) => profile.status === "active")
+      .sort((a, b) =>
+        (a.displayName ?? a.email ?? "").localeCompare(b.displayName ?? b.email ?? ""),
+      );
+
+    return await Promise.all(
+      profiles.map(async (profile) => {
+        const user = await ctx.db.get(profile.userId);
+
+        return {
+          userId: profile.userId,
+          profileId: profile._id,
+          name: displayNameFor(profile, user),
+          role: profile.role,
+          studentGroup: profile.studentGroup,
+          graduationYear: profile.graduationYear,
+        };
+      }),
+    );
+  },
+});
+
+export const adminCheckInToEvent = mutation({
+  args: {
+    eventId: v.id("attendanceEvents"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const manager = await requireEventManager(ctx);
+    const profile = await activeProfileForUser(ctx, args.userId);
+    const event = await ctx.db.get(args.eventId);
+
+    if (!event || event.status !== "active") {
+      throw new Error("This event is not active.");
+    }
+
+    const existing = await ctx.db
+      .query("eventAttendanceRecords")
+      .withIndex("by_event_user", (q) =>
+        q.eq("eventId", args.eventId).eq("userId", args.userId),
+      )
+      .first();
+
+    if (existing) {
+      throw new Error("This person is already checked in for this event.");
+    }
+
+    const now = Date.now();
+    const recordId = await ctx.db.insert("eventAttendanceRecords", {
+      eventId: args.eventId,
+      userId: args.userId,
+      profileId: profile._id,
+      source: "manual",
+      checkedInAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return {
+      recordId,
+      eventId: args.eventId,
+      eventTitle: event.title,
+      checkedInAt: now,
+      checkedInBy: manager.userId,
+    };
   },
 });
 

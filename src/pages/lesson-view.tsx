@@ -38,6 +38,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { canManageTrainingContent } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -224,9 +225,9 @@ export function LessonViewPage() {
   const [uploadingQuestionId, setUploadingQuestionId] = useState<string | null>(null);
   const [isSubmittingQuestions, setIsSubmittingQuestions] = useState(false);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isAdmin = effectiveRole === "admin";
+  const canEditContent = canManageTrainingContent(effectiveRole);
   const visibleContent =
-    content && (isAdmin || content.track.isPublished) ? content : null;
+    content && (canEditContent || content.track.isPublished) ? content : null;
 
   const isComplete = progress?.some((item) => item.lessonId === lessonId) ?? false;
   const embedUrl = youtubeEmbedUrl(visibleContent?.lesson.youtubeUrl);

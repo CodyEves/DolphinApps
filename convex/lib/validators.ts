@@ -12,6 +12,7 @@ export const roleValidator = v.union(
   v.literal("guest"),
   v.literal("kiosk"),
   v.literal("admin"),
+  v.literal("lead"),
 );
 
 export const activeStatusValidator = v.union(v.literal("active"), v.literal("inactive"));
@@ -19,6 +20,8 @@ export const activeStatusValidator = v.union(v.literal("active"), v.literal("ina
 export const accountLabelValidator = v.union(
   v.literal("varsity_5199"),
   v.literal("jv_9271"),
+  v.literal("lead_5199"),
+  v.literal("lead_9271"),
   v.literal("mentor"),
   v.literal("guest"),
   v.literal("kiosk"),

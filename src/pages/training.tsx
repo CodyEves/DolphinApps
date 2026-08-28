@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useProgramView } from "@/hooks/use-program-view";
+import { canManageTrainingContent } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -45,7 +46,8 @@ export function TrainingPage() {
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const { activeProgramMeta } = useProgramView();
   const isAdmin = effectiveRole === "admin";
-  const visibleTracks = isAdmin
+  const canEditContent = canManageTrainingContent(effectiveRole);
+  const visibleTracks = canEditContent
     ? tracks
     : tracks?.filter((track) => track.isPublished);
   const completedLessonIds = new Set(progress?.map((item) => item.lessonId) ?? []);
@@ -105,7 +107,7 @@ export function TrainingPage() {
         description="Follow the next required step, then use tracks to understand the full path."
         actions={
           <Authenticated>
-            {isAdmin && (
+            {canEditContent && (
               <Button asChild>
                 <Link to="/training/tracks/new">
                   <Plus className="size-4" />
@@ -288,29 +290,29 @@ export function TrainingPage() {
                     <Button asChild className="flex-1">
                       <Link to={`/training/tracks/${track._id}`}>Open track</Link>
                     </Button>
+                    {canEditContent && (
+                      <Button asChild variant="ghost" size="icon" aria-label="Edit track">
+                        <Link to={`/training/tracks/${track._id}/edit`}>
+                          <Pencil className="size-4" />
+                        </Link>
+                      </Button>
+                    )}
                     {isAdmin && (
-                      <>
-                        <Button asChild variant="ghost" size="icon" aria-label="Edit track">
-                          <Link to={`/training/tracks/${track._id}/edit`}>
-                            <Pencil className="size-4" />
-                          </Link>
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() =>
-                            setTrackPendingDelete({
-                              id: track._id,
-                              title: track.title,
-                            })
-                          }
-                          disabled={deletingTrackId === track._id}
-                          aria-label={`Delete ${track.title}`}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() =>
+                          setTrackPendingDelete({
+                            id: track._id,
+                            title: track.title,
+                          })
+                        }
+                        disabled={deletingTrackId === track._id}
+                        aria-label={`Delete ${track.title}`}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
                     )}
                   </div>
                 </article>

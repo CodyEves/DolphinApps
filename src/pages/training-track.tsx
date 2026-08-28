@@ -26,6 +26,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { canManageTrainingContent } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -72,8 +73,8 @@ export function TrainingTrackPage() {
   const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
   const markDemoLessonComplete = useMutation(api.demo.markDemoLessonComplete);
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const isAdmin = effectiveRole === "admin";
-  const visibleTrack = track && (isAdmin || track.isPublished) ? track : null;
+  const canEditContent = canManageTrainingContent(effectiveRole);
+  const visibleTrack = track && (canEditContent || track.isPublished) ? track : null;
   const completedLessonIds = new Set(progress?.map((item) => item.lessonId));
   const totalLessons = visibleTrack?.lessons.length ?? 0;
   const completedLessons =
@@ -164,7 +165,7 @@ export function TrainingTrackPage() {
         description={visibleTrack.description}
         actions={
           <>
-            {isAdmin && (
+            {canEditContent && (
               <Button asChild variant="secondary">
                 <Link to={`/training/tracks/${visibleTrack._id}/edit`}>
                   <Pencil className="size-4" />

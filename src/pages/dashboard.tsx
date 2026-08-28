@@ -22,7 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { canReviewLearning, isAdminRole } from "@/lib/role-access";
+import { canManageTrainingContent, canReviewLearning } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
@@ -71,7 +71,7 @@ export function DashboardPage() {
   const completedLessonIds = new Set(progress?.map((item) => item.lessonId));
   const earnedBadgeIds = new Set(badgeAwards?.map((award) => award.badgeId));
   const visibleTracks =
-    isAdminRole(role) ? tracks : tracks?.filter((track) => track.isPublished);
+    canManageTrainingContent(role) ? tracks : tracks?.filter((track) => track.isPublished);
   const trackProgress =
     visibleTracks?.map((track) => {
       const completedLessons = track.lessons.filter((lesson) =>

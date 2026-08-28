@@ -155,6 +155,17 @@ function profilePatchForAccount(account: {
     return { role: "kiosk" as const, studentGroup: undefined, primaryProgram: undefined };
   }
 
+  if (account.accountLabel === "lead_5199" || account.accountLabel === "lead_9271") {
+    const is9271 = account.accountLabel === "lead_9271";
+
+    return {
+      role: "lead" as const,
+      primaryProgram: is9271 ? "frc_9271" as const : "frc_5199" as const,
+      studentGroup: is9271 ? "9271 Lead" : "5199 Lead",
+      graduationYear: account.graduationYear,
+    };
+  }
+
   const is9271 = account.accountLabel === "jv_9271";
 
   return {
@@ -187,11 +198,18 @@ function validateChosenUsername(username: string) {
 }
 
 function isStudentLabel(accountLabel: AccountLabel) {
-  return accountLabel === "varsity_5199" || accountLabel === "jv_9271";
+  return (
+    accountLabel === "varsity_5199" ||
+    accountLabel === "jv_9271" ||
+    accountLabel === "lead_5199" ||
+    accountLabel === "lead_9271"
+  );
 }
 
 function programForAccountLabel(accountLabel: AccountLabel) {
-  return accountLabel === "jv_9271" ? "frc_9271" as const : "frc_5199" as const;
+  return accountLabel === "jv_9271" || accountLabel === "lead_9271"
+    ? "frc_9271" as const
+    : "frc_5199" as const;
 }
 
 async function currentAdmin(ctx: QueryCtx | MutationCtx) {

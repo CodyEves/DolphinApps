@@ -4,7 +4,8 @@ export type AppRole =
   | "mentor"
   | "guest"
   | "kiosk"
-  | "admin";
+  | "admin"
+  | "lead";
 
 export function canReviewLearning(role: string) {
   return role === "admin" || role === "mentor" || role === "instructor";
@@ -20,4 +21,12 @@ export function canOpenManagement(role: string) {
 
 export function isAdminRole(role: string) {
   return role === "admin";
+}
+
+export function canManageTrainingContent(role: string) {
+  return role === "admin" || role === "lead";
+}
+
+export function canManageAttendanceEvents(role: string) {
+  return role === "admin" || role === "mentor" || role === "instructor" || role === "lead";
 }

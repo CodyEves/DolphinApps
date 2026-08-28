@@ -40,6 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { canManageTrainingContent } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
@@ -120,9 +121,10 @@ export function LearningTrackEditorPage() {
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const isAdmin = effectiveRole === "admin";
+  const canEditContent = canManageTrainingContent(effectiveRole);
   const existingTrack = useQuery(
     api.training.getTrainingTrackForEdit,
-    isAuthenticated && isAdmin && trackId ? { trackId } : "skip",
+    isAuthenticated && canEditContent && trackId ? { trackId } : "skip",
   );
   const saveTrackDetails = useMutation(api.training.saveTrackDetails);
   const createUnit = useMutation(api.training.createUnit);
@@ -381,13 +383,13 @@ export function LearningTrackEditorPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!canEditContent) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
           eyebrow="Learning"
           title="Admin access required"
-          description="Only admins can create or edit learning tracks."
+          description="Only admins and leads can create or edit learning tracks."
           actions={
             <Button asChild variant="outline">
               <Link to="/training">
@@ -440,7 +442,7 @@ export function LearningTrackEditorPage() {
               <CheckCircle2 className="size-4" />
               {isPublishing ? "Publishing..." : "Publish"}
             </Button>
-            {currentTrackId && (
+            {currentTrackId && isAdmin && (
               <Button
                 type="button"
                 variant="destructive"
