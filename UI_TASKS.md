@@ -163,6 +163,18 @@ what's still missing is a proactive heads-up *before* the shop closes (C2).
 
 ## Completed
 
+- [x] **9. (Bug, reported live) Admin's own flagged shop record was unfindable in
+  Review.** Two separate causes: (a) `listAttendanceRecordPeople` — the "Find student"
+  search backing Records/Review/Reports — only returned profiles with role `student` or
+  `lead`, so any non-student role with a real attendance record (here, the admin account
+  itself, from testing) was structurally unsearchable. Nothing restricts shop sign-in by
+  role, so it now includes every active profile. (b) The Overview page's bulk "Review
+  queue" tab (approve/void every flagged record at once + "Manual correction") existed in
+  the JSX with no `TabsTrigger` pointing to it — completely unreachable by any click.
+  Added a "Review queue" tab (deliberately not just "Review," to avoid repeating the
+  duplicate-label bug from item 1) with a flagged-count badge. Also fixed two "Student"
+  fallback labels in search results that would've misrepresented non-student roles.
+
 - [x] **1. Duplicate/misleading "Display" nav item.** Renamed the inner tab (the one that
   just shows the code inline on Overview) from "Display" to "Code," so it no longer shares
   a label with the outer route nav's "Display" link that opens the full kiosk view.
