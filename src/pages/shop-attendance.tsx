@@ -2609,8 +2609,8 @@ export function ShopAttendancePage() {
                                   onClick={() => void handleDeleteEventRecord(record._id)}
                                   disabled={isEventBusy}
                                 >
-                                  <ArrowLeftRight className="size-4" />
-                                  Check out
+                                  <Trash2 className="size-4" />
+                                  Remove
                                 </Button>
                               </div>
                             ))}
