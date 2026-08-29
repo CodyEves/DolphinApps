@@ -552,7 +552,7 @@ export function ShopAttendancePage() {
   const location = useLocation();
   const navigate = useNavigate();
   const { studentUserId: studentUserIdParam } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const canManage =
@@ -560,7 +560,10 @@ export function ShopAttendancePage() {
   const canManageEvents = canManageAttendanceEvents(effectiveRole);
   const canDisplayRole = canManage || effectiveRole === "kiosk";
   const canUseStudentCheckIn = effectiveRole !== "kiosk";
-  const hasMultipleShopTabs = canDisplayRole || canManage || canManageEvents;
+  const managementTabCount =
+    (canDisplayRole ? 1 : 0) + (canManage ? 3 : 0) + (canManageEvents ? 1 : 0);
+  const hasAnyManagementTab = managementTabCount > 0;
+  const hasMultipleShopTabs = hasAnyManagementTab && managementTabCount > 1;
   const showRecordsRoute = location.pathname.startsWith("/shop/records");
   const showReviewRoute = location.pathname.startsWith("/shop/review");
   const showReportsRoute = location.pathname.startsWith("/shop/reports");
@@ -2438,11 +2441,27 @@ export function ShopAttendancePage() {
           </div>
         ) : (
         <Tabs
-          defaultValue={canDisplayRole ? "display" : canManageEvents ? "events" : "checkin"}
+          key={searchParams.get("tab") ?? "default"}
+          defaultValue={
+            searchParams.get("tab") ??
+            (canDisplayRole ? "display" : canManageEvents ? "events" : "checkin")
+          }
           className="space-y-5"
+          onValueChange={() => {
+            if (searchParams.get("tab")) {
+              setSearchParams(
+                (previous) => {
+                  const next = new URLSearchParams(previous);
+                  next.delete("tab");
+                  return next;
+                },
+                { replace: true },
+              );
+            }
+          }}
         >
           {hasMultipleShopTabs && (
-          <TabsList className="flex h-auto w-full flex-nowrap justify-start overflow-x-auto sm:flex-wrap sm:overflow-visible">
+          <TabsList className="flex h-auto w-full flex-nowrap items-center justify-start overflow-x-auto sm:flex-wrap sm:overflow-visible">
             {canDisplayRole && (
               <TabsTrigger value="display" className="shrink-0">
                 <Monitor className="size-4" />
@@ -2450,11 +2469,35 @@ export function ShopAttendancePage() {
               </TabsTrigger>
             )}
             {canManage && (
+              <TabsTrigger value="live" className="shrink-0">
+                <Users className="size-4" />
+                Live
+              </TabsTrigger>
+            )}
+            {canManage && (
+              <span
+                className="mx-1 hidden h-5 w-px shrink-0 bg-border sm:block"
+                aria-hidden="true"
+              />
+            )}
+            {canManage && (
+              <TabsTrigger value="schedule" className="shrink-0">
+                <Clock className="size-4" />
+                Schedule
+              </TabsTrigger>
+            )}
+            {canManageEvents && (
+              <TabsTrigger value="events" className="shrink-0">
+                <CalendarDays className="size-4" />
+                Events
+              </TabsTrigger>
+            )}
+            {canManage && (
               <>
-                <TabsTrigger value="live" className="shrink-0">
-                  <Users className="size-4" />
-                  Live
-                </TabsTrigger>
+                <span
+                  className="mx-1 hidden h-5 w-px shrink-0 bg-border sm:block"
+                  aria-hidden="true"
+                />
                 <TabsTrigger value="review" className="shrink-0">
                   <ShieldCheck className="size-4" />
                   Review queue
@@ -2464,19 +2507,9 @@ export function ShopAttendancePage() {
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="schedule" className="shrink-0">
-                  <Clock className="size-4" />
-                  Schedule
-                </TabsTrigger>
               </>
             )}
-            {canManageEvents && (
-              <TabsTrigger value="events" className="shrink-0">
-                <CalendarDays className="size-4" />
-                Events
-              </TabsTrigger>
-            )}
-            {canUseStudentCheckIn && (
+            {!hasAnyManagementTab && canUseStudentCheckIn && (
               <TabsTrigger value="checkin" className="shrink-0">
                 <QrCode className="size-4" />
                 Check in/out

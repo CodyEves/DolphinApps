@@ -4,6 +4,7 @@ import {
   GraduationCap,
   LogIn,
   LogOut,
+  QrCode,
   RefreshCw,
   ShieldCheck,
   UserRound,
@@ -26,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { canManageAttendanceEvents } from "@/lib/role-access";
 import {
   useEffectiveRole,
   useRolePreview,
@@ -255,6 +257,14 @@ export function UserMenu() {
                 Profile
               </Link>
             </DropdownMenuItem>
+            {canManageAttendanceEvents(effectiveRole) && (
+              <DropdownMenuItem asChild>
+                <Link to="/shop?tab=checkin">
+                  <QrCode className="size-4" />
+                  My attendance
+                </Link>
+              </DropdownMenuItem>
+            )}
           </>
         )}
         <DropdownMenuSeparator />
