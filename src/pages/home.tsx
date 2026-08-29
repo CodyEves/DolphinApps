@@ -4,26 +4,19 @@ import {
   ArrowRight,
   Clock,
   GraduationCap,
-  Grid3X3,
   Package,
   Settings,
   ShieldCheck,
 } from "lucide-react";
 import { Link } from "react-router";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { useProgramView } from "@/hooks/use-program-view";
 import { canOpenManagement } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
+
+const accentClasses = ["text-brand-blue", "text-brand-aqua", "text-brand-orange", "text-primary"];
 
 export function HomePage() {
   const { isAuthenticated } = useConvexAuth();
@@ -38,7 +31,6 @@ export function HomePage() {
       href: "/dashboard",
       icon: GraduationCap,
       label: "Learning",
-      enabled: true,
     },
     {
       title: activeProgramMeta.partsTitle,
@@ -46,7 +38,6 @@ export function HomePage() {
       href: "/parts",
       icon: Package,
       label: "Build system",
-      enabled: true,
     },
     {
       title: "Shop Attendance",
@@ -54,7 +45,6 @@ export function HomePage() {
       href: "/shop",
       icon: Clock,
       label: "Hours",
-      enabled: true,
     },
     {
       title: "Management",
@@ -67,92 +57,83 @@ export function HomePage() {
   ].filter((app) => !app.managementOnly || hasManagementAccess);
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-7xl flex-col justify-center space-y-8">
-      <section className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
-        <div className="space-y-5">
-          <Badge variant="secondary" className="w-fit">
-            <Grid3X3 className="size-3.5" />
-            Team operations suite
-          </Badge>
-          <div className="space-y-4">
-            <h1 className="max-w-4xl text-4xl font-semibold tracking-normal text-brand-navy dark:text-foreground sm:text-5xl">
-              Dolphin Apps
-            </h1>
-            <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              One workspace for student learning, shop readiness, robot build operations,
-              and mentor oversight.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild>
-              <Link to="/dashboard">
-                <GraduationCap className="size-4" />
-                Open learning dashboard
+    <div className="mx-auto max-w-4xl">
+      <section className="border-b border-border/70 pb-10">
+        <p className="font-heading text-xs font-semibold uppercase tracking-[0.25em] text-brand-blue">
+          Robot Dolphins · Team Operations
+        </p>
+        <h1 className="mt-3 max-w-2xl font-heading text-5xl font-semibold tracking-tight text-brand-navy dark:text-foreground sm:text-6xl">
+          Dolphin Apps
+        </h1>
+        <p className="mt-4 max-w-lg text-base leading-7 text-muted-foreground sm:text-lg">
+          One workspace for student learning, shop readiness, robot build operations,
+          and mentor oversight.
+        </p>
+
+        <div className="mt-7 flex flex-wrap items-center gap-x-8 gap-y-4">
+          <Button asChild>
+            <Link to="/dashboard">
+              <GraduationCap className="size-4" />
+              Open learning dashboard
+            </Link>
+          </Button>
+          {hasManagementAccess && (
+            <Button asChild variant="outline">
+              <Link to="/management/team">
+                <ShieldCheck className="size-4" />
+                Review team progress
               </Link>
             </Button>
-            {hasManagementAccess && (
-              <Button asChild variant="outline">
-                <Link to="/management/team">
-                  <ShieldCheck className="size-4" />
-                  Review team progress
-                </Link>
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="rounded-md border bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold">Signed-in view</p>
-              <p className="text-sm text-muted-foreground">
-                {isAuthenticated
-                  ? `${effectiveRole} access`
-                  : "Sign in to load your team workspace"}
-              </p>
+          )}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div className="whitespace-nowrap">
+              <span className="font-heading text-2xl font-semibold text-foreground">
+                {apps.length}
+              </span>
+              <span className="ml-1.5 text-sm text-muted-foreground">apps available</span>
             </div>
-            <Badge variant={isAuthenticated ? "default" : "outline"}>
-              {isAuthenticated ? "Ready" : "Guest"}
-            </Badge>
-          </div>
-          <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-md border bg-muted/35 p-3">
-              <p className="font-semibold">{apps.length}</p>
-              <p className="text-xs text-muted-foreground">Apps available</p>
-            </div>
-            <div className="rounded-md border bg-muted/35 p-3">
-              <p className="font-semibold">{hasManagementAccess ? "On" : "Off"}</p>
-              <p className="text-xs text-muted-foreground">Management tools</p>
-            </div>
+            <div className="hidden h-8 w-px bg-border sm:block" />
+            <p className="text-sm text-muted-foreground">
+              {isAuthenticated ? (
+                <>
+                  Signed in ·{" "}
+                  <span className="font-medium text-foreground">{effectiveRole} access</span>
+                </>
+              ) : (
+                "Sign in to load your workspace"
+              )}
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {apps.map((app) => {
+      <section className="divide-y divide-border/70">
+        {apps.map((app, index) => {
           const Icon = app.icon;
+          const accent = accentClasses[index % accentClasses.length];
 
           return (
             <Link
               key={app.title}
               to={app.href}
-              className="rounded-lg focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="group flex items-center gap-5 py-6 outline-none transition-colors first:pt-8 hover:bg-accent/50 focus-visible:bg-accent/50 sm:gap-7 sm:px-2"
             >
-              <Card className="h-full transition-colors hover:border-ring/40 hover:bg-accent">
-              <CardHeader>
-                <div className="mb-2 flex size-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
-                  <Icon className="size-5" />
+              <span className="font-heading w-9 shrink-0 text-2xl font-semibold text-muted-foreground/30 sm:w-11 sm:text-3xl">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <Icon className={`size-6 shrink-0 sm:size-7 ${accent}`} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+                    {app.title}
+                  </h2>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {app.label}
+                  </span>
                 </div>
-                <Badge variant="outline" className="w-fit">{app.label}</Badge>
-                <CardTitle>{app.title}</CardTitle>
-                <CardDescription>{app.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <span className="inline-flex items-center gap-2 text-sm font-medium text-primary">
-                  Open app
-                  <ArrowRight className="size-4" />
-                </span>
-              </CardContent>
-            </Card>
+                <p className="mt-1 text-sm text-muted-foreground sm:text-base">{app.description}</p>
+              </div>
+              <ArrowRight className="size-5 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-1 group-hover:text-primary" />
             </Link>
           );
         })}
