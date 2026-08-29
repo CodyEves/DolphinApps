@@ -116,6 +116,23 @@ function formatHours(minutes: number) {
   return `${hours.toFixed(2)} hr`;
 }
 
+function formatLiveDuration(startedAt: number, now: number) {
+  const totalSeconds = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+
+  return `${seconds}s`;
+}
+
 function minutesBetween(start: number, end?: number) {
   return end ? Math.max(0, Math.round((end - start) / 60000)) : 0;
 }
@@ -543,6 +560,7 @@ export function ShopAttendancePage() {
   const canManageEvents = canManageAttendanceEvents(effectiveRole);
   const canDisplayRole = canManage || effectiveRole === "kiosk";
   const canUseStudentCheckIn = effectiveRole !== "kiosk";
+  const hasMultipleShopTabs = canDisplayRole || canManage || canManageEvents;
   const showRecordsRoute = location.pathname.startsWith("/shop/records");
   const showReviewRoute = location.pathname.startsWith("/shop/review");
   const showReportsRoute = location.pathname.startsWith("/shop/reports");
@@ -2423,6 +2441,7 @@ export function ShopAttendancePage() {
           defaultValue={canDisplayRole ? "display" : canManageEvents ? "events" : "checkin"}
           className="space-y-5"
         >
+          {hasMultipleShopTabs && (
           <TabsList className="flex h-auto w-full flex-nowrap justify-start overflow-x-auto sm:flex-wrap sm:overflow-visible">
             {canDisplayRole && (
               <TabsTrigger value="display" className="shrink-0">
@@ -2464,6 +2483,7 @@ export function ShopAttendancePage() {
               </TabsTrigger>
             )}
           </TabsList>
+          )}
 
           {canDisplayRole && (
             <TabsContent value="display" className="space-y-5">
@@ -2979,17 +2999,20 @@ export function ShopAttendancePage() {
           {canUseStudentCheckIn && (
             <TabsContent value="checkin" className="space-y-5">
               {myAttendance && (
-                <Card>
-                  <CardHeader>
-                    <Clock className="size-5 text-primary" />
-                    <CardTitle>Signed in to the shop</CardTitle>
-                    <CardDescription>
-                      Signed in since {formatTime(myAttendance.signInAt)}. No code needed to sign out.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
+                <Card className="border-primary/25 bg-primary/[0.04]">
+                  <CardContent className="flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Signed in to the shop</p>
+                      <p className="font-heading text-3xl font-semibold tracking-tight text-foreground tabular-nums">
+                        {formatLiveDuration(myAttendance.signInAt, now || Date.now())}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Since {formatTime(myAttendance.signInAt)} · no code needed to sign out
+                      </p>
+                    </div>
                     <Button
                       type="button"
+                      size="lg"
                       onClick={() => void handleSignOutOfShop()}
                       disabled={isAttendanceBusy}
                     >
@@ -3001,53 +3024,63 @@ export function ShopAttendancePage() {
               )}
               <Card>
                 <CardHeader>
-                  <QrCode className="size-5 text-primary" />
-                  <CardTitle>Attendance code</CardTitle>
+                  <CardTitle>{myAttendance ? "Event code" : "Enter your code"}</CardTitle>
                   <CardDescription>
                     {myAttendance
                       ? "Have an event code? Enter it here to check in to an event."
-                      : "Scan or type a shop code or event code."}
+                      : "Scan the QR code on the shop display, or type the code shown."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-end">
-                    <div className="space-y-2">
-                      <Label htmlFor="attendanceCode">Attendance code</Label>
-                      <Input
-                        id="attendanceCode"
-                        value={attendanceCode}
-                        onChange={(event) => setAttendanceCode(normalizeAttendanceCode(event.target.value))}
-                        placeholder="ABC123"
-                        className="font-mono text-lg"
-                      />
+                  <div className="space-y-3">
+                    <Label htmlFor="attendanceCode" className="sr-only">
+                      Attendance code
+                    </Label>
+                    <Input
+                      id="attendanceCode"
+                      value={attendanceCode}
+                      onChange={(event) => setAttendanceCode(normalizeAttendanceCode(event.target.value))}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          void handleStudentAttendance();
+                        }
+                      }}
+                      placeholder="ABC123"
+                      autoComplete="off"
+                      autoCapitalize="characters"
+                      className="h-16 rounded-lg text-center font-mono text-3xl font-semibold tracking-[0.35em] sm:h-20 sm:text-4xl"
+                    />
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        onClick={() => setIsScanning((value) => !value)}
+                      >
+                        <Camera className="size-4" />
+                        {isScanning ? "Stop scanning" : "Scan QR"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="lg"
+                        onClick={() => void handleStudentAttendance()}
+                        disabled={isAttendanceBusy || !attendanceCode}
+                      >
+                        {isAttendanceBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
+                        Use code
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsScanning((value) => !value)}
-                    >
-                      <Camera className="size-4" />
-                      {isScanning ? "Stop scanning" : "Scan QR"}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={() => void handleStudentAttendance()}
-                      disabled={isAttendanceBusy}
-                    >
-                      {isAttendanceBusy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                      Use code
-                    </Button>
                   </div>
                   {isScanning && (
                     <div className="overflow-hidden rounded-md border bg-black">
                       <video ref={videoRef} className="aspect-video w-full object-cover" muted playsInline />
                     </div>
                   )}
-                  <div className="rounded-md border p-4 text-sm text-muted-foreground">
+                  <p className="text-center text-xs text-muted-foreground">
                     {myAttendance
                       ? "Event codes mark you attended. Shop codes sign you in when you're not already signed in."
                       : "Shop codes sign you in. Event codes mark you attended."}
-                  </div>
+                  </p>
                 </CardContent>
               </Card>
             </TabsContent>
