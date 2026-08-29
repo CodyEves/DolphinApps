@@ -2441,7 +2441,7 @@ export function ShopAttendancePage() {
           </div>
         ) : (
         <Tabs
-          key={searchParams.get("tab") ?? "default"}
+          key={`${searchParams.get("tab") ?? "default"}-${viewer === undefined ? "loading" : "ready"}`}
           defaultValue={
             searchParams.get("tab") ??
             (canDisplayRole ? "display" : canManageEvents ? "events" : "checkin")
