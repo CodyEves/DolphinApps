@@ -143,11 +143,15 @@ what's still missing is a proactive heads-up *before* the shop closes (C2).
   ("You're checking in to: FIRST Kickoff, Jan 4") before submitting would feel more
   trustworthy and catch typos (wrong code → wrong event) before they happen.
 
-- [ ] **D3. Give the student check-in/out screen its own, more polished visual treatment.**
-  Per the split above, this doesn't need to match the admin screens. It's the single most-
-  used screen by the largest audience (150 students, likely on phones) — worth a dedicated
-  pass once the visual-identity work (parked below) starts, rather than inheriting whatever
-  the admin dashboard looks like.
+- [x] **D3. Give the student check-in/out screen its own, more polished visual treatment.**
+  Checked the actual student view via the role-preview switcher (not just the admin view)
+  and found real problems specific to this screen: a full-width single-item tab bar with
+  nothing to switch to (dead chrome, now hidden whenever a role only has one shop tab —
+  `hasMultipleShopTabs`), a code input styled identically to every other text field on the
+  site (now a large, centered, wide-tracked monospace field closer to a 2FA/OTP entry, with
+  Enter-to-submit), and a static "signed in since" timestamp (now a live-ticking duration —
+  "2h 14m" — on a visually distinct highlighted card). Verified both the empty and
+  already-signed-in-looking states live via role preview.
 
 ---
 
