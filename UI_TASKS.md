@@ -94,13 +94,20 @@ This is the highest-value area since it directly powers the application/intervie
   inline-editable in/out times and a "select multiple → approve" bulk action would match the
   "efficiency first" goal much better than the current card list.
 
-- [ ] **B4. Reorganize the flat tab bar into task-oriented groups.** Right now Overview has
-  five equally-weighted tabs (Code / Live / Schedule / Events / Check in/out) that mix
-  "things I do every shop day" (Live roster, the code) with "things I set up occasionally"
-  (Schedule) and "things for a different context entirely" (Events, which isn't about shop
-  sessions at all). Worth grouping by job — e.g. "Today" (live session status + roster) vs.
-  "Setup" (schedule, event creation) vs. "Reports" (already its own route) — so admins land
-  on what they actually need to do that day instead of a flat list of nouns.
+- [x] **B4. Reorganize the flat tab bar into task-oriented groups.** Grouped the bar with
+  dividers: Code + Live ("today"), then Schedule + Events ("setup"), then Review queue on
+  its own. "Check in/out" — the admin's *own* personal attendance, not a shop-management
+  concern — moved out of this bar entirely into a new "My attendance" item in the account
+  menu, deep-linking to `/shop?tab=checkin` (the Tabs root now respects a `?tab=` param and
+  clears it once you manually switch tabs). Also fixed two real bugs found while building
+  this: (1) the "hide the bar when there's only one tab" check was a boolean OR instead of
+  an actual count, so a lead with only Events access still got a pointless single-tab bar —
+  now counts real visible tabs for every role combination; (2) a pre-existing race where the
+  default tab was computed from the viewer's role before that role had actually loaded, so
+  it could permanently lock onto "checkin" on a hard page reload — the regroup made this far
+  more disruptive once Check in/out was no longer sitting right there as an easy manual
+  fix, so it needed fixing too. Verified all of this live: fresh-load lands on Code
+  correctly, the grouped dividers render, and the account-menu deep link works.
 
 ---
 
