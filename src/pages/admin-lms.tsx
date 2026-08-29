@@ -2,6 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
+  ArrowRight,
   Award,
   BookOpen,
   ClipboardCheck,
@@ -43,29 +44,29 @@ const managementAreas = [
     title: "Learning tracks",
     description: "Create and edit learning tracks, units, lessons, videos, and quizzes.",
     href: "/training",
-    action: "Open learning",
     icon: BookOpen,
+    accent: "text-brand-blue",
   },
   {
     title: "New learning track",
     description: "Start a new course outline for lessons and safety content.",
     href: "/training/tracks/new",
-    action: "Create track",
     icon: Plus,
+    accent: "text-brand-aqua",
   },
   {
     title: "Equipment",
     description: "Manage equipment records, SOP documents, safety tests, and sign-offs.",
     href: "/equipment",
-    action: "Open equipment",
     icon: Wrench,
+    accent: "text-brand-orange",
   },
   {
     title: "Badges",
     description: "Review badge categories and award criteria.",
     href: "/badges",
-    action: "Open badges",
     icon: Award,
+    accent: "text-primary",
   },
 ];
 
@@ -216,25 +217,22 @@ export function AdminLmsPage() {
                   Jump to the current tools for editing learning content.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="grid gap-3 md:grid-cols-2">
+              <CardContent className="divide-y divide-border/70 px-0">
                 {managementAreas.map((area) => (
-                  <div
+                  <Link
                     key={area.href}
-                    className="flex min-h-44 flex-col justify-between rounded-md border p-4"
+                    to={area.href}
+                    className="group flex items-center gap-4 px-6 py-4 outline-none transition-colors first:pt-0 hover:bg-accent/50 focus-visible:bg-accent/50"
                   >
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <area.icon className="size-5 text-primary" />
-                        <h2 className="font-semibold">{area.title}</h2>
-                      </div>
-                      <p className="text-sm leading-6 text-muted-foreground">
-                        {area.description}
-                      </p>
+                    <area.icon className={`size-5 shrink-0 ${area.accent}`} />
+                    <div className="min-w-0 flex-1">
+                      <h2 className="font-heading font-semibold tracking-tight text-foreground">
+                        {area.title}
+                      </h2>
+                      <p className="mt-0.5 text-sm text-muted-foreground">{area.description}</p>
                     </div>
-                    <Button asChild variant="outline" className="mt-4">
-                      <Link to={area.href}>{area.action}</Link>
-                    </Button>
-                  </div>
+                    <ArrowRight className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+                  </Link>
                 ))}
               </CardContent>
             </Card>
