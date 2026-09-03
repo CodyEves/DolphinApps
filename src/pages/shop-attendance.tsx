@@ -560,10 +560,17 @@ export function ShopAttendancePage() {
   const canManageEvents = canManageAttendanceEvents(effectiveRole);
   const canDisplayRole = canManage || effectiveRole === "kiosk";
   const canUseStudentCheckIn = effectiveRole !== "kiosk";
-  const managementTabCount =
-    (canDisplayRole ? 1 : 0) + (canManage ? 3 : 0) + (canManageEvents ? 1 : 0);
-  const hasAnyManagementTab = managementTabCount > 0;
-  const hasMultipleShopTabs = hasAnyManagementTab && managementTabCount > 1;
+  // Full shop managers (admin/mentor/instructor) rarely check themselves in/out, so their
+  // personal attendance is tucked into the account menu instead of this bar. Leads are
+  // still students doing regular shop hours -- check-in stays a primary, visible tab for
+  // them, same as plain students.
+  const showCheckinAsShopTab = canUseStudentCheckIn && !canManage;
+  const visibleShopTabCount =
+    (canDisplayRole ? 1 : 0) +
+    (canManage ? 3 : 0) +
+    (canManageEvents ? 1 : 0) +
+    (showCheckinAsShopTab ? 1 : 0);
+  const hasMultipleShopTabs = visibleShopTabCount > 1;
   const showRecordsRoute = location.pathname.startsWith("/shop/records");
   const showReviewRoute = location.pathname.startsWith("/shop/review");
   const showReportsRoute = location.pathname.startsWith("/shop/reports");
@@ -2444,7 +2451,7 @@ export function ShopAttendancePage() {
           key={`${searchParams.get("tab") ?? "default"}-${viewer === undefined ? "loading" : "ready"}`}
           defaultValue={
             searchParams.get("tab") ??
-            (canDisplayRole ? "display" : canManageEvents ? "events" : "checkin")
+            (canDisplayRole ? "display" : showCheckinAsShopTab ? "checkin" : "events")
           }
           className="space-y-5"
           onValueChange={() => {
@@ -2462,6 +2469,12 @@ export function ShopAttendancePage() {
         >
           {hasMultipleShopTabs && (
           <TabsList className="flex h-auto w-full flex-nowrap items-center justify-start overflow-x-auto sm:flex-wrap sm:overflow-visible">
+            {showCheckinAsShopTab && (
+              <TabsTrigger value="checkin" className="shrink-0">
+                <QrCode className="size-4" />
+                Check in/out
+              </TabsTrigger>
+            )}
             {canDisplayRole && (
               <TabsTrigger value="display" className="shrink-0">
                 <Monitor className="size-4" />
@@ -2508,12 +2521,6 @@ export function ShopAttendancePage() {
                   )}
                 </TabsTrigger>
               </>
-            )}
-            {!hasAnyManagementTab && canUseStudentCheckIn && (
-              <TabsTrigger value="checkin" className="shrink-0">
-                <QrCode className="size-4" />
-                Check in/out
-              </TabsTrigger>
             )}
           </TabsList>
           )}

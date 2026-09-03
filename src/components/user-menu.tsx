@@ -27,7 +27,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { canManageAttendanceEvents } from "@/lib/role-access";
 import {
   useEffectiveRole,
   useRolePreview,
@@ -257,7 +256,9 @@ export function UserMenu() {
                 Profile
               </Link>
             </DropdownMenuItem>
-            {canManageAttendanceEvents(effectiveRole) && (
+            {(effectiveRole === "admin" ||
+              effectiveRole === "mentor" ||
+              effectiveRole === "instructor") && (
               <DropdownMenuItem asChild>
                 <Link to="/shop?tab=checkin">
                   <QrCode className="size-4" />
