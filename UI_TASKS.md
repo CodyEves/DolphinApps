@@ -174,6 +174,20 @@ what's still missing is a proactive heads-up *before* the shop closes (C2).
 
 ## Completed
 
+- [x] **10. (Bug, reported live) Leads couldn't sign in normally, especially on mobile.**
+  Caused by the B4 tab regroup above: it treated leads the same as full shop managers
+  (admin/mentor/instructor), defaulting them to the Events tab and moving "Check in/out"
+  out of their view into the account-menu-only "My attendance" link. Leads are still
+  students doing regular shop hours — check-in isn't a rare aside for them. Re-split the
+  logic (`showCheckinAsShopTab = canUseStudentCheckIn && !canManage`) so Check in/out is a
+  visible, first-position tab and the default landing tab for anyone who isn't a full shop
+  manager — students, guests, and leads alike — while admins/mentors/instructors keep
+  defaulting to Code with check-in tucked in the account menu. Confirmed by logic trace and
+  a clean deploy (typecheck/lint clean, site loads); couldn't click through as an actual
+  lead — the role-preview switcher only simulates student/mentor/admin, and I don't hold
+  lead credentials — so this one needed the user's own on-device confirmation, which came
+  back positive.
+
 - [x] **9. (Bug, reported live) Admin's own flagged shop record was unfindable in
   Review.** Two separate causes: (a) `listAttendanceRecordPeople` — the "Find student"
   search backing Records/Review/Reports — only returned profiles with role `student` or
