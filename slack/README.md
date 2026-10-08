@@ -114,6 +114,34 @@ Staff accounts never link by name, and a plain link isn't enough for them to sig
 - [ ] Sign in with Slack using an account that isn't linked. You should see the "isn't connected yet" message.
 - [ ] `/shop in CODE` still works.
 
+## Time sheet fixes (forgot to sign in or out)
+
+Students fix their own time sheets from the Home tab, and a mentor approves with one click.
+
+**Students** see a **Time sheet** section on the Home tab:
+
+- **Fix time** next to each session that was auto-closed in the last 14 days. They pick when they actually left and add a reason.
+- **I forgot to sign in** to add a session they never signed in for. They pick arrival and departure times and add a reason. This only works if the shop was actually open then, and the session can't overlap one they already have.
+- Pending requests show as "Waiting for a mentor." When a mentor decides, the student gets a DM from Dolphin Apps and their Home tab updates.
+
+**Limits:** last 14 days only, at most 12 hours per session, no future times, and at most 5 pending requests per student. A fixed sign-out can't be later than when the shop closed.
+
+**Mentors** get each request posted in a channel with **Approve** and **Deny** buttons. The message updates to show who decided.
+
+- Approving a **fix** marks the session complete with the new sign-out time.
+- Approving a **missed sign-in** creates a completed session.
+- The reason is saved in the record's review note.
+- Only staff with a **trusted** Slack link (step 6) can approve, and nobody can approve their own request.
+
+### Setup
+
+1. Create a private channel (for example `#mentor-queue`) and invite the app: type `/invite @Dolphin Apps` in it.
+2. Copy the channel ID: open the channel → click its name → the ID is at the bottom (starts with `C`).
+3. Set it in Convex (Production → Environment Variables): `SLACK_APPROVALS_CHANNEL_ID`. If it isn't set, requests go to `SLACK_ATTENDANCE_CHANNEL_ID`.
+4. Deploy (`bun run deploy:convex`).
+
+The existing review page on the website still works for anything older than 14 days or for special cases.
+
 ## How Sign in with Slack decides who you are
 
 `convex/lib/slackIdentity.ts`:

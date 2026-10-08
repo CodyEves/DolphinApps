@@ -14,6 +14,7 @@ import {
   slackLinkUrl,
 } from "./lib/slack";
 import { slackLinkForSlackUser } from "./lib/slackIdentity";
+import { CORRECTION_WINDOW_DAYS } from "./attendanceCorrections";
 import {
   displayNameFor,
   intervalMinutesWithin,
@@ -34,11 +35,22 @@ export const ACTION_CONNECT_ACCOUNT = "connect_account";
 export const SHOP_CODE_MODAL = "shop_code_modal";
 export const SHOP_CODE_BLOCK = "code_block";
 export const SHOP_CODE_INPUT = "code_input";
+export const ACTION_FIX_TIME = "fix_time";
+export const ACTION_MISSED_SESSION = "missed_session";
+export const FIX_TIME_MODAL = "fix_time_modal";
+export const MISSED_SESSION_MODAL = "missed_session_modal";
+export const SIGN_IN_BLOCK = "sign_in_block";
+export const SIGN_OUT_BLOCK = "sign_out_block";
+export const REASON_BLOCK = "reason_block";
+export const PICKER_INPUT = "picker";
+export const REASON_INPUT = "reason";
 
 const LEADERBOARD_SIZE = 5;
 const LEADERBOARD_ROLES = new Set<Doc<"profiles">["role"]>(["student", "lead"]);
 const MAX_LISTED_QUALS = 15;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const CORRECTION_WINDOW_MS = CORRECTION_WINDOW_DAYS * DAY_MS;
+const MAX_LISTED_FIXES = 5;
 
 const PROGRAM_LABELS: Record<NonNullable<Doc<"profiles">["primaryProgram"]>, string> = {
   frc_5199: "5199 Robot Dolphins",
@@ -80,6 +92,9 @@ export type HomeData =
       myRank?: number;
       rankedCount: number;
       quals: { tools: string[]; badges: string[]; lessonsCompleted: number };
+      /** Auto-closed sessions the student can still ask to fix. */
+      fixable: { attendanceSessionId: string; signInAt: number; autoClosedAt?: number }[];
+      pendingRequests: { kind: "fix_sign_out" | "missed_session"; signInAt: number; signOutAt: number }[];
       generatedAt: number;
     };
 
@@ -227,6 +242,36 @@ export const homeData = internalQuery({
       }
     }
 
+    // Time sheet fixes
+    const corrections = await ctx.db
+      .query("attendanceCorrections")
+      .withIndex("by_user_status", (q) => q.eq("userId", userId).eq("status", "pending"))
+      .collect();
+    const pendingSessionIds = new Set(
+      corrections.map((item) => item.attendanceSessionId).filter(Boolean),
+    );
+    const fixable = mySessions
+      .filter(
+        (item) =>
+          item.status === "needs_review" &&
+          item.signInAt >= now - CORRECTION_WINDOW_MS &&
+          !pendingSessionIds.has(item._id),
+      )
+      .sort((a, b) => b.signInAt - a.signInAt)
+      .slice(0, MAX_LISTED_FIXES)
+      .map((item) => ({
+        attendanceSessionId: item._id as string,
+        signInAt: item.signInAt,
+        autoClosedAt: item.signOutAt,
+      }));
+    const pendingRequests = corrections
+      .sort((a, b) => b.requestedSignInAt - a.requestedSignInAt)
+      .map((item) => ({
+        kind: item.kind,
+        signInAt: item.requestedSignInAt,
+        signOutAt: item.requestedSignOutAt,
+      }));
+
     const lessonsCompleted = (
       await ctx.db
         .query("lessonProgress")
@@ -263,6 +308,8 @@ export const homeData = internalQuery({
         badges: badges.sort((a, b) => a.localeCompare(b)),
         lessonsCompleted,
       },
+      fixable,
+      pendingRequests,
       generatedAt: now,
     };
   },
@@ -291,6 +338,18 @@ function duration(minutes: number) {
   const m = minutes % 60;
 
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+/** e.g. "Tue, Oct 6" in the viewer's time zone. */
+function slackDay(timestamp: number) {
+  const fallback = new Date(timestamp).toLocaleDateString("en-US", {
+    timeZone: "America/Los_Angeles",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  return `<!date^${Math.floor(timestamp / 1000)}^{date_short_pretty}|${fallback}>`;
 }
 
 /** Slack renders this in the viewer's own time zone. */
@@ -433,18 +492,67 @@ export function buildHomeView(data: Extract<HomeData, { linked: true }>) {
     ],
   });
 
+  blocks.push({ type: "divider" });
+
+  // --- Time sheet fixes ----------------------------------------------------
+  const timeSheetLines = ["*Time sheet*"];
+
   if (data.me.needsReviewCount > 0) {
+    timeSheetLines.push(
+      `:warning: ${data.me.needsReviewCount} session${data.me.needsReviewCount === 1 ? " was" : "s were"} ` +
+        `auto-closed because you didn't sign out (${hours(data.me.seasonNeedsReviewMinutes)}). ` +
+        "They don't count until fixed.",
+    );
+  } else {
+    timeSheetLines.push("Forgot to sign in or out? Ask for a fix here and a mentor will approve it.");
+  }
+
+  blocks.push({ type: "section", text: mrkdwn(timeSheetLines.join("\n")) });
+
+  for (const item of data.fixable) {
+    blocks.push({
+      type: "section",
+      text: mrkdwn(
+        `${slackDay(item.signInAt)} · signed in ${slackTime(item.signInAt)}` +
+          (item.autoClosedAt ? `, auto-closed ${slackTime(item.autoClosedAt)}` : ""),
+      ),
+      accessory: {
+        type: "button",
+        action_id: ACTION_FIX_TIME,
+        text: plain("Fix time"),
+        value: item.attendanceSessionId,
+      },
+    });
+  }
+
+  if (data.pendingRequests.length > 0) {
     blocks.push({
       type: "context",
       elements: [
         mrkdwn(
-          `:warning: ${data.me.needsReviewCount} session${data.me.needsReviewCount === 1 ? "" : "s"} ` +
-            `(${hours(data.me.seasonNeedsReviewMinutes)}) were auto-closed because you didn't sign out. ` +
-            "They don't count as verified until a mentor reviews them.",
+          ":hourglass_flowing_sand: Waiting for a mentor: " +
+            data.pendingRequests
+              .map(
+                (item) =>
+                  `${slackDay(item.signInAt)} ${slackTime(item.signInAt)}–${slackTime(item.signOutAt)}` +
+                  (item.kind === "missed_session" ? " (missed sign-in)" : ""),
+              )
+              .join(", "),
         ),
       ],
     });
   }
+
+  blocks.push({
+    type: "actions",
+    elements: [
+      {
+        type: "button",
+        action_id: ACTION_MISSED_SESSION,
+        text: plain("I forgot to sign in"),
+      },
+    ],
+  });
 
   blocks.push({ type: "divider" });
 
@@ -532,6 +640,92 @@ export function buildShopCodeModal(action: "in" | "out") {
           max_length: 32,
         },
       },
+    ],
+  };
+}
+
+function reasonInput(placeholder: string) {
+  return {
+    type: "input",
+    block_id: REASON_BLOCK,
+    label: plain("What happened?"),
+    element: {
+      type: "plain_text_input",
+      action_id: REASON_INPUT,
+      multiline: true,
+      max_length: 500,
+      placeholder: plain(placeholder),
+    },
+  };
+}
+
+function dateTimeInput(blockId: string, label: string, initial: number, hint?: string) {
+  return {
+    type: "input",
+    block_id: blockId,
+    label: plain(label),
+    ...(hint ? { hint: plain(hint) } : {}),
+    element: {
+      type: "datetimepicker",
+      action_id: PICKER_INPUT,
+      initial_date_time: Math.floor(initial / 1000),
+    },
+  };
+}
+
+export function buildFixTimeModal(args: {
+  attendanceSessionId: string;
+  signInAt: number;
+  autoClosedAt?: number;
+}) {
+  const latest = args.autoClosedAt ?? Date.now();
+  const initial = Math.min(args.signInAt + 2 * 60 * 60 * 1000, latest);
+
+  return {
+    type: "modal",
+    callback_id: FIX_TIME_MODAL,
+    private_metadata: JSON.stringify({ attendanceSessionId: args.attendanceSessionId }),
+    title: plain("Fix sign-out time"),
+    submit: plain("Send to mentor"),
+    close: plain("Cancel"),
+    blocks: [
+      {
+        type: "section",
+        text: mrkdwn(
+          `You signed in ${slackDay(args.signInAt)} at ${slackTime(args.signInAt)}` +
+            (args.autoClosedAt ? ` and the shop auto-closed you at ${slackTime(args.autoClosedAt)}.` : "."),
+        ),
+      },
+      dateTimeInput(SIGN_OUT_BLOCK, "When did you actually leave?", initial),
+      reasonInput("Forgot to sign out, left when cleanup was done."),
+      {
+        type: "context",
+        elements: [mrkdwn("A mentor approves or denies this in Slack. You'll get a message either way.")],
+      },
+    ],
+  };
+}
+
+export function buildMissedSessionModal() {
+  const now = Date.now();
+
+  return {
+    type: "modal",
+    callback_id: MISSED_SESSION_MODAL,
+    title: plain("Forgot to sign in"),
+    submit: plain("Send to mentor"),
+    close: plain("Cancel"),
+    blocks: [
+      {
+        type: "section",
+        text: mrkdwn(
+          `Add a shop session you forgot to sign in for (last ${CORRECTION_WINDOW_DAYS} days). ` +
+            "If you signed in but forgot to sign out, use *Fix time* instead.",
+        ),
+      },
+      dateTimeInput(SIGN_IN_BLOCK, "When did you arrive?", now - 3 * 60 * 60 * 1000),
+      dateTimeInput(SIGN_OUT_BLOCK, "When did you leave?", now - 60 * 60 * 1000),
+      reasonInput("Forgot to scan in, was working on the intake with Avery."),
     ],
   };
 }

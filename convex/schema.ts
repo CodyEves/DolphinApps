@@ -10,6 +10,8 @@ import {
   attendanceEventStatusValidator,
   attendanceStatusValidator,
   cardEnrollmentStatusValidator,
+  correctionKindValidator,
+  correctionStatusValidator,
   catalogKindValidator,
   credentialLinkPurposeValidator,
   lessonResourceTypeValidator,
@@ -652,6 +654,32 @@ export default defineSchema({
   })
     .index("by_slack_user", ["slackUserId"])
     .index("by_user", ["userId"]),
+
+  // Student-requested time sheet fixes, approved by staff in Slack.
+  attendanceCorrections: defineTable({
+    userId: v.id("users"),
+    profileId: v.id("profiles"),
+    kind: correctionKindValidator,
+    // fix_sign_out: the auto-closed session being fixed.
+    // missed_session: filled in when approved (the new session).
+    attendanceSessionId: v.optional(v.id("attendanceSessions")),
+    // missed_session: the shop session that day.
+    shopSessionId: v.optional(v.id("shopSessions")),
+    requestedSignInAt: v.number(),
+    requestedSignOutAt: v.number(),
+    originalSignOutAt: v.optional(v.number()),
+    reason: v.string(),
+    status: correctionStatusValidator,
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    slackChannelId: v.optional(v.string()),
+    slackMessageTs: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_status", ["userId", "status"])
+    .index("by_status", ["status"])
+    .index("by_attendance_session", ["attendanceSessionId"]),
 
   slackLinkTokens: defineTable({
     tokenHash: v.string(),

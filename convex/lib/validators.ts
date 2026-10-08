@@ -213,3 +213,15 @@ export const cardEnrollmentStatusValidator = v.union(
   v.literal("expired"),
   v.literal("canceled"),
 );
+
+export const correctionKindValidator = v.union(
+  v.literal("fix_sign_out"),
+  v.literal("missed_session"),
+);
+
+export const correctionStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("approved"),
+  v.literal("denied"),
+  v.literal("cancelled"),
+);

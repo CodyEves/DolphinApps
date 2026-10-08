@@ -168,5 +168,5 @@ export function friendlyAttendanceError(error: unknown) {
     .map((line) => line.trim())
     .find((line) => line.length > 0 && !line.startsWith("at "));
 
-  return cleaned ? cleaned.slice(0, 150) : "Could not update shop attendance.";
+  return cleaned ? cleaned.slice(0, 200) : "Could not update shop attendance.";
 }

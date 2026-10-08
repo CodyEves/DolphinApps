@@ -1,14 +1,26 @@
 import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { friendlyAttendanceError, jsonResponse, slackApi, verifySlackRequest } from "./lib/slack";
+import { ACTION_CORRECTION_APPROVE, ACTION_CORRECTION_DENY } from "./attendanceCorrections";
 import {
+  ACTION_FIX_TIME,
   ACTION_HOME_REFRESH,
+  ACTION_MISSED_SESSION,
   ACTION_SHOP_SIGN_IN,
   ACTION_SHOP_SIGN_OUT,
   SHOP_CODE_BLOCK,
   SHOP_CODE_INPUT,
   SHOP_CODE_MODAL,
+  FIX_TIME_MODAL,
+  MISSED_SESSION_MODAL,
+  PICKER_INPUT,
+  REASON_BLOCK,
+  REASON_INPUT,
+  SIGN_IN_BLOCK,
+  SIGN_OUT_BLOCK,
+  buildFixTimeModal,
   buildMessageModal,
+  buildMissedSessionModal,
   buildShopCodeModal,
 } from "./slackHome";
 
@@ -56,13 +68,50 @@ type InteractionPayload = {
   type?: string;
   trigger_id?: string;
   user?: { id?: string };
-  actions?: { action_id?: string }[];
+  response_url?: string;
+  actions?: { action_id?: string; value?: string }[];
   view?: {
     callback_id?: string;
     private_metadata?: string;
-    state?: { values?: Record<string, Record<string, { value?: string | null }>> };
+    state?: {
+      values?: Record<
+        string,
+        Record<string, { value?: string | null; selected_date_time?: number | null }>
+      >;
+    };
   };
 };
+
+type ViewState = NonNullable<NonNullable<InteractionPayload["view"]>["state"]>;
+
+function pickedTime(state: ViewState | undefined, blockId: string) {
+  const seconds = state?.values?.[blockId]?.[PICKER_INPUT]?.selected_date_time;
+  return typeof seconds === "number" ? seconds * 1000 : null;
+}
+
+function textValue(state: ViewState | undefined, blockId: string, actionId: string) {
+  return state?.values?.[blockId]?.[actionId]?.value?.trim() ?? "";
+}
+
+/** Short private reply under a message (used for approve/deny problems). */
+async function ephemeralReply(responseUrl: string | undefined, text: string) {
+  if (!responseUrl) return;
+
+  await fetch(responseUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ response_type: "ephemeral", replace_original: false, text }),
+  });
+}
+
+const sentModal = (kind: string) =>
+  jsonResponse({
+    response_action: "update",
+    view: buildMessageModal(
+      "Request sent",
+      `Your ${kind} request went to the mentors. You'll get a message here when it's approved or denied.`,
+    ),
+  });
 
 /** Interactivity: POST /slack/interactions (buttons + modal submissions) */
 export const slackInteractions = httpAction(async (ctx, request) => {
@@ -102,10 +151,125 @@ export const slackInteractions = httpAction(async (ctx, request) => {
       }
     } else if (actionId === ACTION_HOME_REFRESH) {
       await ctx.scheduler.runAfter(0, internal.slackHome.publishHome, { slackUserId });
+    } else if (actionId === ACTION_FIX_TIME && payload.trigger_id) {
+      let view;
+
+      try {
+        const context = await ctx.runQuery(internal.attendanceCorrections.fixModalContext, {
+          slackUserId,
+          attendanceSessionId: payload.actions?.[0]?.value ?? "",
+        });
+        view = buildFixTimeModal(context);
+      } catch (error) {
+        view = buildMessageModal("Can't fix that one", friendlyAttendanceError(error));
+        await ctx.scheduler.runAfter(0, internal.slackHome.publishHome, { slackUserId });
+      }
+
+      const result = await slackApi("views.open", { trigger_id: payload.trigger_id, view });
+
+      if (!result.ok) {
+        console.error("views.open (fix time) failed", result.error);
+      }
+    } else if (actionId === ACTION_MISSED_SESSION && payload.trigger_id) {
+      const result = await slackApi("views.open", {
+        trigger_id: payload.trigger_id,
+        view: buildMissedSessionModal(),
+      });
+
+      if (!result.ok) {
+        console.error("views.open (missed session) failed", result.error);
+      }
+    } else if (actionId === ACTION_CORRECTION_APPROVE || actionId === ACTION_CORRECTION_DENY) {
+      try {
+        const result = await ctx.runMutation(internal.attendanceCorrections.decide, {
+          correctionId: payload.actions?.[0]?.value ?? "",
+          reviewerSlackUserId: slackUserId,
+          approve: actionId === ACTION_CORRECTION_APPROVE,
+        });
+
+        if (result.alreadyDecided) {
+          await ephemeralReply(payload.response_url, `Someone already ${result.status} this request.`);
+        }
+      } catch (error) {
+        await ephemeralReply(payload.response_url, friendlyAttendanceError(error));
+      }
     }
 
     // URL buttons (Open Dolphin Apps, Connect my account) also land here; just ack.
     return ok();
+  }
+
+  // ---- Modal submit: fix sign-out time -----------------------------------
+  if (payload.type === "view_submission" && payload.view?.callback_id === FIX_TIME_MODAL) {
+    const state = payload.view.state;
+    const signOutAt = pickedTime(state, SIGN_OUT_BLOCK);
+    let attendanceSessionId = "";
+
+    try {
+      attendanceSessionId = JSON.parse(payload.view.private_metadata ?? "{}").attendanceSessionId ?? "";
+    } catch {
+      // handled below
+    }
+
+    if (!signOutAt) {
+      return jsonResponse({
+        response_action: "errors",
+        errors: { [SIGN_OUT_BLOCK]: "Pick the date and time you left." },
+      });
+    }
+
+    try {
+      await ctx.runMutation(internal.attendanceCorrections.requestFix, {
+        slackUserId,
+        attendanceSessionId,
+        signOutAt,
+        reason: textValue(state, REASON_BLOCK, REASON_INPUT),
+      });
+
+      return sentModal("time fix");
+    } catch (error) {
+      const message = friendlyAttendanceError(error);
+      const block = /reason/i.test(message) ? REASON_BLOCK : SIGN_OUT_BLOCK;
+
+      return jsonResponse({ response_action: "errors", errors: { [block]: message } });
+    }
+  }
+
+  // ---- Modal submit: missed session ------------------------------------
+  if (payload.type === "view_submission" && payload.view?.callback_id === MISSED_SESSION_MODAL) {
+    const state = payload.view.state;
+    const signInAt = pickedTime(state, SIGN_IN_BLOCK);
+    const signOutAt = pickedTime(state, SIGN_OUT_BLOCK);
+
+    if (!signInAt || !signOutAt) {
+      return jsonResponse({
+        response_action: "errors",
+        errors: {
+          ...(!signInAt ? { [SIGN_IN_BLOCK]: "Pick when you arrived." } : {}),
+          ...(!signOutAt ? { [SIGN_OUT_BLOCK]: "Pick when you left." } : {}),
+        },
+      });
+    }
+
+    try {
+      await ctx.runMutation(internal.attendanceCorrections.requestMissed, {
+        slackUserId,
+        signInAt,
+        signOutAt,
+        reason: textValue(state, REASON_BLOCK, REASON_INPUT),
+      });
+
+      return sentModal("missed sign-in");
+    } catch (error) {
+      const message = friendlyAttendanceError(error);
+      const block = /reason/i.test(message)
+        ? REASON_BLOCK
+        : /arriv|sign-in|shop wasn't open|overlap|last \d+ days/i.test(message)
+          ? SIGN_IN_BLOCK
+          : SIGN_OUT_BLOCK;
+
+      return jsonResponse({ response_action: "errors", errors: { [block]: message } });
+    }
   }
 
   // ---- Modal submit: shop code ------------------------------------------

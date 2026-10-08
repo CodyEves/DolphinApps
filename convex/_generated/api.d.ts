@@ -10,6 +10,7 @@
 
 import type * as access from "../access.js";
 import type * as adminLms from "../adminLms.js";
+import type * as attendanceCorrections from "../attendanceCorrections.js";
 import type * as auth from "../auth.js";
 import type * as badges from "../badges.js";
 import type * as catalog from "../catalog.js";
@@ -53,6 +54,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   access: typeof access;
   adminLms: typeof adminLms;
+  attendanceCorrections: typeof attendanceCorrections;
   auth: typeof auth;
   badges: typeof badges;
   catalog: typeof catalog;
