@@ -5,6 +5,7 @@ import {
   Home,
   Package,
   Settings,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { useConvexAuth } from "@convex-dev/auth/react";
@@ -55,6 +56,13 @@ const apps: LauncherApp[] = [
     iconClassName: "bg-brand-blue text-white",
   },
   {
+    href: "/tools",
+    title: "Shop Tools",
+    description: "SOPs, sign-offs, readers",
+    icon: Wrench,
+    iconClassName: "bg-brand-navy text-white",
+  },
+  {
     href: "/parts",
     titleKey: "partsTitle",
     description: "Parts, BOMs, fab",
@@ -92,11 +100,21 @@ function isActiveApp(pathname: string, href: string) {
     return pathname.startsWith("/parts");
   }
 
+  if (href === "/tools") {
+    return pathname.startsWith("/tools");
+  }
+
   if (href === "/shop") {
     return pathname.startsWith("/shop");
   }
 
-  return pathname !== "/" && !pathname.startsWith("/parts") && !pathname.startsWith("/management") && !pathname.startsWith("/admin");
+  return (
+    pathname !== "/" &&
+    !pathname.startsWith("/parts") &&
+    !pathname.startsWith("/tools") &&
+    !pathname.startsWith("/management") &&
+    !pathname.startsWith("/admin")
+  );
 }
 
 export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {

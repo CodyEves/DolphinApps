@@ -5,10 +5,13 @@ Dolphin Apps is the shared operations suite for robotics teams. It combines stud
 ## What It Does
 
 - Student dashboard for assigned training, badge progress, equipment status, and next steps
+- Shop Tools app with per-tool SOPs, safety tests, sign-off tracking, and card-reader tool interlocks
 - Training tracks with units, lessons, quizzes, reading, video, and exercise workflows
 - Equipment catalog with safety tests, SOP uploads, and hands-on sign-off requests
+- Card readers that power a shop tool only for students with a current sign-off
 - Badge catalog and admin-managed badge awards
 - Shop attendance with live sessions, check-in codes, event attendance, corrections, reports, and Slack linking
+- Slack app: Sign in with Slack, a Home tab with shop sign-in/out, hours, leaderboard, and sign-offs (setup: `slack/README.md`)
 - Robot parts workspace with part numbers, BOMs, manufacturing status, transmissions, and order requests
 - Mentor dashboard for team learning progress, missing work, pending reviews, and student next actions
 - Admin tools for users, learning content, badge definitions, reviews, and progress resets
@@ -90,8 +93,12 @@ bun run preview
 | `/training` | Published training track list |
 | `/training/tracks/:trackId` | Student track view |
 | `/training/lessons/:lessonId` | Student lesson view |
-| `/equipment` | Equipment catalog |
-| `/equipment/:equipmentId` | Equipment detail, safety test, and sign-off flow |
+| `/tools` | Shop Tools catalog with SOP and sign-off status |
+| `/tools/:equipmentId` | Tool detail: SOP, training video, safety test, sign-off |
+| `/tools/:equipmentId/sop` | SOP editor (admin/mentor/instructor) |
+| `/tools/sign-offs` | Roster-by-tool sign-off tracker |
+| `/tools/readers` | Card reader devices and badge card enrollment |
+| `/equipment`, `/equipment/:id` | Redirect to the matching `/tools` route |
 | `/reviews` | Instructor/admin review queue |
 | `/badges` | Badge catalog and earned badges |
 | `/badges/awards` | Admin badge award records |
@@ -111,6 +118,61 @@ bun run preview
 | `/auth/reset` | One-time password reset link |
 
 Editor routes also exist for training tracks, lessons, badges, equipment, and parts records. They require the appropriate authenticated role.
+
+## Shop Tool Card Readers
+
+A reader is a device wired to a tool's contactor. It holds a device key and asks the
+deployment whether the tapped badge card may power that tool. **No access decision is made
+on the device** — revoking a sign-off on the website takes effect on the very next tap.
+
+### Setup
+
+1. Go to `/tools/readers` (admin only) and create a reader, assigning it to a tool.
+2. Copy the device key shown once at creation. It is stored hashed and cannot be recovered;
+   a lost key means rotating it from the same page.
+3. Enroll each student's badge card: pick the student, press **Wait for tap**, and have them
+   tap on any active reader within two minutes. A card number can also be typed in manually.
+
+### Endpoints
+
+Both endpoints live on the Convex HTTP domain (`https://<deployment>.convex.site`) and take
+JSON. The device key travels either as `Authorization: Bearer <key>` or as a `deviceKey`
+field in the body.
+
+`POST /reader/check` — may this card run this tool right now?
+
+```bash
+curl -X POST https://<deployment>.convex.site/reader/check   -H "Authorization: Bearer <device-key>"   -H "Content-Type: application/json"   -d '{"cardUid":"04A3B2C1"}'
+```
+
+```json
+{
+  "allowed": true,
+  "reason": "approved",
+  "message": "Signed off",
+  "studentName": "Jane Doe",
+  "toolName": "Horizontal bandsaw"
+}
+```
+
+`reason` is one of `approved`, `unknown_card`, `inactive_account`, `no_sign_off`,
+`sign_off_expired`, `equipment_inactive`, or `equipment_locked_out`. An unknown or disabled
+device key returns HTTP 401; a missing key or card returns HTTP 400. Every tap is logged to
+`toolAccessEvents` and shown under "Recent taps" on `/tools/readers`.
+
+`POST /reader/enroll` — bind the tapped card to the student in the open enrollment window.
+Same auth and body shape; returns `{ "enrolled": true, "message": "..." }`.
+
+Card UIDs are normalized to uppercase hex with separators stripped, so `04:a3:b2:c1` and
+`04A3B2C1` are the same card.
+
+### What gates access
+
+A tap is allowed only when the tool is active and not locked out, the account is active, and
+the student has an `approved` sign-off that has not expired. Tools with a
+`certificationValidDays` value stamp an expiry at approval time; leave it blank for
+sign-offs that never lapse. Reading the SOP is tracked and surfaced but is **not** itself an
+interlock — an instructor granting the hands-on sign-off is the gate.
 
 ## Authentication and Roles
 

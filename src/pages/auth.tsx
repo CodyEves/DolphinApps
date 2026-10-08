@@ -1,6 +1,6 @@
 import { useAuthActions, useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { Copy, KeyRound, Loader2, LogIn, LogOut } from "lucide-react";
+import { Copy, Hash, KeyRound, Loader2, LogIn, LogOut } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -49,6 +49,7 @@ export function AuthPage() {
   const token = searchParams.get("token") ?? "";
   const [tokenHash, setTokenHash] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSlackRedirecting, setIsSlackRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const purpose = mode === "setup" ? "initial_setup" : "password_reset";
   const preview = useQuery(
@@ -109,6 +110,32 @@ export function AuthPage() {
       isMounted = false;
     };
   }, [mode, token]);
+
+  // Convex Auth sends people back to /auth?via=slack. If they arrive here
+  // without a sign-in code and without a session, Slack sign-in was rejected
+  // (usually: that Slack account isn't linked to a Dolphin account yet).
+  const slackSignInFailed =
+    mode === "signIn" &&
+    searchParams.get("via") === "slack" &&
+    !searchParams.get("code") &&
+    !isLoading &&
+    !isAuthenticated;
+
+  async function handleSlackSignIn() {
+    setError(null);
+    setIsSlackRedirecting(true);
+
+    try {
+      await signIn("slack", {
+        redirectTo: `/auth?via=slack&returnTo=${encodeURIComponent(returnTo)}`,
+      });
+    } catch (caughtError) {
+      setIsSlackRedirecting(false);
+      toast.error(
+        caughtError instanceof Error ? caughtError.message : "Could not start Slack sign-in.",
+      );
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -221,6 +248,38 @@ export function AuthPage() {
                 Sign out and reset
               </Button>
             ) : (
+              <>
+              {mode === "signIn" && (
+                <div className="mb-4 space-y-3">
+                  {slackSignInFailed && (
+                    <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      That Slack account isn't connected to a Dolphin Apps account yet. Sign in
+                      with your username below, then open the Dolphin Apps app in Slack and
+                      click <span className="font-medium">Connect my account</span>. After that,
+                      Slack sign-in works every time. (Mentors and admins also need an admin to
+                      approve their Slack link.)
+                    </p>
+                  )}
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={() => void handleSlackSignIn()}
+                    disabled={isSlackRedirecting}
+                  >
+                    {isSlackRedirecting ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Hash className="size-4" />
+                    )}
+                    Sign in with Slack
+                  </Button>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span className="h-px flex-1 bg-border" />
+                    or use your username
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
+                </div>
+              )}
               <form onSubmit={handleSubmit} className="space-y-4">
                 {mode !== "signIn" && (
                   <div className="rounded-md border bg-muted/40 p-3 text-sm">
@@ -298,6 +357,7 @@ export function AuthPage() {
                     <Button
                       type="submit"
                       className="w-full"
+                      variant={mode === "signIn" ? "outline" : "default"}
                       disabled={isSubmitting || (mode !== "signIn" && !preview)}
                     >
                       {isSubmitting ? (
@@ -317,6 +377,7 @@ export function AuthPage() {
                   </p>
                 )}
               </form>
+              </>
             )}
           </CardContent>
         </Card>

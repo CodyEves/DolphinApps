@@ -19,6 +19,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 
 import { PageHeading } from "@/components/page-heading";
+import { SopView } from "@/components/sop-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,6 +76,10 @@ type EquipmentForm = {
   videoUrl: string;
   instructorApprovalRequired: boolean;
   isActive: boolean;
+  location: string;
+  certificationValidDays: string;
+  isLockedOut: boolean;
+  lockoutReason: string;
   passingScorePercent: string;
   questions: QuestionForm[];
 };
@@ -287,6 +292,12 @@ export function EquipmentDetailPage() {
           videoUrl: item.videoUrl ?? "",
           instructorApprovalRequired: item.instructorApprovalRequired,
           isActive: item.isActive,
+          location: item.location ?? "",
+          certificationValidDays: item.certificationValidDays
+            ? String(item.certificationValidDays)
+            : "",
+          isLockedOut: item.isLockedOut ?? false,
+          lockoutReason: item.lockoutReason ?? "",
           passingScorePercent: String(item.quiz?.passingScorePercent ?? 80),
           questions: item.questions.filter((question) => isEquipmentQuestionType(question.type)).map((question) => {
             const correctAnswers = parseCorrectAnswers(question.correctAnswer);
@@ -530,6 +541,12 @@ export function EquipmentDetailPage() {
         videoUrl: form.videoUrl.trim() || undefined,
         instructorApprovalRequired: form.instructorApprovalRequired,
         isActive: form.isActive,
+        location: form.location.trim() || undefined,
+        certificationValidDays: form.certificationValidDays.trim()
+          ? Number(form.certificationValidDays)
+          : undefined,
+        isLockedOut: form.isLockedOut,
+        lockoutReason: form.lockoutReason.trim() || undefined,
         passingScorePercent: Number(form.passingScorePercent),
         questions: form.questions.map((question) => ({
           id: question.id,
@@ -859,6 +876,8 @@ export function EquipmentDetailPage() {
                         </div>
                       </div>
 
+                      <SopView equipmentId={item._id} />
+
                       <div className="rounded-md border p-4">
                         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
@@ -910,11 +929,11 @@ export function EquipmentDetailPage() {
                       <div className="rounded-md border p-4">
                         <div className="flex items-center gap-2 font-medium">
                           <FileText className="size-4 text-primary" />
-                          SOP documents
+                          SOP attachments
                         </div>
                         {item.sopDocuments.length === 0 ? (
                           <p className="mt-2 text-sm text-muted-foreground">
-                            No SOP documents have been added yet.
+                            No SOP files have been attached yet.
                           </p>
                         ) : (
                           <div className="mt-3 grid gap-2 md:grid-cols-2">
@@ -1153,6 +1172,37 @@ export function EquipmentDetailPage() {
                             placeholder="https://www.youtube.com/watch?v=..."
                           />
                         </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`${item._id}-location`}>Shop location</Label>
+                          <Input
+                            id={`${item._id}-location`}
+                            value={form.location}
+                            onChange={(event) =>
+                              patchForm(item._id, { location: event.target.value })
+                            }
+                            placeholder="Back bay, north wall"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor={`${item._id}-cert-days`}>
+                            Sign-off valid for (days)
+                          </Label>
+                          <Input
+                            id={`${item._id}-cert-days`}
+                            type="number"
+                            min={0}
+                            value={form.certificationValidDays}
+                            onChange={(event) =>
+                              patchForm(item._id, {
+                                certificationValidDays: event.target.value,
+                              })
+                            }
+                            placeholder="Leave blank to never expire"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Applies to sign-offs granted from now on.
+                          </p>
+                        </div>
                         <label className="flex items-center gap-2 text-sm">
                           <Checkbox
                             checked={form.instructorApprovalRequired}
@@ -1173,6 +1223,28 @@ export function EquipmentDetailPage() {
                           />
                           Active equipment
                         </label>
+                        <label className="flex items-center gap-2 text-sm md:col-span-2">
+                          <Checkbox
+                            checked={form.isLockedOut}
+                            onCheckedChange={(checked) =>
+                              patchForm(item._id, { isLockedOut: checked === true })
+                            }
+                          />
+                          Lock out this tool (card readers deny everyone)
+                        </label>
+                        {form.isLockedOut && (
+                          <div className="space-y-2 md:col-span-2">
+                            <Label htmlFor={`${item._id}-lockout-reason`}>Lockout reason</Label>
+                            <Input
+                              id={`${item._id}-lockout-reason`}
+                              value={form.lockoutReason}
+                              onChange={(event) =>
+                                patchForm(item._id, { lockoutReason: event.target.value })
+                              }
+                              placeholder="Blade guard broken, waiting on parts"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       <Separator />

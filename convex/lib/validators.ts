@@ -191,3 +191,25 @@ export const attendanceEventStatusValidator = v.union(
 );
 
 export const teamNumberValidator = v.union(v.literal("5199"), v.literal("9271"));
+
+export const toolAccessDecisionValidator = v.union(
+  v.literal("allowed"),
+  v.literal("denied"),
+);
+
+export const toolAccessReasonValidator = v.union(
+  v.literal("approved"),
+  v.literal("unknown_card"),
+  v.literal("inactive_account"),
+  v.literal("no_sign_off"),
+  v.literal("sign_off_expired"),
+  v.literal("equipment_inactive"),
+  v.literal("equipment_locked_out"),
+);
+
+export const cardEnrollmentStatusValidator = v.union(
+  v.literal("waiting"),
+  v.literal("completed"),
+  v.literal("expired"),
+  v.literal("canceled"),
+);

@@ -1,6 +1,6 @@
 import { StrictMode, lazy } from "react";
 import { createRoot } from "react-dom/client";
-import { RouterProvider, createBrowserRouter } from "react-router";
+import { Navigate, RouterProvider, createBrowserRouter, useParams } from "react-router";
 
 import { AppProviders } from "@/providers/app-providers";
 import { RouteErrorPage } from "@/routes/route-error-page";
@@ -39,8 +39,17 @@ const EquipmentDetailPage = lazy(() =>
     default: module.EquipmentDetailPage,
   })),
 );
-const EquipmentPage = lazy(() =>
-  import("@/pages/equipment").then((module) => ({ default: module.EquipmentPage })),
+const ToolsPage = lazy(() =>
+  import("@/pages/tools").then((module) => ({ default: module.ToolsPage })),
+);
+const ToolSignOffsPage = lazy(() =>
+  import("@/pages/tool-sign-offs").then((module) => ({ default: module.ToolSignOffsPage })),
+);
+const ToolReadersPage = lazy(() =>
+  import("@/pages/tool-readers").then((module) => ({ default: module.ToolReadersPage })),
+);
+const SopEditorPage = lazy(() =>
+  import("@/pages/sop-editor").then((module) => ({ default: module.SopEditorPage })),
 );
 const HomePage = lazy(() =>
   import("@/pages/home").then((module) => ({ default: module.HomePage })),
@@ -118,6 +127,13 @@ const TeamManagementPage = lazy(() =>
   })),
 );
 
+/** Old /equipment/:id bookmarks keep working after the move to the Shop Tools app. */
+function LegacyEquipmentRedirect() {
+  const { equipmentId } = useParams();
+
+  return <Navigate to={`/tools/${equipmentId}`} replace />;
+}
+
 const router = createBrowserRouter([
   {
     path: "/",
@@ -133,7 +149,12 @@ const router = createBrowserRouter([
       { path: "training/tracks/:trackId/edit", element: <LearningTrackEditorPage /> },
       { path: "training/lessons/:lessonId/edit", element: <LessonEditorPage /> },
       { path: "training/lessons/:lessonId", element: <LessonViewPage /> },
-      { path: "equipment", element: <EquipmentPage /> },
+      { path: "equipment", element: <Navigate to="/tools" replace /> },
+      { path: "tools", element: <ToolsPage /> },
+      { path: "tools/sign-offs", element: <ToolSignOffsPage /> },
+      { path: "tools/readers", element: <ToolReadersPage /> },
+      { path: "tools/:equipmentId", element: <EquipmentDetailPage /> },
+      { path: "tools/:equipmentId/sop", element: <SopEditorPage /> },
       { path: "parts", element: <PartsListPage /> },
       { path: "parts/dashboard", element: <PartsDashboardPage /> },
       { path: "parts/new", element: <PartsListPage /> },
@@ -153,7 +174,7 @@ const router = createBrowserRouter([
       { path: "shop/reports", element: <ShopAttendancePage /> },
       { path: "shop/reports/:studentUserId", element: <ShopAttendancePage /> },
       { path: "shop/link-slack", element: <SlackLinkPage /> },
-      { path: "equipment/:equipmentId", element: <EquipmentDetailPage /> },
+      { path: "equipment/:equipmentId", element: <LegacyEquipmentRedirect /> },
       { path: "reviews", element: <ReviewsPage /> },
       { path: "badges", element: <BadgesPage /> },
       { path: "badges/awards", element: <BadgeAwardsPage /> },

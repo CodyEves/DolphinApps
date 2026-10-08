@@ -3462,6 +3462,13 @@ export function SlackLinkPage() {
             </Button>
           )}
           {isAuthenticated && viewer && preview && (
+            <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+              Only continue if <span className="font-medium">{preview.slackUserName ?? preview.slackUserId}</span>{" "}
+              is <span className="font-medium">your own</span> Slack account. Linking lets that Slack
+              account sign in to the shop and to Dolphin Apps as you. Never open someone else's link.
+            </p>
+          )}
+          {isAuthenticated && viewer && preview && (
             <div className="flex flex-wrap items-center gap-3">
               <Button type="button" onClick={() => void handleLink()} disabled={isLinking}>
                 {isLinking ? <Loader2 className="size-4 animate-spin" /> : <ArrowLeftRight className="size-4" />}

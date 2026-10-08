@@ -239,6 +239,46 @@ what's still missing is a proactive heads-up *before* the shop closes (C2).
 
 ---
 
+## E. Shop Tools app (SOPs, sign-off tracking, card readers)
+
+- [x] **E1. Split Equipment out of the Learning app into its own "Shop Tools" app.** New
+  `/tools` app with its own launcher tile and nav section (Tools / Sign-offs / Card
+  readers); Equipment left the Learning nav. `/equipment` and `/equipment/:id` redirect to
+  the matching `/tools` route so old links keep working. The list page was rewritten as
+  `src/pages/tools.tsx` (search, SOP-read status, "Badge works" state) and the old
+  `equipment.tsx` deleted; `equipment-detail.tsx` kept and mounted at `/tools/:id`.
+
+- [x] **E2. Authored, readable SOPs instead of file downloads.** New `equipmentSops` table
+  and `convex/equipmentSop.ts`: summary, PPE list, hazards list, before/after checklists,
+  and numbered steps with optional photos. Students read it on the tool page
+  (`src/components/sop-view.tsx`) and press "I have read this SOP", which writes an
+  `equipmentSopAcknowledgements` row. Publishing bumps the version, which clears the
+  acknowledgement so a changed procedure has to be re-read. Editor at
+  `/tools/:id/sop` (admin/mentor/instructor), with draft vs. publish. The existing SOP file
+  uploads are kept alongside, relabeled "SOP attachments".
+
+- [x] **E3. Roster-by-tool sign-off tracker.** `/tools/sign-offs` renders every active
+  student against every active tool as one grid off a single `signOffMatrix` query (no
+  N+1). Search, "only students with gaps" filter, CSV export of the current view, and
+  admins can click a cell to grant or clear a sign-off. Green = may run the tool now,
+  amber = expired, dashed = never signed off.
+
+- [x] **E4. Made `expiresAt` on sign-offs real.** It was a dead schema field. Tools now
+  have an optional `certificationValidDays`; approving a hands-on sign-off stamps an expiry
+  from it, and expired sign-offs stop counting everywhere (UI and card readers). Blank
+  means never expires. Existing sign-offs have no expiry and are unaffected.
+
+- [x] **E5. Card reader backend and admin UI.** `profiles.cardUid` (+ `by_card_uid` index),
+  `toolReaders` (hashed device keys), `cardEnrollmentSessions` (tap-to-enroll), and
+  `toolAccessEvents` (audit log of every tap). `POST /reader/check` and `POST /reader/enroll`
+  in `convex/readerApi.ts`; all access decisions run through `convex/lib/toolAccess.ts`, so
+  the deployment decides and the device never does. Admin UI at `/tools/readers`: create
+  readers, assign to tools, rotate keys, enroll cards, and see recent taps. Tools also gained
+  a "locked out" switch that denies everyone at the reader. API contract documented in
+  README.
+
+---
+
 ## Bigger, not-bite-sized items (parked for later)
 
 - **Overall visual identity.** The app is currently a generic dark shadcn admin theme.

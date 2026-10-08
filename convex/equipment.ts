@@ -1,9 +1,10 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { expiryForEquipment, isSignOffCurrent, isSignOffExpired } from "./lib/toolAccess";
 import { equipmentQuestionTypeValidator } from "./lib/validators";
 
 const questionInputValidator = v.object({
@@ -130,6 +131,8 @@ async function collectEquipmentRecord(
 
       return {
         ...signOff,
+        isCurrent: isSignOffCurrent(signOff),
+        isExpired: isSignOffExpired(signOff),
         studentName: profile?.displayName ?? profile?.email ?? "Unknown student",
         studentEmail: profile?.email,
         approvedByName:
@@ -166,6 +169,20 @@ async function collectEquipmentRecord(
     })),
   );
 
+  const sop = await ctx.db
+    .query("equipmentSops")
+    .withIndex("by_equipment", (q) => q.eq("equipmentId", equipment._id))
+    .unique();
+  const sopAcknowledgement =
+    sop && currentUserId
+      ? await ctx.db
+          .query("equipmentSopAcknowledgements")
+          .withIndex("by_user_equipment", (q) =>
+            q.eq("userId", currentUserId).eq("equipmentId", equipment._id),
+          )
+          .unique()
+      : null;
+
   return {
     ...equipment,
     quiz,
@@ -174,6 +191,18 @@ async function collectEquipmentRecord(
     videoProgress,
     sopDocuments: sopDocumentsWithUrls,
     signOffs: signOffDetails,
+    sopStatus: {
+      hasSop: sop !== null,
+      isPublished: sop?.isPublished ?? false,
+      version: sop?.version ?? 0,
+      stepCount: sop?.steps.length ?? 0,
+      hasAcknowledged:
+        sop !== null &&
+        sop.isPublished &&
+        sopAcknowledgement !== null &&
+        sopAcknowledgement.sopVersion === sop.version,
+      acknowledgedAt: sopAcknowledgement?.acknowledgedAt,
+    },
   };
 }
 
@@ -445,6 +474,10 @@ export const saveEquipment = mutation({
     videoUrl: v.optional(v.string()),
     instructorApprovalRequired: v.boolean(),
     isActive: v.boolean(),
+    location: v.optional(v.string()),
+    certificationValidDays: v.optional(v.number()),
+    isLockedOut: v.optional(v.boolean()),
+    lockoutReason: v.optional(v.string()),
     passingScorePercent: v.number(),
     questions: v.array(questionInputValidator),
   },
@@ -461,6 +494,12 @@ export const saveEquipment = mutation({
     const category = args.category.trim();
     const description = args.description.trim();
     const videoUrl = args.videoUrl?.trim();
+    const location = args.location?.trim();
+    const lockoutReason = args.lockoutReason?.trim();
+
+    if (args.certificationValidDays !== undefined && args.certificationValidDays < 0) {
+      throw new Error("Certification length cannot be negative.");
+    }
 
     if (!name) {
       throw new Error("Equipment name is required.");
@@ -477,6 +516,10 @@ export const saveEquipment = mutation({
       videoUrl: videoUrl || undefined,
       instructorApprovalRequired: args.instructorApprovalRequired,
       isActive: args.isActive,
+      location: location || undefined,
+      certificationValidDays: args.certificationValidDays || undefined,
+      isLockedOut: args.isLockedOut ?? false,
+      lockoutReason: args.isLockedOut ? lockoutReason || undefined : undefined,
       updatedAt: Date.now(),
     });
 
@@ -635,11 +678,14 @@ export const setHandsOnDemonstration = mutation({
     const now = Date.now();
     const notes = args.notes?.trim();
 
+    const expiresAt = args.completed ? expiryForEquipment(equipment, now) : undefined;
+
     if (existing) {
       await ctx.db.patch(existing._id, {
         status: args.completed ? "approved" : "not_started",
         approvedAt: args.completed ? now : undefined,
         approvedBy: args.completed ? adminProfile.userId : undefined,
+        expiresAt,
         notes: notes || undefined,
         updatedAt: now,
       });
@@ -661,6 +707,7 @@ export const setHandsOnDemonstration = mutation({
       status: args.completed ? "approved" : "not_started",
       approvedAt: args.completed ? now : undefined,
       approvedBy: args.completed ? adminProfile.userId : undefined,
+      expiresAt,
       notes: notes || undefined,
       updatedAt: now,
     });
@@ -812,3 +859,82 @@ export const markEquipmentVideoComplete = mutation({
 
 
 
+
+/**
+ * The whole roster crossed with every active tool, for the admin sign-off tracker.
+ * One query so the grid renders without an N+1 per student.
+ */
+export const signOffMatrix = query({
+  args: {},
+  handler: async (ctx) => {
+    const profile = await currentProfile(ctx);
+
+    if (
+      !profile ||
+      profile.status !== "active" ||
+      (profile.role !== "admin" && profile.role !== "mentor" && profile.role !== "instructor")
+    ) {
+      throw new Error("Only admins, mentors, and instructors can view sign-off tracking.");
+    }
+
+    const now = Date.now();
+    const equipment = (await ctx.db.query("equipment").withIndex("by_active", (q) => q.eq("isActive", true)).collect())
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const students = (
+      await ctx.db
+        .query("profiles")
+        .withIndex("by_role_status", (q) => q.eq("role", "student").eq("status", "active"))
+        .collect()
+    ).sort((a, b) =>
+      (a.displayName ?? a.email ?? "").localeCompare(b.displayName ?? b.email ?? ""),
+    );
+
+    const signOffsByEquipment = new Map<string, Doc<"equipmentSignOffs">[]>();
+
+    for (const item of equipment) {
+      signOffsByEquipment.set(
+        item._id,
+        await ctx.db
+          .query("equipmentSignOffs")
+          .withIndex("by_equipment", (q) => q.eq("equipmentId", item._id))
+          .collect(),
+      );
+    }
+
+    const signOffLookup = new Map<string, Doc<"equipmentSignOffs">>();
+
+    for (const [equipmentId, signOffs] of signOffsByEquipment) {
+      for (const signOff of signOffs) {
+        signOffLookup.set(`${signOff.userId}:${equipmentId}`, signOff);
+      }
+    }
+
+    return {
+      equipment: equipment.map((item) => ({
+        _id: item._id,
+        name: item.name,
+        category: item.category,
+        certificationValidDays: item.certificationValidDays,
+      })),
+      students: students.map((student) => ({
+        userId: student.userId,
+        name: student.displayName ?? student.email ?? "Unknown student",
+        studentGroup: student.studentGroup,
+        graduationYear: student.graduationYear,
+        hasCard: Boolean(student.cardUid),
+        signOffs: equipment.map((item) => {
+          const signOff = signOffLookup.get(`${student.userId}:${item._id}`);
+
+          return {
+            equipmentId: item._id,
+            status: signOff?.status ?? "not_started",
+            isCurrent: isSignOffCurrent(signOff, now),
+            isExpired: isSignOffExpired(signOff, now),
+            approvedAt: signOff?.approvedAt,
+            expiresAt: signOff?.expiresAt,
+          };
+        }),
+      })),
+    };
+  },
+});

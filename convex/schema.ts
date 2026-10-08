@@ -9,6 +9,7 @@ import {
   attendanceSourceValidator,
   attendanceEventStatusValidator,
   attendanceStatusValidator,
+  cardEnrollmentStatusValidator,
   catalogKindValidator,
   credentialLinkPurposeValidator,
   lessonResourceTypeValidator,
@@ -27,6 +28,8 @@ import {
   signOffStatusValidator,
   submissionStatusValidator,
   teamNumberValidator,
+  toolAccessDecisionValidator,
+  toolAccessReasonValidator,
   trainingLevelValidator,
   websiteEditKindValidator,
 } from "./lib/validators";
@@ -52,11 +55,15 @@ export default defineSchema({
     primaryProgram: v.optional(programValidator),
     graduationYear: v.optional(v.number()),
     studentGroup: v.optional(v.string()),
+    cardUid: v.optional(v.string()),
+    cardEnrolledAt: v.optional(v.number()),
+    cardEnrolledBy: v.optional(v.id("users")),
     status: activeStatusValidator,
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
+    .index("by_card_uid", ["cardUid"])
     .index("by_role", ["role"])
     .index("by_role_status", ["role", "status"])
     .index("by_status", ["status"])
@@ -264,6 +271,10 @@ export default defineSchema({
     requiredQuizId: v.optional(v.id("quizzes")),
     instructorApprovalRequired: v.boolean(),
     isActive: v.boolean(),
+    location: v.optional(v.string()),
+    certificationValidDays: v.optional(v.number()),
+    isLockedOut: v.optional(v.boolean()),
+    lockoutReason: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -319,6 +330,78 @@ export default defineSchema({
   })
     .index("by_signoff", ["signOffId"])
     .index("by_actor", ["actorUserId"]),
+
+  equipmentSops: defineTable({
+    equipmentId: v.id("equipment"),
+    version: v.number(),
+    summary: v.optional(v.string()),
+    ppe: v.array(v.string()),
+    hazards: v.array(v.string()),
+    steps: v.array(
+      v.object({
+        title: v.string(),
+        detail: v.optional(v.string()),
+        imageStorageId: v.optional(v.id("_storage")),
+      }),
+    ),
+    beforeUse: v.array(v.string()),
+    afterUse: v.array(v.string()),
+    isPublished: v.boolean(),
+    publishedAt: v.optional(v.number()),
+    updatedBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_equipment", ["equipmentId"]),
+
+  equipmentSopAcknowledgements: defineTable({
+    equipmentId: v.id("equipment"),
+    userId: v.id("users"),
+    sopVersion: v.number(),
+    acknowledgedAt: v.number(),
+  })
+    .index("by_equipment", ["equipmentId"])
+    .index("by_user", ["userId"])
+    .index("by_user_equipment", ["userId", "equipmentId"]),
+
+  toolReaders: defineTable({
+    name: v.string(),
+    equipmentId: v.optional(v.id("equipment")),
+    deviceKeyHash: v.string(),
+    deviceKeyPreview: v.string(),
+    isActive: v.boolean(),
+    lastSeenAt: v.optional(v.number()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_device_key_hash", ["deviceKeyHash"])
+    .index("by_equipment", ["equipmentId"])
+    .index("by_active", ["isActive"]),
+
+  cardEnrollmentSessions: defineTable({
+    targetUserId: v.id("users"),
+    requestedBy: v.id("users"),
+    status: cardEnrollmentStatusValidator,
+    expiresAt: v.number(),
+    cardUid: v.optional(v.string()),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_target", ["targetUserId"]),
+
+  toolAccessEvents: defineTable({
+    equipmentId: v.optional(v.id("equipment")),
+    readerId: v.optional(v.id("toolReaders")),
+    cardUid: v.string(),
+    userId: v.optional(v.id("users")),
+    decision: toolAccessDecisionValidator,
+    reason: toolAccessReasonValidator,
+    createdAt: v.number(),
+  })
+    .index("by_equipment", ["equipmentId"])
+    .index("by_user", ["userId"])
+    .index("by_created", ["createdAt"]),
 
   seasons: defineTable({
     name: v.string(),
@@ -560,6 +643,10 @@ export default defineSchema({
     slackUserName: v.optional(v.string()),
     userId: v.id("users"),
     profileId: v.id("profiles"),
+    // Set only by an admin (slackAdmin:trustStaffLink). Required for staff to
+    // use Sign in with Slack.
+    trustedForStaffSignIn: v.optional(v.boolean()),
+    trustedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

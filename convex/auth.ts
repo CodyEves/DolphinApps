@@ -5,10 +5,13 @@ import {
   modifyAccountCredentials,
   retrieveAccount,
 } from "@convex-dev/auth/server";
+import Slack from "@auth/core/providers/slack";
 import { ConvexCredentials } from "@convex-dev/auth/providers/ConvexCredentials";
 import { Scrypt } from "lucia";
 
 import { internal } from "./_generated/api";
+import type { MutationCtx } from "./_generated/server";
+import { resolveSlackSignIn } from "./lib/slackIdentity";
 
 const provider = "password";
 
@@ -35,8 +38,81 @@ async function sha256Hex(value: string) {
     .join("");
 }
 
+type SlackClaims = Record<string, unknown> & {
+  sub?: string;
+  name?: string;
+  picture?: string;
+};
+
+function stringClaim(claims: SlackClaims, key: string) {
+  const value = claims[key];
+
+  return typeof value === "string" && value ? value : undefined;
+}
+
+// Fields we allow onto the users table when we create/patch a users row ourselves.
+function usersTableFields(profile: Record<string, unknown>) {
+  const fields: { name?: string; email?: string; image?: string } = {};
+
+  if (typeof profile.name === "string") fields.name = profile.name;
+  if (typeof profile.email === "string") fields.email = profile.email;
+  if (typeof profile.image === "string") fields.image = profile.image;
+
+  return fields;
+}
+
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
+  callbacks: {
+    async createOrUpdateUser(genericCtx, args) {
+      // Convex Auth hands us a generic ctx; it is the same mutation ctx as ours.
+      const ctx = genericCtx as unknown as MutationCtx;
+
+      if (args.provider.id === "slack") {
+        const profile = args.profile as Record<string, unknown>;
+
+        return await resolveSlackSignIn(ctx, {
+          slackUserId: String(profile.slackUserId ?? ""),
+          slackTeamId: typeof profile.slackTeamId === "string" ? profile.slackTeamId : undefined,
+          name: typeof profile.name === "string" ? profile.name : undefined,
+          image: typeof profile.image === "string" ? profile.image : undefined,
+        });
+      }
+
+      // Password provider: same behavior Convex Auth has by default for
+      // createAccount (we never link password accounts by email).
+      if (args.existingUserId) {
+        await ctx.db.patch(args.existingUserId, usersTableFields(args.profile));
+        return args.existingUserId;
+      }
+
+      return await ctx.db.insert("users", usersTableFields(args.profile));
+    },
+  },
   providers: [
+    // "Sign in with Slack" (OpenID Connect). Only maps onto existing Dolphin
+    // accounts; see convex/lib/slackIdentity.ts.
+    Slack({
+      clientId: process.env.AUTH_SLACK_ID,
+      clientSecret: process.env.AUTH_SLACK_SECRET,
+      authorization: {
+        params: {
+          scope: "openid profile",
+          // Pre-selects our workspace on Slack's consent screen.
+          ...(process.env.SLACK_TEAM_ID ? { team: process.env.SLACK_TEAM_ID } : {}),
+        },
+      },
+      profile(claims: SlackClaims) {
+        const slackUserId = stringClaim(claims, "https://slack.com/user_id") ?? claims.sub ?? "";
+
+        return {
+          id: slackUserId,
+          slackUserId,
+          slackTeamId: stringClaim(claims, "https://slack.com/team_id"),
+          name: claims.name,
+          image: claims.picture,
+        };
+      },
+    }),
     ConvexCredentials({
       id: provider,
       authorize: async (params, ctx) => {

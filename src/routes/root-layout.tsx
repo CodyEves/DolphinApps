@@ -27,6 +27,13 @@ function currentAppCopy(pathname: string, program: Program = "frc_5199") {
     };
   }
 
+  if (pathname.startsWith("/tools")) {
+    return {
+      title: "Shop Tools",
+      description: "SOPs, safety sign-offs, and card readers.",
+    };
+  }
+
   if (pathname.startsWith("/parts")) {
     return {
       title: meta.partsTitle,

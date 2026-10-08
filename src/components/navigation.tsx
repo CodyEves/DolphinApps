@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
   Users,
   Wrench,
+  CreditCard,
 } from "lucide-react";
 import { Link, NavLink, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
@@ -62,9 +63,14 @@ type NavItem = {
 const trainingNavItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/training", label: "Learning", icon: BookOpen },
-  { href: "/equipment", label: "Equipment", icon: Wrench },
   { href: "/reviews", label: "Reviews", icon: ClipboardCheck, reviewOnly: true },
   { href: "/badges", label: "Badges", icon: Award },
+];
+
+const toolsNavItems: NavItem[] = [
+  { href: "/tools", label: "Tools", icon: Wrench },
+  { href: "/tools/sign-offs", label: "Sign-offs", icon: ClipboardCheck, reviewOnly: true },
+  { href: "/tools/readers", label: "Card readers", icon: CreditCard, adminOnly: true },
 ];
 
 const partsNavItems: NavItem[] = [
@@ -101,6 +107,10 @@ function navItemsForPath(pathname: string) {
     return shopNavItems;
   }
 
+  if (pathname.startsWith("/tools")) {
+    return toolsNavItems;
+  }
+
   return pathname.startsWith("/parts") ? partsNavItems : trainingNavItems;
 }
 
@@ -130,7 +140,12 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
             <TooltipTrigger asChild>
               <NavLink
                 to={item.href}
-                end={item.href === "/" || item.href === "/parts" || item.href === "/shop"}
+                end={
+                  item.href === "/" ||
+                  item.href === "/parts" ||
+                  item.href === "/shop" ||
+                  item.href === "/tools"
+                }
                 onClick={() => setMobileNavOpen(false)}
                 className={({ isActive }) =>
                   cn(
@@ -209,13 +224,18 @@ export function MobileNav() {
     ? "Management"
     : location.pathname.startsWith("/shop")
     ? "Shop Attendance"
+    : location.pathname.startsWith("/tools")
+    ? "Shop Tools"
     : location.pathname.startsWith("/parts")
     ? activeProgramMeta.partsTitle
     : activeProgramMeta.trainingTitle;
   const visibleNavItems = visibleItems(navItemsForPath(location.pathname), effectiveRole);
 
   const current = visibleNavItems.find((item) =>
-    item.href === "/" || item.href === "/parts" || item.href === "/shop"
+    item.href === "/" ||
+    item.href === "/parts" ||
+    item.href === "/shop" ||
+    item.href === "/tools"
       ? location.pathname === item.href
       : location.pathname.startsWith(item.href),
   );

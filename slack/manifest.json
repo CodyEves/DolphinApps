@@ -1,0 +1,62 @@
+{
+  "_metadata": {
+    "major_version": 1,
+    "minor_version": 1
+  },
+  "display_information": {
+    "name": "Dolphin Apps",
+    "description": "Shop sign-in, hours, leaderboard, and tool sign-offs for the Robot Dolphins program.",
+    "background_color": "#0b3d5c"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": true,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": true
+    },
+    "bot_user": {
+      "display_name": "Dolphin Apps",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/shop",
+        "url": "https://YOUR-DEPLOYMENT.convex.site/slack/commands",
+        "description": "Sign in or out of the shop",
+        "usage_hint": "in CODE | out CODE",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "https://YOUR-DEPLOYMENT.convex.site/api/auth/callback/slack"
+    ],
+    "scopes": {
+      "bot": [
+        "commands",
+        "chat:write",
+        "users:read"
+      ],
+      "user": [
+        "openid",
+        "profile"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://YOUR-DEPLOYMENT.convex.site/slack/events",
+      "bot_events": [
+        "app_home_opened"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://YOUR-DEPLOYMENT.convex.site/slack/interactions"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

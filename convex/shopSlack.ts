@@ -3,94 +3,17 @@ import { v } from "convex/values";
 import { action, httpAction } from "./_generated/server";
 import type { ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-}
+import {
+  friendlyAttendanceError,
+  jsonResponse,
+  randomToken,
+  sha256Hex,
+  slackLinkUrl,
+  verifySlackRequest,
+} from "./lib/slack";
 
 function slackResponse(text: string, status = 200) {
   return jsonResponse({ response_type: "ephemeral", text }, status);
-}
-
-async function sha256Hex(value: string) {
-  const bytes = new TextEncoder().encode(value);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-
-  return [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-async function hmacSha256Hex(secret: string, value: string) {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(value),
-  );
-
-  return [...new Uint8Array(signature)]
-    .map((byte) => byte.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-function constantTimeEqual(first: string, second: string) {
-  if (first.length !== second.length) {
-    return false;
-  }
-
-  let result = 0;
-
-  for (let index = 0; index < first.length; index += 1) {
-    result |= first.charCodeAt(index) ^ second.charCodeAt(index);
-  }
-
-  return result === 0;
-}
-
-async function verifySlackRequest(request: Request, rawBody: string) {
-  const secret = process.env.SLACK_SIGNING_SECRET;
-
-  if (!secret) {
-    return false;
-  }
-
-  const timestamp = request.headers.get("x-slack-request-timestamp") ?? "";
-  const signature = request.headers.get("x-slack-signature") ?? "";
-  const timestampSeconds = Number(timestamp);
-
-  if (
-    !signature.startsWith("v0=") ||
-    !Number.isFinite(timestampSeconds) ||
-    Math.abs(Date.now() / 1000 - timestampSeconds) > 60 * 5
-  ) {
-    return false;
-  }
-
-  const expected = `v0=${await hmacSha256Hex(secret, `v0:${timestamp}:${rawBody}`)}`;
-
-  return constantTimeEqual(expected, signature);
-}
-
-function randomToken() {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
 }
 
 function parseCommand(text: string) {
@@ -106,16 +29,6 @@ function parseCommand(text: string) {
   }
 
   return { action: "help" as const, code: "" };
-}
-
-function linkUrl(token: string) {
-  const siteUrl = process.env.SITE_URL;
-
-  if (!siteUrl) {
-    throw new Error("SITE_URL is not configured.");
-  }
-
-  return `${siteUrl.replace(/\/$/, "")}/shop/link-slack?token=${encodeURIComponent(token)}`;
 }
 
 async function createLinkMessage(
@@ -135,7 +48,7 @@ async function createLinkMessage(
 
   return [
     "Link your Slack account to Dolphin Apps first:",
-    linkUrl(token),
+    slackLinkUrl(token),
     "This link expires in 2 hours. After linking, run `/shop in CODE` or `/shop out CODE` again.",
   ].join("\n");
 }
@@ -160,7 +73,10 @@ export const slackCommands = httpAction(async (ctx, request) => {
   }
 
   if (commandAction === "help") {
-    return slackResponse("Use `/shop in CODE` to sign in or `/shop out CODE` to sign out.");
+    return slackResponse(
+      "Use `/shop in CODE` to sign in or `/shop out CODE` to sign out. " +
+        "You can also use the buttons on the Dolphin Apps Home tab (click the app's name in Slack).",
+    );
   }
 
   if (!code) {
@@ -192,9 +108,7 @@ export const slackCommands = httpAction(async (ctx, request) => {
       return slackResponse(await createLinkMessage(ctx, params));
     }
 
-    return slackResponse(
-      error instanceof Error ? error.message : "Could not update shop attendance.",
-    );
+    return slackResponse(friendlyAttendanceError(error));
   }
 });
 

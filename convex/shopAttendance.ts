@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 import { internalMutation, mutation, query } from "./_generated/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { attendanceStatusValidator } from "./lib/validators";
@@ -38,7 +38,7 @@ function normalizeCode(value: string) {
   return value.trim().replace(/\s+/g, "").toUpperCase();
 }
 
-function displayNameFor(profile: Doc<"profiles"> | null, user: Doc<"users"> | null) {
+export function displayNameFor(profile: Doc<"profiles"> | null, user: Doc<"users"> | null) {
   return profile?.displayName ?? user?.name ?? profile?.email ?? user?.email ?? "Team member";
 }
 
@@ -117,7 +117,7 @@ function shopDayBounds(timestamp = Date.now()) {
   };
 }
 
-function shopWeekBounds(timestamp = Date.now()) {
+export function shopWeekBounds(timestamp = Date.now()) {
   const parts = zonedParts(timestamp);
   const weekdayText = new Intl.DateTimeFormat("en-US", {
     timeZone: SHOP_TIME_ZONE,
@@ -154,14 +154,22 @@ function shopLocalMinutes(timestamp = Date.now()) {
   return parts.hour * 60 + parts.minute;
 }
 
-function shopAutoCloseAt(openedAt: number) {
+export function shopAutoCloseAt(openedAt: number) {
   const opened = zonedParts(openedAt);
   const nextDay = addLocalDays(opened, 1);
 
   return zonedDateTimeToUtcMs(nextDay.year, nextDay.month, nextDay.day, AUTO_CLOSE_HOUR);
 }
 
-function intervalMinutesWithin(
+/** Season = school year, starting Aug 1 (shop time zone). */
+export function shopSeasonStart(timestamp = Date.now()) {
+  const parts = zonedParts(timestamp);
+  const year = parts.month >= 8 ? parts.year : parts.year - 1;
+
+  return zonedDateTimeToUtcMs(year, 8, 1);
+}
+
+export function intervalMinutesWithin(
   item: Pick<Doc<"attendanceSessions">, "signInAt" | "signOutAt" | "status">,
   from: number,
   to: number,
@@ -303,6 +311,7 @@ async function closeShopSession(
       reviewNote: args.reviewNote,
       updatedAt: args.closedAt,
     });
+    await scheduleSlackHomeRefresh(ctx, item.userId);
   }
 
   await ctx.db.patch(args.session._id, {
@@ -476,6 +485,20 @@ async function activeProfileForUser(
   return profile;
 }
 
+/** Keeps a linked student's Slack Home tab in sync after attendance changes. */
+async function scheduleSlackHomeRefresh(ctx: MutationCtx, userId: Id<"users">) {
+  const links = await ctx.db
+    .query("slackAccountLinks")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+
+  for (const link of links) {
+    await ctx.scheduler.runAfter(0, internal.slackHome.publishHome, {
+      slackUserId: link.slackUserId,
+    });
+  }
+}
+
 async function signInUser(
   ctx: MutationCtx,
   args: {
@@ -509,6 +532,8 @@ async function signInUser(
     createdAt: now,
     updatedAt: now,
   });
+
+  await scheduleSlackHomeRefresh(ctx, args.userId);
 
   return { attendanceSessionId, sessionId: session._id, signedInAt: now };
 }
@@ -544,6 +569,8 @@ async function signOutUser(
     signOutCodeHash: codeHash,
     updatedAt: now,
   });
+
+  await scheduleSlackHomeRefresh(ctx, args.userId);
 
   return {
     attendanceSessionId: existing._id,
@@ -1968,10 +1995,11 @@ export const linkMySlackAccount = mutation({
 
     if (existingBySlack) {
       await ctx.db.patch(existingBySlack._id, {
-        slackTeamId: token.slackTeamId,
-        slackUserName: token.slackUserName,
+        slackTeamId: token.slackTeamId ?? existingBySlack.slackTeamId,
+        slackUserName: token.slackUserName ?? existingBySlack.slackUserName,
         userId: profile.userId,
         profileId: profile._id,
+        ...(existingBySlack.userId !== profile.userId ? { trustedForStaffSignIn: false } : {}),
         updatedAt: now,
       });
     } else {
@@ -1990,6 +2018,11 @@ export const linkMySlackAccount = mutation({
       consumedAt: now,
     });
 
+    // Their Slack Home tab still shows "Connect my account"; refresh it.
+    await ctx.scheduler.runAfter(0, internal.slackHome.publishHome, {
+      slackUserId: token.slackUserId,
+    });
+
     return token.slackUserId;
   },
 });
@@ -2003,6 +2036,18 @@ export const createSlackLinkToken = internalMutation({
     expiresAt: v.number(),
   },
   handler: async (ctx, args) => {
+    // Keep at most one live link token per Slack user.
+    const previous = await ctx.db
+      .query("slackLinkTokens")
+      .withIndex("by_slack_user", (q) => q.eq("slackUserId", args.slackUserId))
+      .collect();
+
+    for (const token of previous) {
+      if (!token.consumedAt) {
+        await ctx.db.delete(token._id);
+      }
+    }
+
     return await ctx.db.insert("slackLinkTokens", {
       tokenHash: args.tokenHash,
       slackUserId: args.slackUserId,
