@@ -6,6 +6,8 @@ import {
   ACTION_FIX_TIME,
   ACTION_HOME_REFRESH,
   ACTION_MISSED_SESSION,
+  ACTION_SHOP_CLOSE,
+  ACTION_SHOP_OPEN,
   ACTION_SHOP_SIGN_IN,
   ACTION_SHOP_SIGN_OUT,
   SHOP_CODE_BLOCK,
@@ -149,6 +151,23 @@ export const slackInteractions = httpAction(async (ctx, request) => {
       if (!result.ok) {
         console.error("views.open failed", result.error);
       }
+    } else if (actionId === ACTION_SHOP_OPEN || actionId === ACTION_SHOP_CLOSE) {
+      try {
+        if (actionId === ACTION_SHOP_OPEN) {
+          await ctx.runMutation(internal.shopAttendance.slackStartShopSession, { slackUserId });
+        } else {
+          await ctx.runMutation(internal.shopAttendance.slackEndShopSession, { slackUserId });
+        }
+      } catch (error) {
+        if (payload.trigger_id) {
+          await slackApi("views.open", {
+            trigger_id: payload.trigger_id,
+            view: buildMessageModal("Couldn't do that", friendlyAttendanceError(error)),
+          });
+        }
+      }
+
+      await ctx.scheduler.runAfter(0, internal.slackHome.publishHome, { slackUserId });
     } else if (actionId === ACTION_HOME_REFRESH) {
       await ctx.scheduler.runAfter(0, internal.slackHome.publishHome, { slackUserId });
     } else if (actionId === ACTION_FIX_TIME && payload.trigger_id) {

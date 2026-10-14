@@ -13,7 +13,7 @@ import {
   slackApiGet,
   slackLinkUrl,
 } from "./lib/slack";
-import { slackLinkForSlackUser } from "./lib/slackIdentity";
+import { STAFF_ROLES, slackLinkForSlackUser } from "./lib/slackIdentity";
 import { CORRECTION_WINDOW_DAYS } from "./attendanceCorrections";
 import {
   displayNameFor,
@@ -35,6 +35,8 @@ export const ACTION_CONNECT_ACCOUNT = "connect_account";
 export const SHOP_CODE_MODAL = "shop_code_modal";
 export const SHOP_CODE_BLOCK = "code_block";
 export const SHOP_CODE_INPUT = "code_input";
+export const ACTION_SHOP_OPEN = "shop_open";
+export const ACTION_SHOP_CLOSE = "shop_close";
 export const ACTION_FIX_TIME = "fix_time";
 export const ACTION_MISSED_SESSION = "missed_session";
 export const FIX_TIME_MODAL = "fix_time_modal";
@@ -78,7 +80,9 @@ export type HomeData =
       name: string;
       roleLabel: string;
       programLabel?: string;
-      shop: { isOpen: boolean; openedAt?: number; autoClosesAt?: number };
+      shop: { isOpen: boolean; openedAt?: number; autoClosesAt?: number; signedInCount?: number };
+      /** "trusted" staff get Open/Close shop buttons; "untrusted" staff get a hint. */
+      staff: "trusted" | "untrusted" | null;
       me: {
         signedInAt?: number;
         weekMinutes: number;
@@ -289,8 +293,21 @@ export const homeData = internalQuery({
             isOpen: true,
             openedAt: activeShop.openedAt,
             autoClosesAt: shopAutoCloseAt(activeShop.openedAt),
+            signedInCount: (
+              await ctx.db
+                .query("attendanceSessions")
+                .withIndex("by_session_status", (q) =>
+                  q.eq("shopSessionId", activeShop._id).eq("status", "open"),
+                )
+                .collect()
+            ).length,
           }
         : { isOpen: false },
+      staff: STAFF_ROLES.has(profile.role)
+        ? link.trustedForStaffSignIn
+          ? "trusted"
+          : "untrusted"
+        : null,
       me: {
         signedInAt: openSession?.signInAt,
         weekMinutes: weekTotals.get(userId) ?? 0,
@@ -475,6 +492,56 @@ export function buildHomeView(data: Extract<HomeData, { linked: true }>) {
           ? `:white_circle: *Shop is closed*, but you still have an open sign-in from ${slackTime(data.me.signedInAt)}.`
           : ":white_circle: *Shop is closed.*",
       ),
+    });
+  }
+
+  // --- Mentor controls -----------------------------------------------------
+  if (data.staff === "trusted") {
+    blocks.push(
+      {
+        type: "context",
+        elements: [
+          mrkdwn(
+            data.shop.isOpen
+              ? `*Mentor:* ${data.shop.signedInCount ?? 0} signed in now · auto-closes ${slackTime(data.shop.autoClosesAt!)}`
+              : "*Mentor:* open the shop so students can sign in.",
+          ),
+        ],
+      },
+      {
+        type: "actions",
+        elements: [
+          data.shop.isOpen
+            ? {
+                type: "button",
+                action_id: ACTION_SHOP_CLOSE,
+                style: "danger",
+                text: plain("Close shop"),
+                confirm: {
+                  title: plain("Close the shop?"),
+                  text: mrkdwn(
+                    `${data.shop.signedInCount ?? 0} student(s) still signed in will be signed out and flagged for review.`,
+                  ),
+                  confirm: plain("Close shop"),
+                  deny: plain("Cancel"),
+                  style: "danger",
+                },
+              }
+            : {
+                type: "button",
+                action_id: ACTION_SHOP_OPEN,
+                style: "primary",
+                text: plain("Open shop"),
+              },
+        ],
+      },
+    );
+  } else if (data.staff === "untrusted") {
+    blocks.push({
+      type: "context",
+      elements: [
+        mrkdwn("*Mentor:* ask an admin to trust your Slack link to get Open/Close shop buttons here."),
+      ],
     });
   }
 

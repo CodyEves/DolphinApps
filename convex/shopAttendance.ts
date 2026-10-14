@@ -647,10 +647,13 @@ export const startShopSession = mutation({
   },
 });
 
+// Used by the Display page's "Start session" button. Only mentors,
+// instructors, and admins can open the shop; kiosk accounts just show codes
+// (sessions also auto-start from the shop schedule).
 export const startShopSessionFromDisplay = mutation({
   args: {},
   handler: async (ctx) => {
-    const displayAccount = await requireShopCodeDisplay(ctx);
+    const displayAccount = await requireShopManager(ctx);
     const existing = await activeShopSession(ctx);
 
     if (existing) {
