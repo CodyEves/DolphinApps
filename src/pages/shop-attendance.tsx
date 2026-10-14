@@ -2379,11 +2379,16 @@ export function ShopAttendancePage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  {!current?.session && canDisplayRole && (
+                  {!current?.session && canManage && (
                     <Button type="button" onClick={() => void handleDisplayStartSession()}>
                       <Clock className="size-4" />
                       Start session
                     </Button>
+                  )}
+                  {!current?.session && !canManage && (
+                    <p className="self-center text-sm text-muted-foreground">
+                      Shop is closed. A mentor needs to start the session.
+                    </p>
                   )}
                   <Button
                     type="button"
@@ -2558,10 +2563,10 @@ export function ShopAttendancePage() {
                             </Button>
                           </form>
                         ) : (
-                          <Button type="button" onClick={() => void handleDisplayStartSession()}>
-                            <Clock className="size-4" />
-                            Start session
-                          </Button>
+                          <div className="rounded-md border p-4 text-sm text-muted-foreground">
+                            Shop is closed. A mentor needs to start the session, or it opens
+                            automatically on the shop schedule.
+                          </div>
                         )
                       ) : current?.session && canManage ? (
                         <div className="space-y-4">

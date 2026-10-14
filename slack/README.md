@@ -124,7 +124,7 @@ Students fix their own time sheets from the Home tab, and a mentor approves with
 - **I forgot to sign in** to add a session they never signed in for. They pick arrival and departure times and add a reason. This only works if the shop was actually open then, and the session can't overlap one they already have.
 - Pending requests show as "Waiting for a mentor." When a mentor decides, the student gets a DM from Dolphin Apps and their Home tab updates.
 
-**Limits:** last 14 days only, at most 12 hours per session, no future times, and at most 5 pending requests per student. A fixed sign-out can't be later than when the shop closed.
+**Limits:** last 14 days only, no future times, and at most 5 pending requests per student. There's no cap on session length, but a fixed sign-out can't be later than when the shop closed, and a missed sign-in has to fit inside a time the shop was open.
 
 **Mentors** get each request posted in a channel with **Approve** and **Deny** buttons. The message updates to show who decided.
 

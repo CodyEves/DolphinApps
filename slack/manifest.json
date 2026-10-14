@@ -21,7 +21,7 @@
     "slash_commands": [
       {
         "command": "/shop",
-        "url": "https://YOUR-DEPLOYMENT.convex.site/slack/commands",
+        "url": "https://outgoing-bear-194.convex.site/slack/commands",
         "description": "Sign in or out of the shop",
         "usage_hint": "in CODE | out CODE",
         "should_escape": false
@@ -30,7 +30,7 @@
   },
   "oauth_config": {
     "redirect_urls": [
-      "https://YOUR-DEPLOYMENT.convex.site/api/auth/callback/slack"
+      "https://outgoing-bear-194.convex.site/api/auth/callback/slack"
     ],
     "scopes": {
       "bot": [
@@ -46,14 +46,14 @@
   },
   "settings": {
     "event_subscriptions": {
-      "request_url": "https://YOUR-DEPLOYMENT.convex.site/slack/events",
+      "request_url": "https://outgoing-bear-194.convex.site/slack/events",
       "bot_events": [
         "app_home_opened"
       ]
     },
     "interactivity": {
       "is_enabled": true,
-      "request_url": "https://YOUR-DEPLOYMENT.convex.site/slack/interactions"
+      "request_url": "https://outgoing-bear-194.convex.site/slack/interactions"
     },
     "org_deploy_enabled": false,
     "socket_mode_enabled": false,

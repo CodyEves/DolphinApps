@@ -76,6 +76,30 @@ export async function upsertSlackLink(
 }
 
 /**
+ * For staff actions taken from Slack (open/close shop, approve hours): the
+ * Slack user must be linked to an active admin/mentor/instructor profile AND
+ * that link must have been trusted by an admin.
+ */
+export async function requireTrustedStaff(ctx: QueryCtx | MutationCtx, slackUserId: string) {
+  const link = await slackLinkForSlackUser(ctx, slackUserId);
+  const profile = link ? await ctx.db.get(link.profileId) : null;
+
+  if (
+    !link ||
+    !profile ||
+    profile.status !== "active" ||
+    !STAFF_ROLES.has(profile.role) ||
+    !link.trustedForStaffSignIn
+  ) {
+    throw new Error(
+      "Only mentors with a trusted Slack link can do that. (Admins: run slackAdmin:trustStaffLink.)",
+    );
+  }
+
+  return profile;
+}
+
+/**
  * Maps a Slack identity onto an existing, admin-provisioned Dolphin account.
  * Never creates a new user, and never guesses: the Slack user must already be
  * linked (via "Connect my account", `/shop` linking, or the admin backfill).

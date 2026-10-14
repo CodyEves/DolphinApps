@@ -19,7 +19,6 @@ import { displayNameFor } from "./shopAttendance";
 
 export const CORRECTION_WINDOW_DAYS = 14;
 export const MAX_PENDING_CORRECTIONS = 5;
-const MAX_SESSION_HOURS = 12;
 /** How far outside the shop session's open/close times a missed-session request may reach. */
 const SHOP_SLACK_MS = 15 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -45,9 +44,9 @@ function validateTimes(signInAt: number, signOutAt: number, now: number) {
     throw new Error("Sign-out time must be after the sign-in time.");
   }
 
-  if (signOutAt - signInAt > MAX_SESSION_HOURS * HOUR_MS) {
-    throw new Error(`A single session can't be longer than ${MAX_SESSION_HOURS} hours.`);
-  }
+  // No length cap: long build days are normal. Requests are already bounded by
+  // the shop session (a fix can't go past when the shop closed, and a missed
+  // session has to fit inside a real shop session).
 
   if (signOutAt > now) {
     throw new Error("Sign-out time can't be in the future.");

@@ -5,6 +5,7 @@ import { internalMutation, mutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { requireTrustedStaff } from "./lib/slackIdentity";
 import { attendanceStatusValidator } from "./lib/validators";
 const shopScheduleEntryValidator = v.object({
   dayOfWeek: v.number(),
@@ -2059,6 +2060,59 @@ export const createSlackLinkToken = internalMutation({
       expiresAt: args.expiresAt,
       createdAt: Date.now(),
     });
+  },
+});
+
+/** "Open shop" button on a mentor's Slack Home tab. */
+export const slackStartShopSession = internalMutation({
+  args: { slackUserId: v.string() },
+  handler: async (ctx, args) => {
+    const staff = await requireTrustedStaff(ctx, args.slackUserId);
+
+    if (await activeShopSession(ctx)) {
+      throw new Error("The shop is already open.");
+    }
+
+    const now = Date.now();
+
+    return await ctx.db.insert("shopSessions", {
+      title: "Shop session",
+      status: "active",
+      openedBy: staff.userId,
+      openedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+/** "Close shop" button on a mentor's Slack Home tab. Same as ending it on the website. */
+export const slackEndShopSession = internalMutation({
+  args: { slackUserId: v.string() },
+  handler: async (ctx, args) => {
+    const staff = await requireTrustedStaff(ctx, args.slackUserId);
+    const session = await activeShopSession(ctx);
+
+    if (!session) {
+      throw new Error("The shop is already closed.");
+    }
+
+    const result = await closeShopSession(ctx, {
+      session,
+      closedAt: Date.now(),
+      closedBy: staff.userId,
+      note: "Closed from Slack.",
+      reviewNote: "Closed when the shop session ended.",
+    });
+
+    await ctx.scheduler.runAfter(0, api.shopSlack.notifyShopSessionClosed, {
+      completedCount: result.completedCount,
+      flaggedCount: result.flaggedCount,
+      closedAt: result.closedAt,
+      flaggedStudentNames: result.flaggedStudentNames,
+    });
+
+    return result;
   },
 });
 
