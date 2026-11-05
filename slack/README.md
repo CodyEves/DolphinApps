@@ -5,12 +5,14 @@ This folder sets up the Slack side of Dolphin Apps:
 - **Sign in with Slack** on apps.robotdolphins.org. It only works for existing Dolphin accounts and never creates new ones.
 - A **Home tab** in Slack. Students see shop status, sign in/out buttons, their hours, the weekly leaderboard, and their tool sign-offs and badges.
 - The existing **`/shop in CODE` / `/shop out CODE`** command, which works the same as before.
+- **`/battery`** for battery tracking, plus a Batteries section on the Home tab (see "Battery tracking" below).
 
 All Slack traffic goes to Convex HTTP actions. There is no extra server.
 
 | Slack feature | Convex route | Code |
 | --- | --- | --- |
 | Slash command `/shop` | `/slack/commands` | `convex/shopSlack.ts` |
+| Slash command `/battery` | `/slack/battery` | `convex/batterySlack.ts` |
 | Events (`app_home_opened`) | `/slack/events` | `convex/slackEvents.ts` |
 | Buttons + modals | `/slack/interactions` | `convex/slackEvents.ts` |
 | Sign in with Slack (OIDC) | `/api/auth/callback/slack` | `convex/auth.ts`, `convex/lib/slackIdentity.ts` |
@@ -141,6 +143,25 @@ Students fix their own time sheets from the Home tab, and a mentor approves with
 4. Deploy (`bun run deploy:convex`).
 
 The existing review page on the website still works for anything older than 14 days or for special cases.
+
+## Battery tracking
+
+`/battery` works for **anyone in the workspace**, linked or not (Slack's request signature is the gate). Linked students are logged under their Dolphin name; others under their Slack name.
+
+| Command | Does |
+| --- | --- |
+| `/battery` | 5199 fleet status with Into robot / Out of robot / Beak check / Analyzer run buttons |
+| `/battery in` · `out` · `check` · `analyzer` | Opens that form directly |
+| `/battery comp 3` · `/battery p2` · `/battery sparky` | One battery: cycles, last Beak reading, last analyzer run, buttons |
+| add `9271` | Same thing for the 9271 fleet |
+
+The Home tab shows the 5199 fleet to everyone with the same four buttons.
+
+### Setup
+
+1. Re-apply `slack/manifest.json` (it adds the `/battery` command; no new scopes, so no reinstall should be needed).
+2. Deploy Convex (`bun run deploy:convex`).
+3. Optional: post every into/out/analyzer log to a channel. Invite the app to it, then set `SLACK_BATTERY_CHANNEL_ID`.
 
 ## How Sign in with Slack decides who you are
 

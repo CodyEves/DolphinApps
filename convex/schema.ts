@@ -35,6 +35,13 @@ import {
   trainingLevelValidator,
   websiteEditKindValidator,
 } from "./lib/validators";
+import {
+  batteryLogSourceValidator,
+  batteryMatchLevelValidator,
+  batteryPoolValidator,
+  batteryReadingContextValidator,
+  batteryUseKindValidator,
+} from "./lib/batteryDomain";
 const shopScheduleEntry = v.object({
   dayOfWeek: v.number(),
   isActive: v.boolean(),
@@ -692,6 +699,91 @@ export default defineSchema({
   })
     .index("by_token_hash", ["tokenHash"])
     .index("by_slack_user", ["slackUserId"]),
+  // ---- Battery tracking (convex/batteries.ts) -------------------------
+  batteries: defineTable({
+    program: programValidator,
+    /** Short label printed on the battery, e.g. "Comp 3" or "Practice 2". */
+    name: v.string(),
+    nickname: v.optional(v.string()),
+    pool: batteryPoolValidator,
+    retired: v.boolean(),
+    manufacturer: v.optional(v.string()),
+    purchasedOn: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    sortOrder: v.number(),
+    /** Full charge/discharge cycles (robot uses + analyzer runs + manual adjustments). */
+    cycleCount: v.number(),
+    /** Completed robot uses, split out for quick stats. */
+    matchCount: v.number(),
+    practiceCount: v.number(),
+    analyzerCount: v.number(),
+    /** Set while the battery is in the robot. */
+    openUseId: v.optional(v.id("batteryUses")),
+    /** Set when a battery comes off the robot; cleared by a charged Beak reading. */
+    needsChargeSince: v.optional(v.number()),
+    lastChargePercent: v.optional(v.number()),
+    lastResistanceOhms: v.optional(v.number()),
+    lastReadingAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_program", ["program"]),
+
+  batteryUses: defineTable({
+    batteryId: v.id("batteries"),
+    program: programValidator,
+    kind: batteryUseKindValidator,
+    /** Only for kind = "match". */
+    matchLevel: v.optional(batteryMatchLevelValidator),
+    matchNumber: v.optional(v.number()),
+    eventCode: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    startedAt: v.number(),
+    endedAt: v.optional(v.number()),
+    startChargePercent: v.optional(v.number()),
+    startResistanceOhms: v.optional(v.number()),
+    endChargePercent: v.optional(v.number()),
+    endResistanceOhms: v.optional(v.number()),
+    loggedBy: v.string(),
+    endedBy: v.optional(v.string()),
+    source: batteryLogSourceValidator,
+    createdAt: v.number(),
+  })
+    .index("by_battery_started", ["batteryId", "startedAt"])
+    .index("by_program_started", ["program", "startedAt"]),
+
+  batteryAnalyzerRuns: defineTable({
+    batteryId: v.id("batteries"),
+    program: programValidator,
+    ranAt: v.number(),
+    capacityAh: v.optional(v.number()),
+    resistanceOhms: v.optional(v.number()),
+    dischargeAmps: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    fileStorageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
+    countsAsCycle: v.boolean(),
+    loggedBy: v.string(),
+    source: batteryLogSourceValidator,
+    createdAt: v.number(),
+  }).index("by_battery_ran", ["batteryId", "ranAt"]),
+
+  /** Every Beak (or analyzer) reading, for the IR and charge history. */
+  batteryReadings: defineTable({
+    batteryId: v.id("batteries"),
+    context: batteryReadingContextValidator,
+    takenAt: v.number(),
+    chargePercent: v.optional(v.number()),
+    resistanceOhms: v.optional(v.number()),
+    useId: v.optional(v.id("batteryUses")),
+    loggedBy: v.string(),
+  }).index("by_battery_taken", ["batteryId", "takenAt"]),
+
+  batteryAdjustments: defineTable({
+    batteryId: v.id("batteries"),
+    cycleDelta: v.number(),
+    reason: v.string(),
+    loggedBy: v.string(),
+    source: batteryLogSourceValidator,
+    createdAt: v.number(),
+  }).index("by_battery", ["batteryId"]),
 });
-
-

@@ -1,4 +1,5 @@
 import {
+  BatteryCharging,
   Clock,
   GraduationCap,
   Grid3X3,
@@ -77,6 +78,13 @@ const apps: LauncherApp[] = [
     iconClassName: "bg-brand-aqua text-brand-navy",
   },
   {
+    href: "/batteries",
+    title: "Batteries",
+    description: "Uses, Beak, analyzer",
+    icon: BatteryCharging,
+    iconClassName: "bg-emerald-600 text-white",
+  },
+  {
     href: "/management",
     titleKey: "trainingTitle",
     title: "Management",
@@ -108,8 +116,13 @@ function isActiveApp(pathname: string, href: string) {
     return pathname.startsWith("/shop");
   }
 
+  if (href === "/batteries") {
+    return pathname.startsWith("/batteries");
+  }
+
   return (
     pathname !== "/" &&
+    !pathname.startsWith("/batteries") &&
     !pathname.startsWith("/parts") &&
     !pathname.startsWith("/tools") &&
     !pathname.startsWith("/management") &&

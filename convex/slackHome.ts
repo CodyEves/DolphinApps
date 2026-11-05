@@ -15,6 +15,8 @@ import {
 } from "./lib/slack";
 import { STAFF_ROLES, slackLinkForSlackUser } from "./lib/slackIdentity";
 import { CORRECTION_WINDOW_DAYS } from "./attendanceCorrections";
+import type { BatterySummary } from "./batteries";
+import { batteryHomeBlocks } from "./batterySlack";
 import {
   displayNameFor,
   intervalMinutesWithin,
@@ -399,7 +401,7 @@ function appsUrl(path = "/") {
   }
 }
 
-export function buildUnlinkedHomeView(connectUrl: string | undefined) {
+export function buildUnlinkedHomeView(connectUrl: string | undefined, batteries: BatterySummary[] = []) {
   const blocks: Block[] = [
     { type: "header", text: plain("Dolphin Apps") },
     {
@@ -438,10 +440,15 @@ export function buildUnlinkedHomeView(connectUrl: string | undefined) {
     ],
   });
 
+  // Battery logging works for anyone in the workspace, linked or not.
+  if (batteries.length > 0) {
+    blocks.push({ type: "divider" }, ...batteryHomeBlocks(batteries));
+  }
+
   return { type: "home", blocks };
 }
 
-export function buildHomeView(data: Extract<HomeData, { linked: true }>) {
+export function buildHomeView(data: Extract<HomeData, { linked: true }>, batteries: BatterySummary[] = []) {
   const blocks: Block[] = [];
   const subtitle = [data.programLabel, data.roleLabel].filter(Boolean).join(" · ");
 
@@ -659,6 +666,11 @@ export function buildHomeView(data: Extract<HomeData, { linked: true }>) {
     ),
   });
 
+  // --- Batteries -----------------------------------------------------------
+  if (batteries.length > 0) {
+    blocks.push({ type: "divider" }, ...batteryHomeBlocks(batteries));
+  }
+
   // --- Footer --------------------------------------------------------------
   const footerButtons: Block[] = [
     { type: "button", action_id: ACTION_HOME_REFRESH, text: plain("Refresh") },
@@ -821,10 +833,14 @@ export const publishHome = internalAction({
     const data: HomeData = await ctx.runQuery(internal.slackHome.homeData, {
       slackUserId: args.slackUserId,
     });
+    // Home tab battery section shows the 5199 fleet.
+    const batteries: BatterySummary[] = await ctx.runQuery(internal.batteries.slackList, {
+      program: "frc_5199",
+    });
     let view;
 
     if (data.linked) {
-      view = buildHomeView(data);
+      view = buildHomeView(data, batteries);
     } else {
       let connectUrl: string | undefined;
 
@@ -848,7 +864,7 @@ export const publishHome = internalAction({
         console.error("Could not create Slack link token", error);
       }
 
-      view = buildUnlinkedHomeView(connectUrl);
+      view = buildUnlinkedHomeView(connectUrl, batteries);
     }
 
     const result = await slackApi("views.publish", { user_id: args.slackUserId, view });

@@ -2,6 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import {
   ArrowRight,
+  BatteryCharging,
   Clock,
   GraduationCap,
   Package,
@@ -45,6 +46,13 @@ export function HomePage() {
       href: "/shop",
       icon: Clock,
       label: "Hours",
+    },
+    {
+      title: "Batteries",
+      description: "Which battery ran which match, Beak readings, analyzer runs, and lifetime cycles.",
+      href: "/batteries",
+      icon: BatteryCharging,
+      label: "Pit",
     },
     {
       title: "Management",

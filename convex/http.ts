@@ -4,6 +4,7 @@ import { auth } from "./auth";
 import { readerCheck, readerEnroll } from "./readerApi";
 import { slackEvents, slackInteractions } from "./slackEvents";
 import { slackCommands } from "./shopSlack";
+import { batteryCommand } from "./batterySlack";
 
 const http = httpRouter();
 
@@ -13,6 +14,12 @@ http.route({
   path: "/slack/commands",
   method: "POST",
   handler: slackCommands,
+});
+
+http.route({
+  path: "/slack/battery",
+  method: "POST",
+  handler: batteryCommand,
 });
 
 http.route({

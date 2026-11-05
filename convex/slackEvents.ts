@@ -2,6 +2,7 @@ import { internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { friendlyAttendanceError, jsonResponse, slackApi, verifySlackRequest } from "./lib/slack";
 import { ACTION_CORRECTION_APPROVE, ACTION_CORRECTION_DENY } from "./attendanceCorrections";
+import { handleBatteryInteraction, type BatteryInteractionPayload } from "./batterySlack";
 import {
   ACTION_FIX_TIME,
   ACTION_HOME_REFRESH,
@@ -135,6 +136,13 @@ export const slackInteractions = httpAction(async (ctx, request) => {
 
   if (!slackUserId) {
     return ok();
+  }
+
+  // Battery buttons and forms (/battery, Home tab) live in convex/batterySlack.ts.
+  const batteryResponse = await handleBatteryInteraction(ctx, payload as BatteryInteractionPayload);
+
+  if (batteryResponse) {
+    return batteryResponse;
   }
 
   // ---- Button clicks ---------------------------------------------------

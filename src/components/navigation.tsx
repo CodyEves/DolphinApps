@@ -2,6 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
 import {
   Award,
+  BatteryCharging,
   BookOpen,
   Clock,
   ClipboardCheck,
@@ -98,7 +99,13 @@ const shopNavItems: NavItem[] = [
   { href: "/shop/reports", label: "Reports", icon: Download, managementOnly: true },
 ];
 
+const batteryNavItems: NavItem[] = [{ href: "/batteries", label: "Batteries", icon: BatteryCharging }];
+
 function navItemsForPath(pathname: string) {
+  if (pathname.startsWith("/batteries")) {
+    return batteryNavItems;
+  }
+
   if (pathname.startsWith("/management") || pathname.startsWith("/admin")) {
     return managementNavItems;
   }

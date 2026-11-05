@@ -25,6 +25,13 @@
         "description": "Sign in or out of the shop",
         "usage_hint": "in CODE | out CODE",
         "should_escape": false
+      },
+      {
+        "command": "/battery",
+        "url": "https://outgoing-bear-194.convex.site/slack/battery",
+        "description": "Log a battery into/out of the robot, Beak checks, analyzer runs",
+        "usage_hint": "in | out | check | analyzer | comp 3",
+        "should_escape": false
       }
     ]
   },

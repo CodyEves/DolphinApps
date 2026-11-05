@@ -12,6 +12,7 @@ Dolphin Apps is the shared operations suite for robotics teams. It combines stud
 - Badge catalog and admin-managed badge awards
 - Shop attendance with live sessions, check-in codes, event attendance, corrections, reports, and Slack linking
 - Slack app: Sign in with Slack, a Home tab with shop sign-in/out, hours, leaderboard, and sign-offs (setup: `slack/README.md`)
+- Battery tracking: which battery ran which match, Battery Beak readings, analyzer runs, and lifetime full cycles (web + `/battery` in Slack)
 - Robot parts workspace with part numbers, BOMs, manufacturing status, transmissions, and order requests
 - Mentor dashboard for team learning progress, missing work, pending reviews, and student next actions
 - Admin tools for users, learning content, badge definitions, reviews, and progress resets
@@ -104,6 +105,8 @@ bun run preview
 | `/badges/awards` | Admin badge award records |
 | `/parts` | Robot parts workspace |
 | `/parts/dashboard` | Parts, fab, order, and transmission overview |
+| `/batteries` | Battery fleet status, logging, CSV export (no sign-in to view) |
+| `/batteries/:batteryId` | One battery: last analyzer run, IR trend, full history |
 | `/shop` | Shop attendance overview and student check-in |
 | `/shop/display` | Kiosk/display code view |
 | `/shop/review` | Attendance correction review |
@@ -173,6 +176,37 @@ the student has an `approved` sign-off that has not expired. Tools with a
 `certificationValidDays` value stamp an expiry at approval time; leave it blank for
 sign-offs that never lapse. Reading the SOP is tracked and surfaced but is **not** itself an
 interlock — an instructor granting the hands-on sign-off is the gate.
+
+## Battery Tracking
+
+Viewing `/batteries` needs no sign-in. Logging needs one of:
+
+- a signed-in Dolphin Apps account,
+- the shared **pit PIN** plus a name (set `BATTERY_PIN` in Convex; phones remember it), or
+- Slack: anyone in the workspace can use `/battery` or the Home tab buttons.
+
+**What counts as a cycle:** each robot use (logged in, then logged out) is one full
+charge/discharge cycle, and so is each analyzer run unless you uncheck it. Manual
+adjustments are kept with a reason and who made them. Deleting a mistaken use or
+analyzer run takes its cycle back off.
+
+**Into robot** asks for Practice or Match. A match also takes Practice / Qual / Playoff, the
+match number, and the event code (prefilled from the last match), and requires a Beak charge %
+and IR. These are saved with timestamps so robot logs can be matched to batteries later;
+**Download use log (CSV)** on `/batteries` exports them.
+
+Setup:
+
+```bash
+bunx convex env set BATTERY_PIN "1234"            # add --prod for production
+bunx convex run batteries:seedFleet '{}'          # Comp 1–8 + Practice 1–4 for 5199
+# optional running log in a channel (invite the app to it first):
+bunx convex env set SLACK_BATTERY_CHANNEL_ID "C0123456789"
+```
+
+Then set nicknames from each battery's **Edit battery** button, and use **Adjust cycles**
+to enter each battery's history from before the app. Health thresholds (IR watch 15 mΩ,
+high 20 mΩ, charged ≥ 95%) live in `convex/lib/batteryDomain.ts`.
 
 ## Authentication and Roles
 

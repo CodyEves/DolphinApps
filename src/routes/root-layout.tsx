@@ -41,6 +41,13 @@ function currentAppCopy(pathname: string, program: Program = "frc_5199") {
     };
   }
 
+  if (pathname.startsWith("/batteries")) {
+    return {
+      title: "Batteries",
+      description: "Robot uses, Beak readings, and analyzer runs.",
+    };
+  }
+
   if (pathname.startsWith("/shop")) {
     return {
       title: "Shop Attendance",

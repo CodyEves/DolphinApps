@@ -28,6 +28,12 @@ const BadgeAwardsPage = lazy(() =>
 const BadgesPage = lazy(() =>
   import("@/pages/badges").then((module) => ({ default: module.BadgesPage })),
 );
+const BatteriesPage = lazy(() =>
+  import("@/pages/batteries").then((module) => ({ default: module.BatteriesPage })),
+);
+const BatteryDetailPage = lazy(() =>
+  import("@/pages/batteries").then((module) => ({ default: module.BatteryDetailPage })),
+);
 const BadgeEditorPage = lazy(() =>
   import("@/pages/badge-editor").then((module) => ({ default: module.BadgeEditorPage })),
 );
@@ -165,6 +171,8 @@ const router = createBrowserRouter([
       { path: "parts/orders", element: <PartsOrdersPage /> },
       { path: "parts/admin", element: <PartsAdminPage /> },
       { path: "parts/:partId", element: <PartDetailPage /> },
+      { path: "batteries", element: <BatteriesPage /> },
+      { path: "batteries/:batteryId", element: <BatteryDetailPage /> },
       { path: "shop", element: <ShopAttendancePage /> },
       { path: "shop/display", element: <ShopAttendancePage /> },
       { path: "shop/records", element: <ShopAttendancePage /> },
