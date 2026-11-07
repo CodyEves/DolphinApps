@@ -22,7 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { canManageTrainingContent, canReviewLearning } from "@/lib/role-access";
+import { canReviewLearning } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
@@ -54,8 +54,7 @@ function ProgressLink({
 export function DashboardPage() {
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const tracks = useQuery(api.training.listTrainingTracks, isAuthenticated ? {} : "skip");
-  const progress = useQuery(api.demo.myLessonProgress, isAuthenticated ? {} : "skip");
+  const learning = useQuery(api.learning.myLearning, isAuthenticated ? {} : "skip");
   const equipment = useQuery(api.equipment.listEquipment, isAuthenticated ? {} : "skip");
   const badges = useQuery(api.badges.listBadges, isAuthenticated ? {} : "skip");
   const badgeAwards = useQuery(
@@ -68,48 +67,33 @@ export function DashboardPage() {
     api.adminLms.listReviewQueue,
     isAuthenticated && canReview ? {} : "skip",
   );
-  const completedLessonIds = new Set(progress?.map((item) => item.lessonId));
+  const signoffQueue = useQuery(
+    api.learning.signoffQueue,
+    isAuthenticated && canReview ? {} : "skip",
+  );
   const earnedBadgeIds = new Set(badgeAwards?.map((award) => award.badgeId));
-  const visibleTracks =
-    canManageTrainingContent(role) ? tracks : tracks?.filter((track) => track.isPublished);
-  const trackProgress =
-    visibleTracks?.map((track) => {
-      const completedLessons = track.lessons.filter((lesson) =>
-        completedLessonIds.has(lesson._id),
-      ).length;
-      const totalLessons = track.lessons.length;
-      const percent =
-        totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+  const pathProgress =
+    learning?.paths.map((path) => {
+      const done = path.skills.filter((skill) => skill.status === "completed").length;
+      const total = path.skills.length;
 
       return {
-        id: track._id,
-        title: track.title,
-        completedLessons,
-        totalLessons,
-        percent,
-        isStarted: completedLessons > 0,
-        isComplete: totalLessons > 0 && completedLessons === totalLessons,
+        id: path._id,
+        title: path.title,
+        done,
+        total,
+        percent: total > 0 ? Math.round((done / total) * 100) : 0,
+        next:
+          path.skills.find((skill) => skill.status === "needs_work") ??
+          path.skills.find((skill) => skill.status === null),
       };
     }) ?? [];
-  const inProgressTracks = trackProgress.filter(
-    (track) => track.isStarted && !track.isComplete,
-  );
-  const nextTrack =
-    trackProgress.find((track) => track.isStarted && !track.isComplete) ??
-    trackProgress.find((track) => !track.isComplete && track.totalLessons > 0);
-  const nextLearningItem = visibleTracks
-    ?.flatMap((track) =>
-      track.units.flatMap((unit) =>
-        unit.lessons.map((lesson) => ({
-          track,
-          unit,
-          lesson,
-        })),
-      ),
-    )
-    .find((item) => !completedLessonIds.has(item.lesson._id));
-  const completedTrackCount = trackProgress.filter((track) => track.isComplete).length;
-  const totalTrackCount = trackProgress.filter((track) => track.totalLessons > 0).length;
+  const focusPath =
+    pathProgress.find((path) => path.id === learning?.focusPathId) ??
+    pathProgress.find((path) => path.done > 0 && path.done < path.total) ??
+    pathProgress[0];
+  const nextSkill = focusPath?.next ?? pathProgress.find((path) => path.next)?.next;
+  const nextSkillPath = focusPath?.next ? focusPath : pathProgress.find((path) => path.next);
   const earnedVisibleBadgeCount =
     badges?.filter((badge) => badge && earnedBadgeIds.has(badge._id)).length ?? 0;
   const equipmentApprovalSummary = equipment?.reduce(
@@ -140,6 +124,7 @@ export function DashboardPage() {
   const lessonReviewCount = reviewQueue?.lessonSubmissions.length ?? 0;
   const handsOnReviewCount = reviewQueue?.handsOnReviews.length ?? 0;
   const reviewCount = lessonReviewCount + handsOnReviewCount;
+  const signoffCount = signoffQueue?.length ?? 0;
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -177,43 +162,43 @@ export function DashboardPage() {
                     <Target className="size-3" />
                     Start here
                   </Badge>
-                  {nextLearningItem && (
-                    <Badge variant="outline">{nextLearningItem.track.title}</Badge>
+                  {nextSkill && nextSkillPath && (
+                    <Badge variant="outline">{nextSkillPath.title}</Badge>
                   )}
                 </div>
                 <div className="space-y-2">
                   <h2 className="text-2xl font-semibold sm:text-3xl">
-                    {nextLearningItem
-                      ? nextLearningItem.lesson.title
-                      : visibleTracks === undefined
+                    {nextSkill
+                      ? nextSkill.title
+                      : learning === undefined
                         ? "Loading your next action"
-                        : "All assigned learning is complete"}
+                        : pathProgress.length === 0
+                          ? "No skills published yet"
+                          : "Every skill is done or waiting for a mentor"}
                   </h2>
                   <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                    {nextLearningItem
-                      ? `${nextLearningItem.unit.title} is the next lesson in your learning plan. Open it, finish the work, then return here for the next step.`
-                      : "Use the readiness cards to review equipment approvals, badges, and any available tracks."}
+                    {nextSkill
+                      ? `Next up in ${nextSkill.stage}. Open it, learn it, then prove it with a self-check, a quiz, or a mentor sign-off.`
+                      : "Use the readiness cards to review equipment approvals, badges, and other learning paths."}
                   </p>
                 </div>
-                {nextTrack && (
+                {focusPath && focusPath.total > 0 && (
                   <div className="max-w-xl space-y-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{nextTrack.title}</span>
-                      <span>{nextTrack.percent}% complete</span>
+                      <span>{focusPath.title}</span>
+                      <span>
+                        {focusPath.done} of {focusPath.total} skills
+                      </span>
                     </div>
-                    <Progress value={nextTrack.percent} />
+                    <Progress value={focusPath.percent} />
                   </div>
                 )}
                 <Button asChild size="lg" className="w-full sm:w-auto">
                   <Link
-                    to={
-                      nextLearningItem
-                        ? `/training/lessons/${nextLearningItem.lesson._id}`
-                        : "/training"
-                    }
+                    to={nextSkill ? `/training/skills/${nextSkill._id}` : "/training"}
                   >
                     <ArrowRight className="size-4" />
-                    {nextLearningItem ? "Open next lesson" : "Open learning"}
+                    {nextSkill ? "Open next skill" : "Open learning"}
                   </Link>
                 </Button>
               </div>
@@ -228,11 +213,13 @@ export function DashboardPage() {
               badge={
                 <Badge variant="secondary">
                   <BookOpen className="size-3" />
-                  {completedTrackCount}/{totalTrackCount}
+                  {focusPath ? `${focusPath.done}/${focusPath.total}` : "..."}
                 </Badge>
               }
             >
-              <p className="mt-2 text-xs text-muted-foreground">Completed tracks</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {focusPath ? `Skills done in ${focusPath.title}` : "Skills done"}
+              </p>
             </ProgressLink>
             <ProgressLink
               to="/equipment"
@@ -289,11 +276,11 @@ export function DashboardPage() {
                 }
               />
               <ProgressLink
-                to="/reviews"
-                label="Lesson files"
+                to="/training/sign-offs"
+                label="Skill sign-offs"
                 badge={
-                  <Badge variant="outline">
-                    {reviewQueue === undefined ? "..." : lessonReviewCount}
+                  <Badge variant={signoffCount > 0 ? "default" : "outline"}>
+                    {signoffQueue === undefined ? "..." : signoffCount}
                   </Badge>
                 }
               />
@@ -314,40 +301,40 @@ export function DashboardPage() {
           <CardHeader>
             <CardTitle>Progress detail</CardTitle>
             <CardDescription>
-              Active tracks and supporting records in one place.
+              Learning paths and supporting records in one place.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
               <div className="space-y-3">
-                {visibleTracks === undefined || progress === undefined ? (
+                {learning === undefined ? (
                   <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                    Loading learning track progress...
+                    Loading learning progress...
                   </div>
-                ) : inProgressTracks.length === 0 ? (
+                ) : pathProgress.length === 0 ? (
                   <ProgressLink
                     to="/training"
-                    label="Learning tracks in progress"
-                    badge={<Badge variant="outline">0 active</Badge>}
+                    label="Learning paths"
+                    badge={<Badge variant="outline">None yet</Badge>}
                   >
                     <p className="mt-2 text-sm text-muted-foreground">
-                      Start a learning track to see progress bars here.
+                      Skills show up here once mentors publish them.
                     </p>
                   </ProgressLink>
                 ) : (
-                  inProgressTracks.map((track) => (
+                  pathProgress.map((path) => (
                     <ProgressLink
-                      key={track.id}
-                      to={`/training/tracks/${track.id}`}
-                      label={track.title}
-                      badge={<span className="font-medium">{track.percent}%</span>}
+                      key={path.id}
+                      to="/training"
+                      label={path.title}
+                      badge={<span className="font-medium">{path.percent}%</span>}
                     >
                       <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
                         <span>
-                          {track.completedLessons} of {track.totalLessons} lessons complete
+                          {path.done} of {path.total} skills done
                         </span>
                       </div>
-                      <Progress value={track.percent} className="mt-2" />
+                      <Progress value={path.percent} className="mt-2" />
                     </ProgressLink>
                   ))
                 )}
@@ -355,11 +342,11 @@ export function DashboardPage() {
               <div className="grid gap-3 text-sm sm:grid-cols-3 lg:grid-cols-1">
                 <ProgressLink
                   to="/training"
-                  label="Training"
+                  label="Learning"
                   badge={
                     <Badge variant="secondary">
                       <BookOpen className="size-3" />
-                      {completedTrackCount} of {totalTrackCount}
+                      {pathProgress.reduce((sum, path) => sum + path.done, 0)} skills
                     </Badge>
                   }
                 />

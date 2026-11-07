@@ -60,16 +60,20 @@ const SopEditorPage = lazy(() =>
 const HomePage = lazy(() =>
   import("@/pages/home").then((module) => ({ default: module.HomePage })),
 );
-const LearningTrackEditorPage = lazy(() =>
-  import("@/pages/learning-track-editor").then((module) => ({
-    default: module.LearningTrackEditorPage,
-  })),
+const LearningHomePage = lazy(() =>
+  import("@/pages/learning-home").then((module) => ({ default: module.LearningHomePage })),
 );
-const LessonEditorPage = lazy(() =>
-  import("@/pages/lesson-editor").then((module) => ({ default: module.LessonEditorPage })),
+const LearningManagePage = lazy(() =>
+  import("@/pages/learning-manage").then((module) => ({ default: module.LearningManagePage })),
 );
-const LessonViewPage = lazy(() =>
-  import("@/pages/lesson-view").then((module) => ({ default: module.LessonViewPage })),
+const LearningSignoffsPage = lazy(() =>
+  import("@/pages/learning-signoffs").then((module) => ({ default: module.LearningSignoffsPage })),
+);
+const LearningSkillPage = lazy(() =>
+  import("@/pages/learning-skill").then((module) => ({ default: module.LearningSkillPage })),
+);
+const LearningTeamPage = lazy(() =>
+  import("@/pages/learning-team").then((module) => ({ default: module.LearningTeamPage })),
 );
 const ManagementPlaceholderPage = lazy(() =>
   import("@/pages/management-placeholder").then((module) => ({
@@ -119,19 +123,6 @@ const PartsAdminPage = lazy(() =>
 const ProfilePage = lazy(() =>
   import("@/pages/profile").then((module) => ({ default: module.ProfilePage })),
 );
-const TrainingPage = lazy(() =>
-  import("@/pages/training").then((module) => ({ default: module.TrainingPage })),
-);
-const TrainingTrackPage = lazy(() =>
-  import("@/pages/training-track").then((module) => ({
-    default: module.TrainingTrackPage,
-  })),
-);
-const TeamManagementPage = lazy(() =>
-  import("@/pages/team-management").then((module) => ({
-    default: module.TeamManagementPage,
-  })),
-);
 
 /** Old /equipment/:id bookmarks keep working after the move to the Shop Tools app. */
 function LegacyEquipmentRedirect() {
@@ -149,12 +140,15 @@ const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: "dashboard", element: <DashboardPage /> },
       { path: "profile", element: <ProfilePage /> },
-      { path: "training", element: <TrainingPage /> },
-      { path: "training/tracks/new", element: <LearningTrackEditorPage /> },
-      { path: "training/tracks/:trackId", element: <TrainingTrackPage /> },
-      { path: "training/tracks/:trackId/edit", element: <LearningTrackEditorPage /> },
-      { path: "training/lessons/:lessonId/edit", element: <LessonEditorPage /> },
-      { path: "training/lessons/:lessonId", element: <LessonViewPage /> },
+      { path: "training", element: <LearningHomePage /> },
+      { path: "training/skills/:skillId", element: <LearningSkillPage /> },
+      { path: "training/sign-offs", element: <LearningSignoffsPage /> },
+      { path: "training/team", element: <LearningTeamPage /> },
+      { path: "training/manage", element: <LearningManagePage /> },
+      // Old track and lesson links from before the skills rebuild land on the Learning home.
+      { path: "training/tracks/*", element: <Navigate to="/training" replace /> },
+      { path: "training/lessons/*", element: <Navigate to="/training" replace /> },
+      { path: "learning", element: <Navigate to="/training" replace /> },
       { path: "equipment", element: <Navigate to="/tools" replace /> },
       { path: "tools", element: <ToolsPage /> },
       { path: "tools/sign-offs", element: <ToolSignOffsPage /> },
@@ -195,7 +189,7 @@ const router = createBrowserRouter([
       { path: "management/people", element: <AdminPeoplePage /> },
       { path: "management/parts", element: <PartsAdminPage /> },
       { path: "management/reviews", element: <ReviewsPage /> },
-      { path: "management/team", element: <TeamManagementPage /> },
+      { path: "management/team", element: <Navigate to="/training/team" replace /> },
       { path: "admin", element: <AdminPage /> },
       { path: "admin/badges", element: <AdminBadgesPage /> },
       { path: "admin/lms", element: <AdminLmsPage /> },

@@ -20,6 +20,9 @@ import {
   Users,
   Wrench,
   CreditCard,
+  LayoutGrid,
+  PencilLine,
+  UserCheck,
 } from "lucide-react";
 import { Link, NavLink, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
@@ -43,6 +46,7 @@ import { useProgramView } from "@/hooks/use-program-view";
 import {
   canManageBadges,
   canOpenManagement,
+  canEditLearning,
   canReviewLearning,
   isAdminRole,
 } from "@/lib/role-access";
@@ -59,11 +63,15 @@ type NavItem = {
   badgeManagerOnly?: boolean;
   managementOnly?: boolean;
   reviewOnly?: boolean;
+  learningEditorOnly?: boolean;
 };
 
 const trainingNavItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/training", label: "Learning", icon: BookOpen },
+  { href: "/training/sign-offs", label: "Sign-offs", icon: UserCheck, reviewOnly: true },
+  { href: "/training/team", label: "Team progress", icon: LayoutGrid, reviewOnly: true },
+  { href: "/training/manage", label: "Edit skills", icon: PencilLine, learningEditorOnly: true },
   { href: "/reviews", label: "Reviews", icon: ClipboardCheck, reviewOnly: true },
   { href: "/badges", label: "Badges", icon: Award },
 ];
@@ -84,9 +92,10 @@ const managementNavItems: NavItem[] = [
   { href: "/management", label: "Overview", icon: SlidersHorizontal, managementOnly: true },
   { href: "/management/reviews", label: "Reviews", icon: ClipboardCheck, reviewOnly: true },
   { href: "/management/people", label: "People", icon: Users, adminOnly: true },
-  { href: "/management/lms", label: "Learning Admin", icon: BookOpen, adminOnly: true },
+  { href: "/training/manage", label: "Learning skills", icon: BookOpen, learningEditorOnly: true },
+  { href: "/management/lms", label: "Progress resets", icon: SlidersHorizontal, adminOnly: true },
   { href: "/management/badges", label: "Badge Admin", icon: Award, badgeManagerOnly: true },
-  { href: "/management/team", label: "Team Progress", icon: ShieldCheck, managementOnly: true },
+  { href: "/training/team", label: "Team Progress", icon: ShieldCheck, managementOnly: true },
   { href: "/management/paperwork", label: "Paperwork", icon: FileCheck, managementOnly: true },
   { href: "/management/parts", label: "Parts Admin", icon: Settings, adminOnly: true },
 ];
@@ -127,7 +136,8 @@ function visibleItems(items: NavItem[], role: string) {
       (!item.adminOnly || isAdminRole(role)) &&
       (!item.badgeManagerOnly || canManageBadges(role)) &&
       (!item.managementOnly || canOpenManagement(role)) &&
-      (!item.reviewOnly || canReviewLearning(role)),
+      (!item.reviewOnly || canReviewLearning(role)) &&
+      (!item.learningEditorOnly || canEditLearning(role)),
   );
 }
 
@@ -151,7 +161,8 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
                   item.href === "/" ||
                   item.href === "/parts" ||
                   item.href === "/shop" ||
-                  item.href === "/tools"
+                  item.href === "/tools" ||
+                  item.href === "/training"
                 }
                 onClick={() => setMobileNavOpen(false)}
                 className={({ isActive }) =>
@@ -242,7 +253,8 @@ export function MobileNav() {
     item.href === "/" ||
     item.href === "/parts" ||
     item.href === "/shop" ||
-    item.href === "/tools"
+    item.href === "/tools" ||
+    item.href === "/training"
       ? location.pathname === item.href
       : location.pathname.startsWith(item.href),
   );

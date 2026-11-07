@@ -42,6 +42,13 @@ import {
   batteryReadingContextValidator,
   batteryUseKindValidator,
 } from "./lib/batteryDomain";
+import {
+  learningCheckTypeValidator,
+  learningPathColorValidator,
+  learningProgressStatusValidator,
+  learningQuizQuestionValidator,
+  learningResourceValidator,
+} from "./lib/learningDomain";
 const shopScheduleEntry = v.object({
   dayOfWeek: v.number(),
   isActive: v.boolean(),
@@ -786,4 +793,67 @@ export default defineSchema({
     source: batteryLogSourceValidator,
     createdAt: v.number(),
   }).index("by_battery", ["batteryId"]),
+
+  // ---- Learning: skills-based training (convex/learning.ts) ------------
+  learningPaths: defineTable({
+    slug: v.string(),
+    title: v.string(),
+    summary: v.string(),
+    color: learningPathColorValidator,
+    order: v.number(),
+    isPublished: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_order", ["order"]),
+
+  learningSkills: defineTable({
+    pathId: v.id("learningPaths"),
+    /** Stable key for starter content, so re-seeding never duplicates a skill. */
+    seedKey: v.optional(v.string()),
+    stage: v.string(),
+    title: v.string(),
+    successCriteria: v.string(),
+    practice: v.optional(v.string()),
+    checkType: learningCheckTypeValidator,
+    estimatedMinutes: v.number(),
+    resources: v.array(learningResourceValidator),
+    quiz: v.optional(v.array(learningQuizQuestionValidator)),
+    passPercent: v.optional(v.number()),
+    order: v.number(),
+    isPublished: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_path_order", ["pathId", "order"])
+    .index("by_seed_key", ["seedKey"]),
+
+  learningProgress: defineTable({
+    userId: v.id("users"),
+    skillId: v.id("learningSkills"),
+    pathId: v.id("learningPaths"),
+    status: learningProgressStatusValidator,
+    completedAt: v.optional(v.number()),
+    quizBestPercent: v.optional(v.number()),
+    quizAttempts: v.optional(v.number()),
+    evidenceNote: v.optional(v.string()),
+    evidenceUrl: v.optional(v.string()),
+    requestedAt: v.optional(v.number()),
+    reviewedBy: v.optional(v.id("users")),
+    reviewedAt: v.optional(v.number()),
+    mentorNote: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_skill", ["userId", "skillId"])
+    .index("by_skill", ["skillId"])
+    .index("by_path", ["pathId"])
+    .index("by_status", ["status"]),
+
+  learnerSettings: defineTable({
+    userId: v.id("users"),
+    focusPathId: v.optional(v.id("learningPaths")),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
 });

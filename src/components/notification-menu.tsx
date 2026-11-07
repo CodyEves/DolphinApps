@@ -1,6 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { Bell, ClipboardCheck, Clock, LogOut, Wrench } from "lucide-react";
+import { Bell, ClipboardCheck, Clock, LogOut, MessageSquare, UserCheck, Wrench } from "lucide-react";
 import { Link } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
@@ -20,13 +20,17 @@ type NotificationKind =
   | "lesson_review"
   | "hands_on_review"
   | "attendance_review"
-  | "my_attendance_review";
+  | "my_attendance_review"
+  | "skill_signoff"
+  | "my_skill_feedback";
 
 const kindIcons: Record<NotificationKind, LucideIcon> = {
   lesson_review: ClipboardCheck,
   hands_on_review: Wrench,
   attendance_review: Clock,
   my_attendance_review: LogOut,
+  skill_signoff: UserCheck,
+  my_skill_feedback: MessageSquare,
 };
 
 function countLabel(count: number) {

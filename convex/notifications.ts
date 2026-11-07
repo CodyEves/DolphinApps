@@ -6,7 +6,13 @@ import type { QueryCtx } from "./_generated/server";
 
 type NotificationItem = {
   id: string;
-  kind: "lesson_review" | "hands_on_review" | "attendance_review" | "my_attendance_review";
+  kind:
+    | "lesson_review"
+    | "hands_on_review"
+    | "attendance_review"
+    | "my_attendance_review"
+    | "skill_signoff"
+    | "my_skill_feedback";
   title: string;
   summary: string;
   detail: string;
@@ -223,6 +229,63 @@ async function myAttendanceNotifications(
   );
 }
 
+async function skillSignoffNotifications(ctx: QueryCtx): Promise<NotificationItem[]> {
+  const requests = await ctx.db
+    .query("learningProgress")
+    .withIndex("by_status", (q) => q.eq("status", "signoff_requested"))
+    .collect();
+
+  return await Promise.all(
+    requests.map(async (request) => {
+      const [user, profile, skill] = await Promise.all([
+        ctx.db.get(request.userId),
+        ctx.db
+          .query("profiles")
+          .withIndex("by_user", (q) => q.eq("userId", request.userId))
+          .first(),
+        ctx.db.get(request.skillId),
+      ]);
+
+      return {
+        id: `skill_signoff:${request._id}`,
+        kind: "skill_signoff" as const,
+        title: "Skill sign-off requested",
+        summary: `${displayNameFor(profile, user)} is ready for a sign-off.`,
+        detail: skill?.title ?? "Learning skill",
+        href: "/training/sign-offs",
+        createdAt: request.requestedAt ?? request.updatedAt,
+      };
+    }),
+  );
+}
+
+async function mySkillFeedbackNotifications(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+): Promise<NotificationItem[]> {
+  const rows = await ctx.db
+    .query("learningProgress")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .filter((q) => q.eq(q.field("status"), "needs_work"))
+    .collect();
+
+  return await Promise.all(
+    rows.map(async (row) => {
+      const skill = await ctx.db.get(row.skillId);
+
+      return {
+        id: `my_skill_feedback:${row._id}`,
+        kind: "my_skill_feedback" as const,
+        title: "A mentor left feedback",
+        summary: skill?.title ?? "Learning skill",
+        detail: row.mentorNote ?? "Open the skill to see what to work on.",
+        href: `/training/skills/${row.skillId}`,
+        createdAt: row.reviewedAt ?? row.updatedAt,
+      };
+    }),
+  );
+}
+
 export const listMine = query({
   args: {},
   handler: async (ctx) => {
@@ -237,7 +300,12 @@ export const listMine = query({
       };
     }
 
-    const personal = await myAttendanceNotifications(ctx, userId);
+    const personal = (
+      await Promise.all([
+        myAttendanceNotifications(ctx, userId),
+        mySkillFeedbackNotifications(ctx, userId),
+      ])
+    ).flat();
     const isReviewer = canReview(profile);
     const reviewerNotifications = isReviewer
       ? (
@@ -245,6 +313,7 @@ export const listMine = query({
             lessonReviewNotifications(ctx),
             handsOnReviewNotifications(ctx),
             attendanceReviewNotifications(ctx),
+            skillSignoffNotifications(ctx),
           ])
         ).flat()
       : [];

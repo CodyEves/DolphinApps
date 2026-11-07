@@ -30,3 +30,7 @@ export function canManageTrainingContent(role: string) {
 export function canManageAttendanceEvents(role: string) {
   return role === "admin" || role === "mentor" || role === "instructor" || role === "lead";
 }
+
+export function canEditLearning(role: string) {
+  return role === "admin" || role === "mentor" || role === "instructor" || role === "lead";
+}

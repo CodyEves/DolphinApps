@@ -6,7 +6,7 @@ Dolphin Apps is the shared operations suite for robotics teams. It combines stud
 
 - Student dashboard for assigned training, badge progress, equipment status, and next steps
 - Shop Tools app with per-tool SOPs, safety tests, sign-off tracking, and card-reader tool interlocks
-- Training tracks with units, lessons, quizzes, reading, video, and exercise workflows
+- Skills-based Learning paths: each skill links to existing resources (Spectrum 3847, LYNK, WPILib, CTRE) and is checked by a self-check, a quiz, or a mentor sign-off
 - Equipment catalog with safety tests, SOP uploads, and hands-on sign-off requests
 - Card readers that power a shop tool only for students with a current sign-off
 - Badge catalog and admin-managed badge awards
@@ -91,9 +91,11 @@ bun run preview
 | --- | --- |
 | `/` | Home overview |
 | `/dashboard` | Student and reviewer dashboard |
-| `/training` | Published training track list |
-| `/training/tracks/:trackId` | Student track view |
-| `/training/lessons/:lessonId` | Student lesson view |
+| `/training` | Learning home: paths, skills, and the student's progress |
+| `/training/skills/:skillId` | One skill: resources, practice task, and its check (self-check, quiz, or mentor sign-off) |
+| `/training/sign-offs` | Mentor sign-off queue and in-class group sign-off |
+| `/training/team` | Students x skills progress grid for each path |
+| `/training/manage` | Edit paths, skills, resource links, and quizzes; load starter skills |
 | `/tools` | Shop Tools catalog with SOP and sign-off status |
 | `/tools/:equipmentId` | Tool detail: SOP, training video, safety test, sign-off |
 | `/tools/:equipmentId/sop` | SOP editor (admin/mentor/instructor) |
@@ -112,7 +114,7 @@ bun run preview
 | `/shop/review` | Attendance correction review |
 | `/shop/reports` | Hours reporting |
 | `/management` | Management landing page |
-| `/management/team` | Team learning progress and next-action dashboard |
+| `/management/team` | Redirects to `/training/team` |
 | `/management/lms` | Training and progress management |
 | `/management/badges` | Badge management |
 | `/management/people` | User and role management |

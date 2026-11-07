@@ -9,6 +9,7 @@ import {
   LockKeyhole,
   ShieldCheck,
   Users,
+  BookOpen,
 } from "lucide-react";
 import { Link } from "react-router";
 
@@ -23,6 +24,7 @@ import {
 import {
   canManageBadges,
   canOpenManagement,
+  canEditLearning,
   canReviewLearning,
   isAdminRole,
 } from "@/lib/role-access";
@@ -55,8 +57,15 @@ export function AdminPage() {
       visible: isAdmin,
     },
     {
-      title: "Learning Admin",
-      description: "Manage tracks, units, lessons, quizzes, badges, and equipment.",
+      title: "Learning skills",
+      description: "Edit learning paths, skills, resource links, and quizzes.",
+      href: "/training/manage",
+      icon: BookOpen,
+      visible: canEditLearning(effectiveRole),
+    },
+    {
+      title: "Progress resets",
+      description: "Remove old lesson progress, quiz attempts, and equipment sign-offs for a user.",
       href: "/management/lms",
       icon: Database,
       visible: isAdmin,
@@ -70,8 +79,8 @@ export function AdminPage() {
     },
     {
       title: "Team progress",
-      description: "Track student learning status, missing assignments, and next actions.",
-      href: "/management/team",
+      description: "See where every student is in each learning path.",
+      href: "/training/team",
       icon: ShieldCheck,
       visible: true,
     },
