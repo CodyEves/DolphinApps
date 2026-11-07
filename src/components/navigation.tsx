@@ -138,7 +138,7 @@ const exactMatchHrefs = new Set(["/", "/parts", "/shop", "/tools", "/training"])
  */
 function isNavItemActive(pathname: string, href: string) {
   if (href === "/training") {
-    return pathname === href || pathname.startsWith("/training/skills/");
+    return pathname === href || pathname.startsWith("/training/skills/") || pathname.startsWith("/training/labs/");
   }
 
   if (exactMatchHrefs.has(href)) {

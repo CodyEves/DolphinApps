@@ -148,6 +148,15 @@ const impactResources: LearningResource = {
   source: "FIRST",
 };
 
+/** In-app interactive lesson (opens inside DolphinApps). */
+const motorRatioLesson: LearningResource = {
+  title: "Interactive lesson: Pick a motor and gear ratio",
+  url: "/training/labs/motor-ratio",
+  kind: "interactive",
+  source: "Robot Dolphins",
+  minutes: 30,
+};
+
 function youtube(query: string): LearningResource {
   return {
     title: `Find videos: ${query}`,
@@ -414,18 +423,15 @@ const mechanical: SeedPath = {
       stage: "Design",
       title: "I can pick a gear or belt ratio for a target speed or force",
       successCriteria: "A ratio with the math shown, checked against a motor's speed and torque.",
-      practice: "Pick a ratio for an arm or elevator from one of your prototypes. Check it in ReCalc.",
+      practice:
+        "Work through the interactive lesson, then pick a ratio for an arm or elevator from one of your prototypes and check it in ReCalc.",
       checkType: "quiz",
       estimatedMinutes: 45,
-      resources: [recalc, spectrumMotors, frcDesign],
+      resources: [motorRatioLesson, recalc, spectrumMotors, frcDesign],
       quiz: [
         {
           prompt: "A 4:1 reduction (4 motor turns for 1 output turn) does what to output speed and torque?",
-          options: [
-            "Speed ÷ 4, torque × 4",
-            "Speed × 4, torque ÷ 4",
-            "Both stay the same",
-          ],
+          options: ["Speed ÷ 4, torque × 4", "Speed × 4, torque ÷ 4", "Both stay the same"],
           correctIndex: 0,
           explanation: "A reduction trades speed for torque. Ignoring losses, speed drops by 4 and torque rises by 4.",
         },
@@ -436,10 +442,40 @@ const mechanical: SeedPath = {
           explanation: "6,000 ÷ 10 = 600 RPM.",
         },
         {
-          prompt: "Your arm moves too slowly but never stalls. Which change speeds it up?",
-          options: ["More reduction", "Less reduction", "A heavier arm"],
-          correctIndex: 1,
-          explanation: "Less reduction gives more output speed, as long as you keep enough torque.",
+          prompt: "An arm holds still at horizontal. If you double the gear reduction, the current each motor draws to hold it…",
+          options: ["Roughly halves", "Doubles", "Stays the same"],
+          correctIndex: 0,
+          explanation: "Twice the reduction means each motor needs half the torque, and current follows torque.",
+        },
+        {
+          prompt: "Your elevator gets slower when you raise the ratio from 8:1 to 20:1. Why?",
+          options: [
+            "Its top speed drops, and it now spends most of the trip at that lower top speed",
+            "The motor runs out of current",
+            "Higher ratios always stall",
+          ],
+          correctIndex: 0,
+          explanation: "Past the sweet spot, extra reduction only lowers top speed. Below it, the mechanism accelerates too slowly.",
+        },
+        {
+          prompt: "A mechanism holds a load near the motor's stall torque for several seconds. What happens?",
+          options: [
+            "The motor heats up fast and can trip its breaker",
+            "Nothing, holding still uses no power",
+            "The motor speeds up",
+          ],
+          correctIndex: 0,
+          explanation: "Near stall, current is huge and all of it turns into heat.",
+        },
+        {
+          prompt: "Under a motor limit you want one motor to do the job of two on an elevator. What is the usual trade?",
+          options: [
+            "Use more reduction, so it is slower but still lifts and holds",
+            "Use less reduction so it is faster",
+            "Raise the current limit until it works",
+          ],
+          correctIndex: 0,
+          explanation: "One motor has half the torque, so you need more reduction to lift the same load, which costs speed.",
         },
       ],
     },
@@ -528,7 +564,7 @@ const electrical: SeedPath = {
       practice: "Choose a motor and ratio for an elevator from a past robot. Check it in ReCalc and explain your choice.",
       checkType: "mentor",
       estimatedMinutes: 60,
-      resources: [recalc, spectrumMotors],
+      resources: [motorRatioLesson, recalc, spectrumMotors],
     },
     {
       key: "elec-motor-limit",

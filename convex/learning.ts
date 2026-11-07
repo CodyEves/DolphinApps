@@ -134,11 +134,15 @@ function cleanOptionalText(value: string | undefined, maxLength = 1000) {
   return trimmed.slice(0, maxLength);
 }
 
-function cleanUrl(value: string | undefined) {
+function cleanUrl(value: string | undefined, allowInternal = false) {
   const trimmed = value?.trim();
 
   if (!trimmed) {
     return undefined;
+  }
+
+  if (allowInternal && /^\/[a-z0-9/_-]*$/i.test(trimmed)) {
+    return trimmed;
   }
 
   if (!/^https?:\/\//i.test(trimmed)) {
@@ -153,7 +157,7 @@ function validateResources(resources: LearningResource[]) {
     ...resource,
     title: cleanText(resource.title, "Resource title", 160),
     source: cleanText(resource.source, "Resource source", 80),
-    url: cleanUrl(resource.url) ?? (() => {
+    url: cleanUrl(resource.url, true) ?? (() => {
       throw new Error("Every resource needs a link.");
     })(),
   }));
@@ -320,6 +324,19 @@ export const skill = query({
       canEdit,
       canTrackProgress: viewer.profile?.status === "active",
     };
+  },
+});
+
+/** Finds a starter skill by its stable key, so in-app lessons can link to it. */
+export const skillIdBySeedKey = query({
+  args: { seedKey: v.string() },
+  handler: async (ctx, { seedKey }) => {
+    const skillDoc = await ctx.db
+      .query("learningSkills")
+      .withIndex("by_seed_key", (q) => q.eq("seedKey", seedKey))
+      .first();
+
+    return skillDoc?.isPublished ? skillDoc._id : null;
   },
 });
 
@@ -907,6 +924,16 @@ export const loadStarterContent = mutation({
           .first();
 
         if (existing) {
+          // Attach in-app lessons added after this skill was first loaded.
+          const missing = seedSkill.resources.filter(
+            (resource) =>
+              resource.url.startsWith("/") && !existing.resources.some((item) => item.url === resource.url),
+          );
+
+          if (missing.length > 0) {
+            await ctx.db.patch(existing._id, { resources: [...missing, ...existing.resources], updatedAt: now });
+          }
+
           continue;
         }
 

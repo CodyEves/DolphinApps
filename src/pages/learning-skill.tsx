@@ -150,6 +150,29 @@ export function LearningSkillPage() {
                 {skill.resources.map((resource) => {
                   const kind = resourceKindMeta[resource.kind as ResourceKind];
 
+                  if (resource.url.startsWith("/")) {
+                    return (
+                      <li key={resource.url} className="min-w-0 sm:col-span-2">
+                        <Link
+                          to={resource.url}
+                          className="group flex items-center gap-4 rounded-xl border border-primary/40 bg-accent p-4 transition-colors hover:border-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
+                        >
+                          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                            <kind.icon className="size-5" aria-hidden />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-semibold leading-snug">{resource.title.replace(/^Interactive lesson: /, "")}</span>
+                            <span className="mt-0.5 block text-sm text-muted-foreground">
+                              Interactive lesson with hands-on labs
+                              {resource.minutes ? ` · about ${resource.minutes} min` : ""}
+                            </span>
+                          </span>
+                          <ArrowRight className="size-4 shrink-0 text-primary transition-transform group-hover:translate-x-0.5" aria-hidden />
+                        </Link>
+                      </li>
+                    );
+                  }
+
                   return (
                     <li key={resource.url + resource.title} className="min-w-0">
                       <a
@@ -294,7 +317,7 @@ type QuizResult = {
   results: { correct: boolean; correctIndex: number; explanation: string | null }[];
 };
 
-function QuizCheck({
+export function QuizCheck({
   skillId,
   questions,
   passPercent,

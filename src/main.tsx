@@ -75,6 +75,9 @@ const LearningSkillPage = lazy(() =>
 const LearningTeamPage = lazy(() =>
   import("@/pages/learning-team").then((module) => ({ default: module.LearningTeamPage })),
 );
+const MotorRatioLessonPage = lazy(() =>
+  import("@/pages/lesson-motor-ratio").then((module) => ({ default: module.MotorRatioLessonPage })),
+);
 const ManagementPlaceholderPage = lazy(() =>
   import("@/pages/management-placeholder").then((module) => ({
     default: module.ManagementPlaceholderPage,
@@ -145,6 +148,7 @@ const router = createBrowserRouter([
       { path: "training/sign-offs", element: <LearningSignoffsPage /> },
       { path: "training/team", element: <LearningTeamPage /> },
       { path: "training/manage", element: <LearningManagePage /> },
+      { path: "training/labs/motor-ratio", element: <MotorRatioLessonPage /> },
       // Old track and lesson links from before the skills rebuild land on the Learning home.
       { path: "training/tracks/*", element: <Navigate to="/training" replace /> },
       { path: "training/lessons/*", element: <Navigate to="/training" replace /> },
