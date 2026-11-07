@@ -130,7 +130,7 @@ export function ToolsPage() {
           {visibleEquipment !== undefined && visibleEquipment.length > 0 && (
             <p className="text-sm text-muted-foreground">
               You can run <span className="font-semibold text-foreground tabular-nums">{readyCount}</span> of{" "}
-              <span className="tabular-nums">{visibleEquipment.length}</span> tools
+              <span className="tabular-nums">{visibleEquipment.length}</span> {visibleEquipment.length === 1 ? "tool" : "tools"}
               {needsAckCount > 0 && (
                 <>
                   {" "}· <span className="font-semibold text-foreground tabular-nums">{needsAckCount}</span> SOPs to read
