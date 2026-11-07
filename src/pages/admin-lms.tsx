@@ -6,9 +6,7 @@ import {
   Award,
   BookOpen,
   ClipboardCheck,
-  Database,
   FileQuestion,
-  LockKeyhole,
   Plus,
   RotateCcw,
   Trash2,
@@ -38,6 +36,7 @@ import {
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 
 const managementAreas = [
   {
@@ -157,22 +156,13 @@ export function AdminLmsPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Admin"
-          title="Learning management"
-          description="Loading management tools."
-        />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Admin"
-        title="Learning management"
+        title="Reset student progress"
         description="Manage learning content, safety tests, equipment requirements, SOPs, and recognition records."
         actions={
           <Button asChild variant="outline">
@@ -187,7 +177,6 @@ export function AdminLmsPage() {
       <Unauthenticated>
         <Card>
           <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Sign in required</CardTitle>
             <CardDescription>
               Learning management requires an authenticated admin account.
@@ -200,7 +189,6 @@ export function AdminLmsPage() {
         {!isAdmin ? (
           <Card>
             <CardHeader>
-              <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin access required</CardTitle>
               <CardDescription>
                 Switch back to your actual role or sign in with an admin account.
@@ -211,7 +199,6 @@ export function AdminLmsPage() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <Database className="size-5 text-primary" />
                 <CardTitle>Management areas</CardTitle>
                 <CardDescription>
                   Jump to the current tools for editing learning content.
@@ -231,33 +218,15 @@ export function AdminLmsPage() {
                       </h2>
                       <p className="mt-0.5 text-sm text-muted-foreground">{area.description}</p>
                     </div>
-                    <ArrowRight className="size-4 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-1 group-hover:text-primary" />
+                    <ArrowRight className="size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
                   </Link>
                 ))}
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <ClipboardCheck className="size-5 text-primary" />
-                <CardTitle>Current coverage</CardTitle>
-                <CardDescription>
-                  Learning management uses the live learning and equipment builders.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
-                <Badge variant="outline">Tracks</Badge>
-                <Badge variant="outline">Lessons</Badge>
-                <Badge variant="outline">Quizzes</Badge>
-                <Badge variant="outline">Equipment</Badge>
-                <Badge variant="outline">SOP documents</Badge>
-                <Badge variant="outline">Hands-on sign-offs</Badge>
-              </CardContent>
-            </Card>
 
             <Card>
               <CardHeader>
-                <RotateCcw className="size-5 text-primary" />
                 <CardTitle>Reset learning progress</CardTitle>
                 <CardDescription>
                   Pull up an account and remove specific lessons, learning tracks, tests,
@@ -290,9 +259,7 @@ export function AdminLmsPage() {
                 )}
 
                 {selectedUserId && progress === undefined && (
-                  <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                    Loading progress records.
-                  </div>
+                  <ListSkeleton label="Loading progress records" />
                 )}
 
                 {progress && (

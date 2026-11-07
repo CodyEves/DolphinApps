@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { PageSkeleton } from "@/components/ui/skeleton";
 
 function errorText(error: unknown, fallback: string) {
   return error instanceof Error ? error.message.replace(/^.*Uncaught Error: /, "").split("\n")[0] : fallback;
@@ -63,7 +64,7 @@ export function LearningSkillPage() {
   }
 
   if (data === undefined) {
-    return <p className="mx-auto max-w-5xl text-sm text-muted-foreground">Loading skill…</p>;
+    return <PageSkeleton rows={3} label="Loading skill" />;
   }
 
   if (data === null || data.notFound) {
@@ -214,7 +215,7 @@ export function LearningSkillPage() {
         </div>
 
         <aside className="lg:sticky lg:top-4">
-          <div className="rounded-lg border bg-card p-4 shadow-sm">
+          <div className="rounded-lg border bg-card p-4">
             <h2 className="mb-1 text-base font-semibold">Prove it</h2>
             <p className="mb-4 text-sm text-muted-foreground">{check.hint}</p>
             {!data.canTrackProgress ? (
@@ -261,11 +262,11 @@ function SelfCheck({ skillId, completedAt }: { skillId: Id<"learningSkills">; co
   if (completedAt) {
     return (
       <div className="space-y-3">
-        <p className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-          <CircleCheck className="size-4" aria-hidden />
+        <p className="flex animate-rise items-center gap-2 text-sm font-medium text-success">
+          <CircleCheck className="size-5 animate-pop" aria-hidden />
           Marked done on {formatShortDate(completedAt)}
         </p>
-        <Button variant="ghost" size="sm" disabled={isSaving} onClick={() => run(() => undoDone({ skillId }), "Marked not done")}>
+        <Button variant="ghost" size="sm" pending={isSaving} onClick={() => run(() => undoDone({ skillId }), "Marked not done")}>
           <RotateCcw className="size-4" />
           Mark not done
         </Button>
@@ -276,7 +277,7 @@ function SelfCheck({ skillId, completedAt }: { skillId: Id<"learningSkills">; co
   return (
     <div className="space-y-3">
       <p className="text-sm">Be honest: can you do this without help, the way “Success looks like” describes?</p>
-      <Button className="w-full" disabled={isSaving} onClick={() => run(() => markDone({ skillId }), "Nice work. Skill marked done.")}>
+      <Button variant="cta" size="lg" className="w-full" pending={isSaving} onClick={() => run(() => markDone({ skillId }), "Nice work. Skill marked done.")}>
         <Check className="size-4" />
         I can do this
       </Button>
@@ -342,8 +343,8 @@ function QuizCheck({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {completedAt && !result && (
-        <p className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-          <CircleCheck className="size-4" aria-hidden />
+        <p className="flex items-center gap-2 text-sm font-medium text-success">
+          <CircleCheck className="size-5 animate-pop" aria-hidden />
           Passed on {formatShortDate(completedAt)}
           {bestPercent !== undefined && ` · best ${bestPercent}%`}
         </p>
@@ -410,10 +411,12 @@ function QuizCheck({
       </ol>
 
       {result ? (
-        <div className="space-y-3 border-t pt-3">
+        <div className="animate-rise space-y-3 border-t pt-3">
           <p
+            key={result.percent}
             className={cn(
               "text-sm font-semibold",
+              !result.passed && "animate-shake",
               result.passed ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300",
             )}
           >
@@ -426,8 +429,8 @@ function QuizCheck({
           </Button>
         </div>
       ) : (
-        <Button type="submit" className="w-full" disabled={!allAnswered || isSubmitting}>
-          {isSubmitting ? "Checking…" : allAnswered ? "Check my answers" : "Answer every question"}
+        <Button type="submit" variant="cta" size="lg" className="w-full" disabled={!allAnswered} pending={isSubmitting}>
+          {allAnswered ? "Check my answers" : "Answer every question"}
         </Button>
       )}
     </form>
@@ -482,8 +485,8 @@ function MentorCheck({ skillId, progress }: { skillId: Id<"learningSkills">; pro
   if (progress?.status === "completed") {
     return (
       <div className="space-y-1">
-        <p className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-300">
-          <CircleCheck className="size-4" aria-hidden />
+        <p className="flex animate-rise items-center gap-2 text-sm font-medium text-success">
+          <CircleCheck className="size-5 animate-pop" aria-hidden />
           Signed off on {formatShortDate(progress.completedAt)}
         </p>
         {progress.reviewerName && <p className="text-xs text-muted-foreground">By {progress.reviewerName}</p>}
@@ -499,7 +502,7 @@ function MentorCheck({ skillId, progress }: { skillId: Id<"learningSkills">; pro
           Sent {formatShortDate(progress.requestedAt)}. A mentor will review it or check you off in class.
         </p>
         {progress.evidenceNote && <p className="rounded-md bg-muted p-2 text-sm">{progress.evidenceNote}</p>}
-        <Button variant="ghost" size="sm" disabled={isSaving} onClick={handleCancel}>
+        <Button variant="ghost" size="sm" pending={isSaving} onClick={handleCancel}>
           <X className="size-4" />
           Withdraw request
         </Button>
@@ -538,7 +541,7 @@ function MentorCheck({ skillId, progress }: { skillId: Id<"learningSkills">; pro
           placeholder="https://… photo, doc, or Onshape link"
         />
       </div>
-      <Button type="submit" className="w-full" disabled={isSaving}>
+      <Button type="submit" variant="cta" size="lg" className="w-full" pending={isSaving}>
         <Send className="size-4" />
         {progress?.status === "needs_work" ? "Ask again" : "Ask for sign-off"}
       </Button>

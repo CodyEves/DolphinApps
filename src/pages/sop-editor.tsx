@@ -262,7 +262,6 @@ export function SopEditorPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeading
-        eyebrow="Shop Tools"
         title={equipment ? `${equipment.name} SOP` : "Standard operating procedure"}
         description="Write the procedure students read at the machine. Publishing bumps the version and asks everyone to re-acknowledge."
         actions={
@@ -421,7 +420,7 @@ export function SopEditorPage() {
                       >
                         <ImagePlus className="size-4" />
                         {uploadingStep === index
-                          ? "Uploading..."
+                          ? "Uploading…"
                           : step.imageUrl
                             ? "Replace image"
                             : "Add image"}

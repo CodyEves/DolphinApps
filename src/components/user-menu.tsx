@@ -89,7 +89,7 @@ function selectedRoleView(roleView: RoleView, role: string | undefined): Visible
 
 export function UserMenu() {
   const { signOut } = useAuthActions();
-  const { isAuthenticated, isLoading } = useConvexAuth();
+  const { isAuthenticated } = useConvexAuth();
   const { viewer } = useProgramView();
   const { roleView, setRoleView } = useRolePreview();
   const syncMyProvisionedProfile = useMutation(api.access.syncMyProvisionedProfile);
@@ -134,7 +134,7 @@ export function UserMenu() {
 
   if (!isAuthenticated) {
     return (
-      <Button asChild variant={isLoading ? "outline" : "default"}>
+      <Button asChild variant="outline">
         <Link to="/auth">
           <LogIn className="size-4" />
           Sign in
@@ -175,7 +175,7 @@ export function UserMenu() {
             disabled={isRefreshingProfile}
           >
             <RefreshCw className="size-4" />
-            {isRefreshingProfile ? "Refreshing..." : "Refresh team profile"}
+            {isRefreshingProfile ? "Refreshing…" : "Refresh team profile"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleSignOut} variant="destructive">
@@ -189,7 +189,7 @@ export function UserMenu() {
 
   if (viewer === null) {
     return (
-      <Button asChild variant="default">
+      <Button asChild variant="outline">
         <Link to="/auth">
           <LogIn className="size-4" />
           Sign in
@@ -274,7 +274,7 @@ export function UserMenu() {
           disabled={isRefreshingProfile}
         >
           <RefreshCw className="size-4" />
-          {isRefreshingProfile ? "Refreshing..." : "Refresh team profile"}
+          {isRefreshingProfile ? "Refreshing…" : "Refresh team profile"}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleSignOut} variant="destructive">

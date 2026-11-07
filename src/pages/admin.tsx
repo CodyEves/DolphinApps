@@ -6,7 +6,6 @@ import {
   ClipboardCheck,
   Database,
   FileCheck,
-  LockKeyhole,
   ShieldCheck,
   Users,
   BookOpen,
@@ -14,7 +13,6 @@ import {
 import { Link } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardDescription,
@@ -31,7 +29,6 @@ import {
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
-const accentClasses = ["text-brand-blue", "text-brand-aqua", "text-brand-orange", "text-primary"];
 
 export function AdminPage() {
   const { isAuthenticated } = useConvexAuth();
@@ -103,20 +100,13 @@ export function AdminPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Admin"
-        title="Management"
-        description="Manage accounts, rosters, training content, badges, reviews, and team operations."
-        actions={
-          <Badge variant={isAdmin ? "default" : "outline"}>
-            {isAdmin ? "Admin access" : hasManagementAccess ? "Mentor access" : "Limited view"}
-          </Badge>
-        }
+        title="Team management"
+        description="Accounts, reviews, learning content, badges, and paperwork."
       />
 
       <Unauthenticated>
         <Card>
           <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Sign in required</CardTitle>
             <CardDescription>
               Sign in with an admin or mentor account to use these tools.
@@ -129,7 +119,6 @@ export function AdminPage() {
         {!hasManagementAccess ? (
           <Card>
             <CardHeader>
-              <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin tools are restricted</CardTitle>
               <CardDescription>
                 Sign in with an admin or mentor account to use management tools.
@@ -137,34 +126,27 @@ export function AdminPage() {
             </CardHeader>
           </Card>
         ) : (
-          <div className="divide-y divide-border/70">
-            {tools.map((tool, index) => {
+          <ul className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2">
+            {tools.map((tool) => {
               const Icon = tool.icon;
-              const accent = accentClasses[index % accentClasses.length];
 
               return (
-                <Link
-                  key={tool.href}
-                  to={tool.href}
-                  className="group flex items-center gap-5 py-6 outline-none transition-colors first:pt-2 hover:bg-accent/50 focus-visible:bg-accent/50 sm:gap-7 sm:px-2"
-                >
-                  <span className="font-heading w-9 shrink-0 text-2xl font-semibold text-muted-foreground/30 sm:w-11 sm:text-3xl">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <Icon className={`size-6 shrink-0 sm:size-7 ${accent}`} />
-                  <div className="min-w-0 flex-1">
-                    <h2 className="font-heading text-lg font-semibold tracking-tight text-foreground sm:text-xl">
-                      {tool.title}
-                    </h2>
-                    <p className="mt-1 text-sm text-muted-foreground sm:text-base">
-                      {tool.description}
-                    </p>
-                  </div>
-                  <ArrowRight className="size-5 shrink-0 text-muted-foreground/60 transition-transform group-hover:translate-x-1 group-hover:text-primary" />
-                </Link>
+                <li key={tool.href} className="bg-card">
+                  <Link
+                    to={tool.href}
+                    className="group flex h-full items-start gap-4 p-5 outline-none transition-colors hover:bg-accent focus-visible:bg-accent"
+                  >
+                    <Icon className="mt-0.5 size-5 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden />
+                    <span className="min-w-0 flex-1 space-y-1">
+                      <span className="block font-semibold">{tool.title}</span>
+                      <span className="block text-sm text-muted-foreground">{tool.description}</span>
+                    </span>
+                    <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" aria-hidden />
+                  </Link>
+                </li>
               );
             })}
-          </div>
+          </ul>
         )}
       </Authenticated>
     </div>

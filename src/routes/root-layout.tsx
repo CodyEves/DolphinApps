@@ -1,14 +1,16 @@
 import { Suspense } from "react";
-import { Navigate, Outlet, useLocation } from "react-router";
+import { Link, Navigate, Outlet, useLocation } from "react-router";
 
 import { AppLauncher } from "@/components/app-launcher";
 import { MobileNav, Sidebar } from "@/components/navigation";
 import { NotificationMenu } from "@/components/notification-menu";
 import { ProgramOnboarding } from "@/components/program-onboarding";
 import { ThemeModeToggle } from "@/components/theme-mode-toggle";
+import { PageSkeleton } from "@/components/ui/skeleton";
 import { UserMenu } from "@/components/user-menu";
 import { useProgramView } from "@/hooks/use-program-view";
 import { programMeta, type Program } from "@/lib/programs";
+import { cn } from "@/lib/utils";
 
 function currentAppCopy(pathname: string, program: Program = "frc_5199") {
   const meta = programMeta[program];
@@ -80,15 +82,24 @@ export function RootLayout() {
         {!isSuiteLanding && <Sidebar />}
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-40 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/85">
-            <div className="flex h-16 items-center justify-between gap-3 px-4 sm:px-6">
+            <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-6">
               {!isSuiteLanding && <MobileNav />}
-              <div className={isSuiteLanding ? "min-w-0" : "hidden min-w-0 lg:block"}>
-                <p className="text-sm font-semibold">{appCopy.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {appCopy.description}
-                </p>
-              </div>
-              <div className="ml-auto flex items-center gap-2">
+              <Link
+                to="/"
+                className={cn(
+                  "min-w-0 items-center gap-2 rounded-md text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                  isSuiteLanding ? "flex" : "hidden lg:flex",
+                )}
+              >
+                <span className="text-muted-foreground">Dolphin Apps</span>
+                {!isSuiteLanding && (
+                  <>
+                    <span className="text-muted-foreground" aria-hidden>/</span>
+                    <span className="truncate">{appCopy.title}</span>
+                  </>
+                )}
+              </Link>
+              <div className="ml-auto flex items-center gap-1">
                 <ThemeModeToggle />
                 <AppLauncher collapsed />
                 <NotificationMenu />
@@ -97,13 +108,7 @@ export function RootLayout() {
             </div>
           </header>
           <main className={isSuiteLanding ? "flex-1 p-4 sm:p-8" : "flex-1 p-4 sm:p-6 lg:p-8"}>
-            <Suspense
-              fallback={
-                <div className="rounded-md border bg-card p-6 text-sm text-muted-foreground">
-                  Loading...
-                </div>
-              }
-            >
+            <Suspense fallback={<PageSkeleton />}>
               <Outlet />
             </Suspense>
           </main>

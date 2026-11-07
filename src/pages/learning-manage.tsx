@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 function errorText(error: unknown, fallback: string) {
   return error instanceof Error ? error.message.replace(/^.*Uncaught Error: /, "").split("\n")[0] : fallback;
@@ -26,7 +27,7 @@ function errorText(error: unknown, fallback: string) {
 
 type ManagedPath = Doc<"learningPaths"> & { skills: Doc<"learningSkills">[] };
 
-const selectClass = "h-9 w-full rounded-md border bg-card px-3 text-sm";
+const selectClass = "h-9 w-full rounded-lg border bg-card px-3 text-sm";
 
 export function LearningManagePage() {
   const { isAuthenticated } = useConvexAuth();
@@ -75,8 +76,7 @@ export function LearningManagePage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Learning"
-        title="Edit skills"
+        title="Edit learning skills"
         description="Change what students see: paths, skills, resource links, quizzes, and how each skill is checked."
         actions={
           <>
@@ -87,9 +87,9 @@ export function LearningManagePage() {
               </Link>
             </Button>
             {canEdit && (
-              <Button variant="outline" onClick={handleSeed} disabled={isSeeding}>
+              <Button variant="outline" onClick={handleSeed} pending={isSeeding}>
                 <Download className="size-4" />
-                {isSeeding ? "Loading…" : "Add starter skills"}
+                {"Add starter skills"}
               </Button>
             )}
           </>
@@ -104,7 +104,7 @@ export function LearningManagePage() {
           </CardHeader>
         </Card>
       ) : content === undefined ? (
-        <p className="text-sm text-muted-foreground">Loading content…</p>
+        <ListSkeleton label="Loading content" />
       ) : (
         <div className="space-y-8">
           {content.length === 0 && (

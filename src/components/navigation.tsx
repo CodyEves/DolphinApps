@@ -24,7 +24,7 @@ import {
   PencilLine,
   UserCheck,
 } from "lucide-react";
-import { Link, NavLink, useLocation } from "react-router";
+import { NavLink, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -130,6 +130,24 @@ function navItemsForPath(pathname: string) {
   return pathname.startsWith("/parts") ? partsNavItems : trainingNavItems;
 }
 
+const exactMatchHrefs = new Set(["/", "/parts", "/shop", "/tools", "/training"]);
+
+/**
+ * NavLink's className callback is lost when it sits inside a TooltipTrigger
+ * (asChild merges className as a string), so active state is computed here.
+ */
+function isNavItemActive(pathname: string, href: string) {
+  if (href === "/training") {
+    return pathname === href || pathname.startsWith("/training/skills/");
+  }
+
+  if (exactMatchHrefs.has(href)) {
+    return pathname === href;
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 function visibleItems(items: NavItem[], role: string) {
   return items.filter(
     (item) =>
@@ -157,23 +175,17 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
             <TooltipTrigger asChild>
               <NavLink
                 to={item.href}
-                end={
-                  item.href === "/" ||
-                  item.href === "/parts" ||
-                  item.href === "/shop" ||
-                  item.href === "/tools" ||
-                  item.href === "/training"
-                }
+                end={exactMatchHrefs.has(item.href)}
                 onClick={() => setMobileNavOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    "rounded-md text-sm font-medium text-muted-foreground transition-all hover:bg-accent hover:text-accent-foreground",
-                    collapsed
-                      ? "mx-auto flex size-10 items-center justify-center p-0"
-                      : "flex h-10 w-full items-center gap-3 px-3",
-                    isActive && "bg-accent text-accent-foreground shadow-sm shadow-brand-blue/10",
-                  )
-                }
+                aria-current={isNavItemActive(location.pathname, item.href) ? "page" : undefined}
+                className={cn(
+                  "group rounded-md text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+                  collapsed
+                    ? "mx-auto flex size-10 items-center justify-center p-0"
+                    : "flex h-9 w-full items-center justify-start gap-3 px-3",
+                  isNavItemActive(location.pathname, item.href) &&
+                    "bg-accent font-semibold text-foreground [&_svg]:text-primary",
+                )}
               >
                 <item.icon className="size-4 shrink-0" />
                 {!collapsed && <span className="min-w-0 truncate">{item.label}</span>}
@@ -186,6 +198,41 @@ function NavList({ collapsed = false }: { collapsed?: boolean }) {
         ))}
       </nav>
     </TooltipProvider>
+  );
+}
+
+function appNameForPath(pathname: string, trainingTitle: string, partsTitle: string) {
+  if (pathname.startsWith("/management") || pathname.startsWith("/admin")) {
+    return "Management";
+  }
+
+  if (pathname.startsWith("/shop")) {
+    return "Shop Attendance";
+  }
+
+  if (pathname.startsWith("/tools")) {
+    return "Shop Tools";
+  }
+
+  if (pathname.startsWith("/batteries")) {
+    return "Batteries";
+  }
+
+  if (pathname.startsWith("/parts")) {
+    return partsTitle;
+  }
+
+  return trainingTitle;
+}
+
+function SidebarAppName() {
+  const location = useLocation();
+  const { activeProgramMeta } = useProgramView();
+
+  return (
+    <p className="min-w-0 flex-1 truncate px-3 font-heading text-base font-semibold [font-stretch:87.5%]">
+      {appNameForPath(location.pathname, activeProgramMeta.trainingTitle, activeProgramMeta.partsTitle)}
+    </p>
   );
 }
 
@@ -203,15 +250,7 @@ export function Sidebar() {
       <div className="flex h-full flex-col">
         <div className="flex h-12 items-center justify-between gap-2">
           {!collapsed && (
-            <Link
-              to="/"
-              className="min-w-0 flex-1 rounded-md px-2 py-1 outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50"
-            >
-              <p className="truncate text-sm font-semibold">Apps</p>
-              <p className="truncate text-xs text-muted-foreground">
-                Home
-              </p>
-            </Link>
+            <SidebarAppName />
           )}
           <Button
             variant="ghost"
@@ -223,7 +262,7 @@ export function Sidebar() {
             <Menu className="size-4" />
           </Button>
         </div>
-        <Separator className="my-3" />
+        <Separator className="my-2" />
         <NavList collapsed={collapsed} />
       </div>
     </aside>
@@ -249,15 +288,7 @@ export function MobileNav() {
     : activeProgramMeta.trainingTitle;
   const visibleNavItems = visibleItems(navItemsForPath(location.pathname), effectiveRole);
 
-  const current = visibleNavItems.find((item) =>
-    item.href === "/" ||
-    item.href === "/parts" ||
-    item.href === "/shop" ||
-    item.href === "/tools" ||
-    item.href === "/training"
-      ? location.pathname === item.href
-      : location.pathname.startsWith(item.href),
-  );
+  const current = visibleNavItems.find((item) => isNavItemActive(location.pathname, item.href));
 
   return (
     <div className="flex items-center gap-3 lg:hidden">

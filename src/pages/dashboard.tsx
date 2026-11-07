@@ -1,58 +1,50 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
-import {
-  ArrowRight,
-  Award,
-  BookOpen,
-  ClipboardCheck,
-  Target,
-  Wrench,
-} from "lucide-react";
+import { useQuery } from "convex/react";
+import { ArrowRight, Award, ClipboardCheck, GraduationCap, UserCheck, Wrench } from "lucide-react";
 import { Link } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
-import { MissionGraphic } from "@/components/mission-graphic";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { canReviewLearning } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 
-function ProgressLink({
+function StatLink({
   to,
+  icon: Icon,
   label,
-  badge,
-  children,
+  value,
+  detail,
 }: {
   to: string;
+  icon: typeof Award;
   label: string;
-  badge?: React.ReactNode;
-  children?: React.ReactNode;
+  value: string | number | undefined;
+  detail: string;
 }) {
   return (
     <Link
       to={to}
-      className="block rounded-md border p-3 text-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring/50 focus-visible:ring-[3px] focus-visible:outline-none"
+      className="group flex items-start gap-3 rounded-lg border bg-card p-4 transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
     >
-      <div className="flex items-center justify-between gap-3">
-        <span>{label}</span>
-        {badge}
-      </div>
-      {children}
+      <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden />
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm text-muted-foreground">{label}</span>
+        {value === undefined ? (
+          <Skeleton className="mt-1 h-7 w-12" />
+        ) : (
+          <span className="block font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{value}</span>
+        )}
+        <span className="block text-xs text-muted-foreground">{detail}</span>
+      </span>
     </Link>
   );
 }
 
 export function DashboardPage() {
-  const { isAuthenticated } = useConvexAuth();
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const learning = useQuery(api.learning.myLearning, isAuthenticated ? {} : "skip");
   const equipment = useQuery(api.equipment.listEquipment, isAuthenticated ? {} : "skip");
@@ -114,274 +106,129 @@ export function DashboardPage() {
     },
     { approved: 0, pending: 0 },
   );
-  const equipmentApprovalLabel =
-    equipment === undefined
-      ? "..."
-      : equipmentApprovalSummary && equipmentApprovalSummary.pending > 0
-        ? `${equipmentApprovalSummary.pending} pending`
-        : `${equipmentApprovalSummary?.approved ?? 0} approved`;
   const isLoadingBadges = badges === undefined || badgeAwards === undefined;
   const lessonReviewCount = reviewQueue?.lessonSubmissions.length ?? 0;
   const handsOnReviewCount = reviewQueue?.handsOnReviews.length ?? 0;
-  const reviewCount = lessonReviewCount + handsOnReviewCount;
   const signoffCount = signoffQueue?.length ?? 0;
 
-  return (
-    <div className="mx-auto max-w-6xl">
-      <PageHeading
-        eyebrow="Dashboard"
-        title="Command center"
-        description="Start with the next action, then check readiness, reviews, and recognition."
-        actions={<Badge variant="outline">Current role: {role}</Badge>}
-      />
+  if (isLoading) {
+    return <PageSkeleton rows={3} />;
+  }
 
-      <Unauthenticated>
+  if (!isAuthenticated) {
+    return (
+      <div className="mx-auto max-w-2xl">
         <Card>
           <CardHeader>
-            <CardTitle>Sign in to see your dashboard</CardTitle>
-            <CardDescription>
-              Your dashboard is available after you sign in.
-            </CardDescription>
+            <CardTitle className="text-xl">Sign in to see your next skill</CardTitle>
+            <CardDescription>Your learning progress, tool sign-offs, and badges load after you sign in.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button asChild>
+          <div className="px-5">
+            <Button asChild variant="cta">
               <Link to="/auth">Sign in</Link>
             </Button>
-          </CardContent>
+          </div>
         </Card>
-      </Unauthenticated>
+      </div>
+    );
+  }
 
-      <Authenticated>
-        <div className="space-y-5">
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.75fr)]">
-          <div className="rounded-md border bg-card p-5 shadow-sm">
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-stretch">
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">
-                    <Target className="size-3" />
-                    Start here
-                  </Badge>
-                  {nextSkill && nextSkillPath && (
-                    <Badge variant="outline">{nextSkillPath.title}</Badge>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-semibold sm:text-3xl">
-                    {nextSkill
-                      ? nextSkill.title
-                      : learning === undefined
-                        ? "Loading your next action"
-                        : pathProgress.length === 0
-                          ? "No skills published yet"
-                          : "Every skill is done or waiting for a mentor"}
-                  </h2>
-                  <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
-                    {nextSkill
-                      ? `Next up in ${nextSkill.stage}. Open it, learn it, then prove it with a self-check, a quiz, or a mentor sign-off.`
-                      : "Use the readiness cards to review equipment approvals, badges, and other learning paths."}
-                  </p>
-                </div>
-                {focusPath && focusPath.total > 0 && (
-                  <div className="max-w-xl space-y-2">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{focusPath.title}</span>
-                      <span>
-                        {focusPath.done} of {focusPath.total} skills
+  return (
+    <div className="mx-auto max-w-6xl space-y-8">
+      <PageHeading
+        title={nextSkill ? "Your next skill" : "Your learning"}
+        description="Pick up where you left off, then check your tool sign-offs and badges."
+      />
+
+      <section aria-labelledby="next-skill" className="rounded-xl border bg-card p-6 sm:p-8">
+        {learning === undefined ? (
+          <div className="space-y-4" aria-busy>
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-8 w-2/3" />
+            <Skeleton className="h-2 w-full" />
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="min-w-0 max-w-2xl space-y-2">
+                <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <GraduationCap className="size-4" aria-hidden />
+                  {nextSkillPath ? `${nextSkillPath.title} · ${nextSkill?.stage}` : "Learning"}
+                </p>
+                <h2 id="next-skill" className="text-2xl leading-tight font-bold sm:text-3xl">
+                  {nextSkill
+                    ? nextSkill.title
+                    : pathProgress.length === 0
+                      ? "No skills are published yet"
+                      : "Every skill is done or waiting for a mentor"}
+                </h2>
+              </div>
+              <Button asChild variant="cta" size="lg" className="self-start lg:self-auto">
+                <Link to={nextSkill ? `/training/skills/${nextSkill._id}` : "/training"}>
+                  {nextSkill ? "Continue" : "Open Learning"}
+                  <ArrowRight />
+                </Link>
+              </Button>
+            </div>
+            {pathProgress.length > 0 && (
+              <ul className="grid gap-4 border-t pt-6 sm:grid-cols-3">
+                {pathProgress.map((path) => (
+                  <li key={path.id} className="space-y-2">
+                    <div className="flex items-baseline justify-between gap-3 text-sm">
+                      <span className="truncate font-medium">{path.title}</span>
+                      <span className="shrink-0 text-muted-foreground tabular-nums">
+                        {path.done}/{path.total}
                       </span>
                     </div>
-                    <Progress value={focusPath.percent} />
-                  </div>
-                )}
-                <Button asChild size="lg" className="w-full sm:w-auto">
-                  <Link
-                    to={nextSkill ? `/training/skills/${nextSkill._id}` : "/training"}
-                  >
-                    <ArrowRight className="size-4" />
-                    {nextSkill ? "Open next skill" : "Open learning"}
-                  </Link>
-                </Button>
-              </div>
-              <MissionGraphic variant="learning" />
-            </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-primary transition-[width] duration-500" style={{ width: `${path.percent}%` }} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-
-          <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-            <ProgressLink
-              to="/training"
-              label="Learning"
-              badge={
-                <Badge variant="secondary">
-                  <BookOpen className="size-3" />
-                  {focusPath ? `${focusPath.done}/${focusPath.total}` : "..."}
-                </Badge>
-              }
-            >
-              <p className="mt-2 text-xs text-muted-foreground">
-                {focusPath ? `Skills done in ${focusPath.title}` : "Skills done"}
-              </p>
-            </ProgressLink>
-            <ProgressLink
-              to="/equipment"
-              label="Equipment"
-              badge={
-                <Badge
-                  variant={
-                    equipmentApprovalSummary && equipmentApprovalSummary.pending > 0
-                      ? "outline"
-                      : "secondary"
-                  }
-                >
-                  <Wrench className="size-3" />
-                  {equipmentApprovalLabel}
-                </Badge>
-              }
-            >
-              <p className="mt-2 text-xs text-muted-foreground">Hands-on approvals</p>
-            </ProgressLink>
-            <ProgressLink
-              to="/badges"
-              label="Badges"
-              badge={
-                <Badge>
-                  <Award className="size-3" />
-                  {isLoadingBadges ? "..." : earnedVisibleBadgeCount}
-                </Badge>
-              }
-            >
-              <p className="mt-2 text-xs text-muted-foreground">Earned recognition</p>
-            </ProgressLink>
-          </div>
-        </section>
-
-        {canReview && (
-          <Card className="py-0">
-            <CardHeader className="border-b bg-muted/25 px-5 py-4">
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardCheck className="size-5 text-primary" />
-                Mentor review queue
-              </CardTitle>
-              <CardDescription>
-                Student submissions and hands-on demonstrations waiting for attention.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="grid gap-3 px-5 py-5 sm:grid-cols-3">
-              <ProgressLink
-                to="/reviews"
-                label="Open reviews"
-                badge={
-                  <Badge variant={reviewCount > 0 ? "default" : "outline"}>
-                    {reviewQueue === undefined ? "..." : reviewCount}
-                  </Badge>
-                }
-              />
-              <ProgressLink
-                to="/training/sign-offs"
-                label="Skill sign-offs"
-                badge={
-                  <Badge variant={signoffCount > 0 ? "default" : "outline"}>
-                    {signoffQueue === undefined ? "..." : signoffCount}
-                  </Badge>
-                }
-              />
-              <ProgressLink
-                to="/reviews"
-                label="Hands-on checks"
-                badge={
-                  <Badge variant="outline">
-                    {reviewQueue === undefined ? "..." : handsOnReviewCount}
-                  </Badge>
-                }
-              />
-            </CardContent>
-          </Card>
         )}
+      </section>
 
-        <Card className="py-0">
-          <CardHeader>
-            <CardTitle>Progress detail</CardTitle>
-            <CardDescription>
-              Learning paths and supporting records in one place.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="grid gap-4 lg:grid-cols-[1.3fr_1fr]">
-              <div className="space-y-3">
-                {learning === undefined ? (
-                  <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                    Loading learning progress...
-                  </div>
-                ) : pathProgress.length === 0 ? (
-                  <ProgressLink
-                    to="/training"
-                    label="Learning paths"
-                    badge={<Badge variant="outline">None yet</Badge>}
-                  >
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Skills show up here once mentors publish them.
-                    </p>
-                  </ProgressLink>
-                ) : (
-                  pathProgress.map((path) => (
-                    <ProgressLink
-                      key={path.id}
-                      to="/training"
-                      label={path.title}
-                      badge={<span className="font-medium">{path.percent}%</span>}
-                    >
-                      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                        <span>
-                          {path.done} of {path.total} skills done
-                        </span>
-                      </div>
-                      <Progress value={path.percent} className="mt-2" />
-                    </ProgressLink>
-                  ))
-                )}
-              </div>
-              <div className="grid gap-3 text-sm sm:grid-cols-3 lg:grid-cols-1">
-                <ProgressLink
-                  to="/training"
-                  label="Learning"
-                  badge={
-                    <Badge variant="secondary">
-                      <BookOpen className="size-3" />
-                      {pathProgress.reduce((sum, path) => sum + path.done, 0)} skills
-                    </Badge>
-                  }
-                />
-                <ProgressLink
-                  to="/equipment"
-                  label="Equipment"
-                  badge={
-                    <Badge
-                      variant={
-                        equipmentApprovalSummary && equipmentApprovalSummary.pending > 0
-                          ? "outline"
-                          : "secondary"
-                      }
-                    >
-                      <Wrench className="size-3" />
-                      {equipmentApprovalLabel}
-                    </Badge>
-                  }
-                />
-                <ProgressLink
-                  to="/badges"
-                  label="Badges"
-                  badge={
-                    <Badge>
-                      <Award className="size-3" />
-                      {isLoadingBadges ? "..." : earnedVisibleBadgeCount}
-                    </Badge>
-                  }
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        </div>
-      </Authenticated>
+      <section aria-label="Readiness" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <StatLink
+          to="/tools"
+          icon={Wrench}
+          label="Tool sign-offs"
+          value={equipment === undefined ? undefined : equipmentApprovalSummary?.approved ?? 0}
+          detail={
+            equipmentApprovalSummary && equipmentApprovalSummary.pending > 0
+              ? `${equipmentApprovalSummary.pending} tools still need a hands-on check`
+              : "Every tool that needs a sign-off is done"
+          }
+        />
+        <StatLink
+          to="/badges"
+          icon={Award}
+          label="Badges earned"
+          value={isLoadingBadges ? undefined : earnedVisibleBadgeCount}
+          detail="Awarded when training and sign-offs are complete"
+        />
+        {canReview && (
+          <StatLink
+            to="/training/sign-offs"
+            icon={UserCheck}
+            label="Skill sign-offs waiting"
+            value={signoffQueue === undefined ? undefined : signoffCount}
+            detail="Students asking a mentor to check them off"
+          />
+        )}
+        {canReview && (
+          <StatLink
+            to="/reviews"
+            icon={ClipboardCheck}
+            label="Tool checks waiting"
+            value={reviewQueue === undefined ? undefined : handsOnReviewCount + lessonReviewCount}
+            detail="Hands-on equipment checks and uploaded files"
+          />
+        )}
+      </section>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowLeft, Award, Save } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import { canManageBadges } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { PageSkeleton } from "@/components/ui/skeleton";
 
 type BadgeForm = {
   title: string;
@@ -102,18 +103,13 @@ export function BadgeEditorPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading eyebrow="Badges" title="Edit badge" description="Loading badge editor." />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!isAuthenticated || !canManageBadgeRecords) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Badges"
           title="Badge management access required"
           description="Only admins and mentors can create and modify badges."
           actions={
@@ -130,18 +126,13 @@ export function BadgeEditorPage() {
   }
 
   if ((badgeId && badge === undefined) || options === undefined) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading eyebrow="Badges" title="Edit badge" description="Loading badge editor." />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (badgeId && badge === null) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Badges"
           title="Badge not found"
           description="This badge may have been removed."
           actions={
@@ -160,7 +151,6 @@ export function BadgeEditorPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Badges"
         title={badgeId ? "Edit badge" : "Create badge"}
         description="Name the badge and select the training or equipment requirements needed to earn it."
         actions={
@@ -176,7 +166,6 @@ export function BadgeEditorPage() {
       <form onSubmit={handleSave} className="space-y-4">
         <Card>
           <CardHeader>
-            <Award className="size-5 text-primary" />
             <CardTitle>Badge details</CardTitle>
             <CardDescription>
               Students earn active badges automatically after completing all selected requirements.
@@ -299,9 +288,9 @@ export function BadgeEditorPage() {
         </Card>
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={isSaving}>
+          <Button type="submit" pending={isSaving}>
             <Save className="size-4" />
-            {isSaving ? "Saving..." : "Save badge"}
+            {"Save badge"}
           </Button>
         </div>
       </form>

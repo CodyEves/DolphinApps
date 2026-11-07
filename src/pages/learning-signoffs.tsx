@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 function errorText(error: unknown, fallback: string) {
   return error instanceof Error ? error.message.replace(/^.*Uncaught Error: /, "").split("\n")[0] : fallback;
@@ -31,8 +32,7 @@ export function LearningSignoffsPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Learning"
-        title="Sign-offs"
+        title="Skill sign-offs to review"
         description="Review work students sent in, or sign off a whole group after a hands-on check in class."
         actions={
           <Button asChild variant="outline">
@@ -57,7 +57,7 @@ export function LearningSignoffsPage() {
           <InClassSignoff />
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <ListSkeleton label="Loading" />
       )}
     </div>
   );
@@ -75,7 +75,7 @@ function RequestQueue() {
         {queue && <span className="text-sm text-muted-foreground tabular-nums">{queue.length}</span>}
       </div>
       {queue === undefined ? (
-        <p className="text-sm text-muted-foreground">Loading requests…</p>
+        <ListSkeleton label="Loading requests" />
       ) : queue.length === 0 ? (
         <div className="flex items-center gap-3 rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
           <ClipboardCheck className="size-5 shrink-0" aria-hidden />
@@ -126,7 +126,7 @@ function RequestCard({ item }: { item: QueueItem }) {
   }
 
   return (
-    <li className="rounded-lg border bg-card p-4 shadow-sm">
+    <li className="rounded-lg border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <p className="font-semibold">{item.studentName}</p>
         <p className="text-xs text-muted-foreground">Sent {formatShortDate(item.requestedAt)}</p>
@@ -176,7 +176,7 @@ function RequestCard({ item }: { item: QueueItem }) {
         </div>
       ) : (
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" disabled={isSaving} onClick={() => review(true)}>
+          <Button size="sm" pending={isSaving} onClick={() => review(true)}>
             <Check className="size-4" />
             Sign off
           </Button>
@@ -245,10 +245,10 @@ function InClassSignoff() {
   }
 
   return (
-    <section aria-labelledby="inclass-heading" className="min-w-0 space-y-3 rounded-lg border bg-card p-4 shadow-sm">
+    <section aria-labelledby="inclass-heading" className="min-w-0 space-y-3 rounded-lg border bg-card p-4">
       <div className="space-y-1">
         <h2 id="inclass-heading" className="flex items-center gap-2 text-lg font-semibold">
-          <UserCheck className="size-5 text-muted-foreground" aria-hidden />
+          <UserCheck className="size-4 text-muted-foreground" aria-hidden />
           Sign off in class
         </h2>
         <p className="text-sm text-muted-foreground">Watched students do it? Pick the skill, check their names, and sign them off together.</p>
@@ -258,7 +258,7 @@ function InClassSignoff() {
         <Label htmlFor="inclass-path">Path</Label>
         <select
           id="inclass-path"
-          className="h-9 w-full rounded-md border bg-card px-3 text-sm"
+          className="h-9 w-full rounded-lg border bg-card px-3 text-sm"
           value={activePathId}
           onChange={(event) => {
             setPathId(event.target.value as Id<"learningPaths">);
@@ -278,7 +278,7 @@ function InClassSignoff() {
         <Label htmlFor="inclass-skill">Skill</Label>
         <select
           id="inclass-skill"
-          className="h-9 w-full rounded-md border bg-card px-3 text-sm"
+          className="h-9 w-full rounded-lg border bg-card px-3 text-sm"
           value={skillId}
           onChange={(event) => {
             setSkillId(event.target.value as Id<"learningSkills">);
@@ -299,7 +299,7 @@ function InClassSignoff() {
       {skillId && (
         <div className="space-y-2">
           {team === undefined ? (
-            <p className="text-sm text-muted-foreground">Loading students…</p>
+            <ListSkeleton label="Loading students" />
           ) : students.length === 0 ? (
             <p className="text-sm text-muted-foreground">No active students found.</p>
           ) : (
@@ -328,7 +328,7 @@ function InClassSignoff() {
               })}
             </ul>
           )}
-          <Button className="w-full" disabled={selected.size === 0 || isSaving} onClick={handleSignOff}>
+          <Button variant="cta" className="w-full" disabled={selected.size === 0} pending={isSaving} onClick={handleSignOff}>
             <Check className="size-4" />
             {selected.size === 0 ? "Select students" : `Sign off ${selected.size} ${selected.size === 1 ? "student" : "students"}`}
           </Button>

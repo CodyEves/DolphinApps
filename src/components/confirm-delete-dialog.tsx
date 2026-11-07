@@ -91,7 +91,7 @@ export function ConfirmDeleteDialog({
                 disabled={!canDelete}
                 onClick={() => void onConfirm()}
               >
-                {isDeleting ? "Deleting..." : confirmLabel}
+                {isDeleting ? "Deleting…" : confirmLabel}
               </Button>
             </div>
           </div>

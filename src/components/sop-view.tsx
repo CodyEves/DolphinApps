@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 function formatDate(timestamp: number | undefined) {
   if (!timestamp) {
@@ -95,7 +96,7 @@ export function SopView({ equipmentId }: { equipmentId: Id<"equipment"> }) {
 
   if (sopData === undefined) {
     return (
-      <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading SOP...</div>
+      <ListSkeleton label="Loading SOP" />
     );
   }
 
@@ -208,26 +209,27 @@ export function SopView({ equipmentId }: { equipmentId: Id<"equipment"> }) {
       {sop.isPublished && (
         <div className="mt-4 rounded-md border bg-muted/40 p-4">
           {hasAcknowledgedCurrentVersion ? (
-            <p className="flex items-center gap-2 text-sm">
-              <CheckCircle2 className="size-4 text-primary" />
+            <p className="flex animate-rise items-center gap-2 text-sm">
+              <CheckCircle2 className="size-4 animate-pop text-success" />
               You acknowledged version {sop.version} on{" "}
               {formatDate(sopData.acknowledgement?.acknowledgedAt)}.
             </p>
           ) : (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="flex items-start gap-2 text-sm">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-500" />
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
                 {sopData.acknowledgement
                   ? "This SOP changed since you last read it. Read it again and re-acknowledge."
                   : "Confirm you have read and understand this procedure."}
               </p>
               <Button
                 type="button"
+                variant="cta"
                 onClick={() => void handleAcknowledge()}
-                disabled={acknowledging}
+                pending={acknowledging}
               >
-                <CheckCircle2 className="size-4" />
-                {acknowledging ? "Saving..." : "I have read this SOP"}
+                {!acknowledging && <CheckCircle2 className="size-4" />}
+                I have read this SOP
               </Button>
             </div>
           )}

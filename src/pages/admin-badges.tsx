@@ -2,9 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
-  Award,
   CheckCircle2,
-  LockKeyhole,
   Trash2,
   UserPlus,
 } from "lucide-react";
@@ -33,6 +31,7 @@ import { canManageBadges } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 
 function formatDate(timestamp: number) {
   return new Intl.DateTimeFormat(undefined, {
@@ -108,22 +107,13 @@ export function AdminBadgesPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Admin"
-          title="Badge management"
-          description="Loading badge controls."
-        />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Admin"
-        title="Badge management"
+        title="Award and remove badges"
         description="Force-award badges to accounts, remove awards, and open badge records."
         actions={
           <Button asChild variant="outline">
@@ -138,7 +128,6 @@ export function AdminBadgesPage() {
       <Unauthenticated>
         <Card>
           <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Sign in required</CardTitle>
             <CardDescription>
               Badge management requires an authenticated admin or mentor account.
@@ -151,7 +140,6 @@ export function AdminBadgesPage() {
         {!canManageBadgeRecords ? (
           <Card>
             <CardHeader>
-              <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Badge management access required</CardTitle>
               <CardDescription>
                 Switch back to your actual role or sign in with an admin or mentor account.
@@ -162,7 +150,6 @@ export function AdminBadgesPage() {
           <div className="space-y-4">
             <Card>
               <CardHeader>
-                <Award className="size-5 text-primary" />
                 <CardTitle>Badge overrides</CardTitle>
                 <CardDescription>
                   Force-award badges to accounts or remove awards when a record needs correction.
@@ -220,9 +207,7 @@ export function AdminBadgesPage() {
                     </Button>
                   </div>
                   {badgeAwards === undefined && (
-                    <div className="rounded-md border p-4 text-sm text-muted-foreground">
-                      Loading badge awards.
-                    </div>
+                    <ListSkeleton label="Loading badge awards" />
                   )}
                   {badgeAwards !== undefined && awardedBadges.length === 0 && (
                     <div className="rounded-md border p-4 text-sm text-muted-foreground">

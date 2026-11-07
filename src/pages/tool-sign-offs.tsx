@@ -3,7 +3,6 @@ import { useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
   Check,
-  CreditCard,
   Download,
   Minus,
   Search,
@@ -20,6 +19,7 @@ import { canReviewLearning } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 
 type CellState = "current" | "expired" | "none";
 
@@ -169,8 +169,7 @@ export function ToolSignOffsPage() {
   return (
     <div className="mx-auto max-w-[110rem]">
       <PageHeading
-        eyebrow="Shop Tools"
-        title="Sign-off tracking"
+        title="Who can run each tool"
         description="Every active student against every active tool. Green means they may power the tool right now."
         actions={
           <Button variant="outline" onClick={exportCsv} disabled={!matrix}>
@@ -181,26 +180,17 @@ export function ToolSignOffsPage() {
       />
 
       <div className="mb-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Check className="size-4" />
-            Current sign-offs
-          </div>
-          <p className="mt-1 text-2xl font-semibold">{matrix ? totalCurrent : "..."}</p>
+        <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="text-sm text-muted-foreground">Current sign-offs</div>
+          <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{matrix ? totalCurrent : <Skeleton className="inline-block h-6 w-10 align-middle" />}</p>
         </div>
-        <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertTriangle className="size-4" />
-            Expired
-          </div>
-          <p className="mt-1 text-2xl font-semibold">{matrix ? totalExpired : "..."}</p>
+        <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="text-sm text-muted-foreground">Expired</div>
+          <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{matrix ? totalExpired : <Skeleton className="inline-block h-6 w-10 align-middle" />}</p>
         </div>
-        <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CreditCard className="size-4" />
-            No card enrolled
-          </div>
-          <p className="mt-1 text-2xl font-semibold">{matrix ? withoutCard : "..."}</p>
+        <div className="rounded-lg border bg-card px-4 py-3">
+          <div className="text-sm text-muted-foreground">No card enrolled</div>
+          <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{matrix ? withoutCard : <Skeleton className="inline-block h-6 w-10 align-middle" />}</p>
         </div>
       </div>
 
@@ -223,12 +213,7 @@ export function ToolSignOffsPage() {
       </div>
 
       {matrix === undefined ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Loading sign-offs</CardTitle>
-            <CardDescription>Building the roster grid.</CardDescription>
-          </CardHeader>
-        </Card>
+        <ListSkeleton label="Loading sign-offs" />
       ) : matrix.equipment.length === 0 ? (
         <Card>
           <CardHeader>
@@ -237,9 +222,9 @@ export function ToolSignOffsPage() {
           </CardHeader>
         </Card>
       ) : (
-        <div className="overflow-x-auto rounded-md border">
+        <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+            <thead className="border-b bg-muted/40 text-left text-xs font-medium text-muted-foreground">
               <tr>
                 <th className="sticky left-0 z-10 bg-muted/40 px-4 py-3 font-medium">Student</th>
                 {matrix.equipment.map((item) => (

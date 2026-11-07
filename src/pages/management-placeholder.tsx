@@ -1,6 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useQuery } from "convex/react";
-import { FileCheck, LockKeyhole, ShieldCheck } from "lucide-react";
+import { FileCheck, ShieldCheck } from "lucide-react";
 import { useLocation } from "react-router";
 
 import { PageHeading } from "@/components/page-heading";
@@ -13,6 +13,7 @@ import {
 import { canOpenManagement } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 const pages = {
   "/management/team": {
@@ -42,26 +43,18 @@ export function ManagementPlaceholderPage() {
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
   const hasManagementAccess = canOpenManagement(effectiveRole);
   const page = pages[location.pathname as keyof typeof pages] ?? pages["/management/team"];
-  const Icon = page.icon;
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow={page.eyebrow}
         title={page.title}
         description={page.description}
       />
       {isLoading ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Loading management access</CardTitle>
-            <CardDescription>Checking your role.</CardDescription>
-          </CardHeader>
-        </Card>
+        <ListSkeleton label="Loading management access" />
       ) : !isAuthenticated || !hasManagementAccess ? (
         <Card>
           <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Management access required</CardTitle>
             <CardDescription>
               Sign in with an admin or mentor account to use this area.
@@ -71,7 +64,6 @@ export function ManagementPlaceholderPage() {
       ) : (
         <Card>
           <CardHeader>
-            <Icon className="size-5 text-primary" />
             <CardTitle>{page.cardTitle}</CardTitle>
             <CardDescription>{page.cardDescription}</CardDescription>
           </CardHeader>

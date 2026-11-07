@@ -4,16 +4,12 @@ import {
   BadgePlusIcon,
   CheckCircle2Icon,
   ExternalLinkIcon,
-  FactoryIcon,
-  GaugeIcon,
   LockKeyholeIcon,
-  PackageIcon,
   PlayIcon,
   PlusIcon,
   SaveIcon,
   SettingsIcon,
   ShoppingCartIcon,
-  type LucideIcon,
 } from "lucide-react";
 import { Fragment, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router";
@@ -21,6 +17,7 @@ import { toast } from "sonner";
 
 import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
+import { PageHeading } from "@/components/page-heading";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,6 +50,7 @@ import {
 } from "@/lib/programs";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/use-ui-store";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 type ActiveContext = {
   profile: Doc<"profiles"> | null;
@@ -117,27 +115,19 @@ function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-normal">{title}</h1>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-      {action && <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">{action}</div>}
-    </div>
+    <PageHeading title={title} description={description} actions={action} />
   );
 }
 
 function LoadingState() {
   return (
-    <div className="rounded-md border p-4 text-sm text-muted-foreground">
-      Loading live team data...
-    </div>
+    <ListSkeleton label="Loading live team data" />
   );
 }
 
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+    <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
       {children}
     </div>
   );
@@ -188,7 +178,7 @@ function PartsProgramSelector({
   }
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border bg-card p-2">
+    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-card p-2">
       <span className="px-2 text-xs font-medium text-muted-foreground">
         Robot program
       </span>
@@ -241,7 +231,7 @@ function SetupSeasonCallout({
   }
 
   return (
-    <div className="rounded-md border bg-card p-4">
+    <div className="rounded-lg border bg-card p-4">
       <h2 className="font-semibold">Start the robot season</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Seed editable subsystems and common material/tool tags for Team {teamNumber}.
@@ -268,7 +258,7 @@ function RequireSeason({
 
   if (!isLoading && !isAuthenticated) {
     return (
-      <div className="rounded-md border bg-card p-4 text-sm">
+      <div className="rounded-lg border bg-card p-4 text-sm">
         <p className="font-medium">Sign in to Dolphin Apps</p>
         <p className="mt-1 text-muted-foreground">
           Use your team account to open Dolphin Parts.
@@ -360,7 +350,7 @@ function PartCard({
   return (
     <Link
       to={`/parts/${part._id}`}
-      className="grid gap-3 rounded-md border bg-card p-3 transition-colors hover:bg-muted/50"
+      className="grid gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/50"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -391,8 +381,8 @@ export function DashboardRoute() {
         return (
           <>
             <PageHeader
-              title="Dashboard"
-              description="Live design, fab, order, and transmission status."
+              title="Robot build status"
+              description="Parts in design and fab, open orders, and transmissions."
               action={
                 <Button asChild><Link to="/parts"><BadgePlusIcon data-icon="inline-start" aria-hidden="true" />
                   Generate</Link></Button>
@@ -400,20 +390,19 @@ export function DashboardRoute() {
             />
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {([
-                ["Active parts", activeParts.length, PackageIcon],
-                ["Fab queue", overview.manufacturing.length, FactoryIcon],
-                ["Open orders", openOrders.length, ShoppingCartIcon],
-                ["Transmissions", overview.transmissions.length, GaugeIcon],
-              ] as Array<[string, number, LucideIcon]>).map(([label, value, Icon]) => (
-                <div key={label} className="rounded-md border bg-card p-4">
-                  <Icon className="mb-3 size-5 text-muted-foreground" aria-hidden="true" />
-                  <p className="text-2xl font-semibold">{value}</p>
+                ["Active parts", activeParts.length],
+                ["Fab queue", overview.manufacturing.length],
+                ["Open orders", openOrders.length],
+                ["Transmissions", overview.transmissions.length],
+              ] as Array<[string, number]>).map(([label, value]) => (
+                <div key={label} className="rounded-lg border bg-card p-4">
                   <p className="text-sm text-muted-foreground">{label}</p>
+                  <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{value}</p>
                 </div>
               ))}
             </div>
             <section className="mt-5 grid gap-3 lg:grid-cols-2">
-              <div className="rounded-md border bg-card p-4">
+              <div className="rounded-lg border bg-card p-4">
                 <h2 className="mb-3 font-semibold">Manufacturing queue</h2>
                 <div className="grid gap-2">
                   {overview.manufacturing.slice(0, 5).map((part) => (
@@ -429,7 +418,7 @@ export function DashboardRoute() {
                   {overview.manufacturing.length === 0 && <EmptyState>No parts are ready for fab.</EmptyState>}
                 </div>
               </div>
-              <div className="rounded-md border bg-card p-4">
+              <div className="rounded-lg border bg-card p-4">
                 <h2 className="mb-3 font-semibold">Subsystem BOM coverage</h2>
                 <div className="grid gap-2">
                   {overview.subsystems.map((subsystem) => {
@@ -554,28 +543,11 @@ export function PartsRoute() {
         return (
           <>
             <PageHeader
-              title="Parts workspace"
-              description="Generate part numbers, edit part details, and browse the robot system list."
+              title="Number and track robot parts"
+              description="Generate a part number, then track it from design through manufacturing."
             />
-            <section className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {([
-                ["Active parts", activeParts.length, PackageIcon],
-                ["In design", inDesignParts.length, PackageIcon],
-                ["Submitted", submittedParts.length, CheckCircle2Icon],
-                ["Ready for fab", readyParts.length, FactoryIcon],
-                ["Manufacturing", manufacturingParts.length, FactoryIcon],
-              ] as Array<[string, number, LucideIcon]>).map(([label, value, Icon]) => (
-                <div key={label} className="rounded-md border bg-card p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm text-muted-foreground">{label}</p>
-                    <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
-                  </div>
-                  <p className="mt-2 text-2xl font-semibold">{value}</p>
-                </div>
-              ))}
-            </section>
-            <section className="mb-4 max-w-xl">
-              <div className="rounded-md border bg-card p-4">
+            <section className="mb-8 max-w-xl">
+              <div className="rounded-lg border bg-card p-4">
                 <h2 className="font-semibold">Generate a part number</h2>
                 <form className="mt-3 grid gap-3" onSubmit={createPartNumber}>
                   <div className="grid gap-2">
@@ -608,12 +580,30 @@ export function PartsRoute() {
                       </p>
                     </div>
                   )}
-                  <Button type="submit">
+                  <Button type="submit" variant="cta">
                     <BadgePlusIcon data-icon="inline-start" aria-hidden="true" />
-                    Generate
+                    Generate part number
                   </Button>
                 </form>
               </div>
+            </section>
+            <section aria-label="Parts by stage" className="mb-6">
+              <p className="mb-2 text-sm text-muted-foreground">
+                <span className="font-semibold text-foreground tabular-nums">{activeParts.length}</span> active parts
+              </p>
+              <ol className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-4">
+                {([
+                  ["In design", inDesignParts.length],
+                  ["Submitted", submittedParts.length],
+                  ["Ready for fab", readyParts.length],
+                  ["Manufacturing", manufacturingParts.length],
+                ] as Array<[string, number]>).map(([label, value]) => (
+                  <li key={label} className="bg-card p-4">
+                    <p className="text-sm text-muted-foreground">{label}</p>
+                    <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{value}</p>
+                  </li>
+                ))}
+              </ol>
             </section>
             <Tabs defaultValue="parts" className="grid gap-4">
               <TabsList className="max-w-full overflow-x-auto">
@@ -642,9 +632,9 @@ export function PartsRoute() {
                 </Button>
               ))}
             </div>
-            <div className="hidden overflow-x-auto rounded-md border bg-card md:block">
+            <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
               <table className="w-full min-w-[980px] text-left text-sm">
-                <thead className="border-b bg-muted/70 text-xs uppercase text-muted-foreground">
+                <thead className="border-b bg-muted/70 text-xs font-medium text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 font-medium">Part number</th>
                     <th className="px-3 py-2 font-medium">Part name</th>
@@ -794,7 +784,7 @@ export function PartsRoute() {
                     );
 
                     return (
-                      <section key={subsystem._id} className="rounded-md border bg-card p-4">
+                      <section key={subsystem._id} className="rounded-lg border bg-card p-4">
                         <div className="mb-3 flex items-start justify-between gap-3">
                           <div>
                             <h2 className="font-semibold">{subsystem.letter} - {subsystem.name}</h2>
@@ -844,7 +834,7 @@ export function PartsRoute() {
               <TabsContent value="fab">
                 <div className="grid gap-3">
                   {overview.manufacturing.map((part) => (
-                    <div key={part._id} className="rounded-md border bg-card p-3">
+                    <div key={part._id} className="rounded-lg border bg-card p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <Link to={`/parts/${part._id}`} className="font-semibold hover:underline">
@@ -886,7 +876,7 @@ export function PartsRoute() {
               <TabsContent value="orders">
                 <div className="grid gap-3">
                   {overview.orders.map((order) => (
-                    <div key={order._id} className="rounded-md border bg-card p-3">
+                    <div key={order._id} className="rounded-lg border bg-card p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <h2 className="font-semibold">{order.itemName}</h2>
@@ -1022,7 +1012,7 @@ export function GeneratePartRoute() {
               description="Create a canonical part number and add the part to the fab queue."
             />
             <form className="grid gap-5 lg:grid-cols-[1fr_320px]" onSubmit={(event) => handleSubmit(event, submitMode)}>
-              <div className="grid gap-4 rounded-md border bg-card p-4">
+              <div className="grid gap-4 rounded-lg border bg-card p-4">
                 <div className="grid gap-2">
                   <Label htmlFor="name">Part name</Label>
                   <Input id="name" name="name" required placeholder="Drive rail left" />
@@ -1135,13 +1125,13 @@ export function GeneratePartRoute() {
                   <Textarea id="notes" name="notes" placeholder="Setup, tolerances, or fabrication notes" />
                 </div>
               </div>
-              <aside className="h-fit rounded-md border bg-card p-4">
+              <aside className="h-fit rounded-lg border bg-card p-4">
                 <h2 className="font-semibold">Design to fab</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Generate consumes the next subsystem number and marks the part ready for fab.
                 </p>
                 <div className="mt-4 grid gap-2">
-                  <Button type="submit" onClick={() => setSubmitMode("generate")}>
+                  <Button type="submit" variant="cta" onClick={() => setSubmitMode("generate")}>
                     <BadgePlusIcon data-icon="inline-start" aria-hidden="true" />
                     Generate part
                   </Button>
@@ -1169,7 +1159,7 @@ export function BomRoute() {
             {overview.subsystems.map((subsystem) => {
               const parts = overview.parts.filter((part) => part.subsystemId === subsystem._id);
               return (
-                <section key={subsystem._id} className="rounded-md border bg-card p-4">
+                <section key={subsystem._id} className="rounded-lg border bg-card p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="font-semibold">{subsystem.letter} - {subsystem.name}</h2>
                     <span className="text-sm text-muted-foreground">{parts.length} parts</span>
@@ -1218,7 +1208,7 @@ export function SystemListRoute() {
               );
 
               return (
-                <section key={subsystem._id} className="rounded-md border bg-card p-4">
+                <section key={subsystem._id} className="rounded-lg border bg-card p-4">
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
                       <h2 className="font-semibold">{subsystem.letter} - {subsystem.name}</h2>
@@ -1436,7 +1426,7 @@ export function ManufacturingRoute() {
                 setDragTarget(null);
               }}
               className={cn(
-                "relative overflow-hidden rounded-md border bg-card p-3 pl-4 text-sm shadow-sm transition-all",
+                "relative overflow-hidden rounded-lg border bg-card p-3 pl-4 text-sm transition-all",
                 "cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:border-brand-aqua/60 hover:shadow-md",
                 draggedPartId === part._id && "opacity-60",
               )}
@@ -1503,7 +1493,7 @@ export function ManufacturingRoute() {
               title="Manufacturing"
               description="Review, approval, and manufacturing status by subsystem or machine."
             />
-            <div className="mb-4 grid gap-3 rounded-md border bg-card p-3 shadow-sm md:grid-cols-2">
+            <div className="mb-4 grid gap-3 rounded-lg border bg-card p-3 md:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="manufacturing-group">View</Label>
                 <select
@@ -1537,7 +1527,7 @@ export function ManufacturingRoute() {
                 const groupParts = sortedParts.filter((part) => groupLabel(part) === groupName);
 
                 return (
-                  <section key={groupName} className="overflow-hidden rounded-md border bg-card shadow-sm">
+                  <section key={groupName} className="overflow-hidden rounded-lg border bg-card">
                     <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
                       <h2 className="font-semibold">{groupName}</h2>
                       <span className="rounded-md border px-2 py-1 text-sm text-muted-foreground">{groupParts.length} parts</span>
@@ -1593,7 +1583,7 @@ export function ManufacturingRoute() {
                               {columnParts.length === 0 && (
                                 <div
                                   className={cn(
-                                    "rounded-md border border-dashed bg-background/60 p-4 text-center text-xs text-muted-foreground",
+                                    "rounded-lg border border-dashed bg-background/60 p-4 text-center text-xs text-muted-foreground",
                                     draggedPart && canDropOnStatus(status) && "border-brand-aqua text-foreground",
                                   )}
                                 >
@@ -1750,7 +1740,7 @@ export function TransmissionsRoute() {
         return (
           <>
             <PageHeader title="Transmissions" description="Subsystem and mechanism reference for belts, chains, gears, and pivots." />
-            <form className="mb-4 grid gap-3 rounded-md border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={handleSubmit}>
+            <form className="mb-4 grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4" onSubmit={handleSubmit}>
               <div className="grid gap-2 sm:col-span-2 lg:col-span-4">
                 <Label>Subsystem</Label>
                 <div className="flex gap-2 overflow-x-auto pb-1">
@@ -1804,7 +1794,7 @@ export function TransmissionsRoute() {
             </form>
             <div className="grid gap-3">
               {transmissionsBySubsystem.map(({ subsystem, transmissions }) => (
-                <section key={subsystem._id} className="rounded-md border bg-card p-3">
+                <section key={subsystem._id} className="rounded-lg border bg-card p-3">
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <div>
                       <h2 className="font-semibold">{subsystem.letter} - {subsystem.name}</h2>
@@ -1900,7 +1890,7 @@ export function OrdersRoute() {
         return (
           <>
             <PageHeader title="Orders" description="Student requests tracked from requested to delivered." />
-            <form className="mb-4 grid gap-3 rounded-md border bg-card p-4 sm:grid-cols-2 lg:grid-cols-5" onSubmit={handleSubmit}>
+            <form className="mb-4 grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-2 lg:grid-cols-5" onSubmit={handleSubmit}>
               <Input name="itemName" placeholder="Item name" required />
               <Input name="vendor" placeholder="Vendor" />
               <Input name="url" type="url" placeholder="Product URL" />
@@ -1914,7 +1904,7 @@ export function OrdersRoute() {
             </form>
             <div className="grid gap-3">
               {overview.orders.map((order) => (
-                <div key={order._id} className="rounded-md border bg-card p-3">
+                <div key={order._id} className="rounded-lg border bg-card p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="font-semibold">{order.itemName}</h2>
@@ -2026,7 +2016,7 @@ export function PartDetailRoute() {
       />
       <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         <section className="grid gap-4">
-          <div className="rounded-md border bg-card p-4">
+          <div className="rounded-lg border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
               <StatusPill status={part.status} />
               <span className="text-sm text-muted-foreground">Qty {part.quantity}</span>
@@ -2046,7 +2036,7 @@ export function PartDetailRoute() {
               {part.onshapeDrawingUrl && <Button size="sm" className="w-full sm:w-auto" variant="outline" asChild><a href={part.onshapeDrawingUrl} target="_blank" rel="noreferrer">Drawing</a></Button>}
             </div>
           </div>
-          <form className="grid gap-4 rounded-md border bg-card p-4" onSubmit={savePart}>
+          <form className="grid gap-4 rounded-lg border bg-card p-4" onSubmit={savePart}>
             <div>
               <h2 className="font-semibold">Edit part details</h2>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -2141,7 +2131,7 @@ export function PartDetailRoute() {
               Save changes
             </Button>
           </form>
-          <div className="rounded-md border bg-card p-4">
+          <div className="rounded-lg border bg-card p-4">
             <h2 className="mb-3 font-semibold">Lifecycle</h2>
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {partStatuses.map((status) => {
@@ -2178,7 +2168,7 @@ export function PartDetailRoute() {
               })}
             </div>
           </div>
-          <div className="rounded-md border bg-card p-4">
+          <div className="rounded-lg border bg-card p-4">
             <h2 className="mb-3 font-semibold">Events</h2>
             <div className="grid gap-2">
               {detail.events.map((event) => (
@@ -2192,7 +2182,7 @@ export function PartDetailRoute() {
           </div>
         </section>
         <aside className="grid h-fit gap-4">
-          <div className="rounded-md border bg-card p-4">
+          <div className="rounded-lg border bg-card p-4">
             <h2 className="mb-3 font-semibold">BOM children</h2>
             <div className="grid gap-2">
               {detail.children.map((link) => {
@@ -2206,7 +2196,7 @@ export function PartDetailRoute() {
               {detail.children.length === 0 && <EmptyState>No child parts linked.</EmptyState>}
             </div>
           </div>
-          <div className="rounded-md border bg-card p-4">
+          <div className="rounded-lg border bg-card p-4">
             <h2 className="mb-3 font-semibold">Add child</h2>
             <div className="grid max-h-80 gap-2 overflow-auto">
               {candidateChildren.slice(0, 30).map((candidate) => (
@@ -2307,7 +2297,7 @@ export function AdminRoute() {
               action={<Button onClick={seed}><SettingsIcon data-icon="inline-start" aria-hidden="true" />Seed defaults</Button>}
             />
             <div className="grid gap-4 lg:grid-cols-2">
-              <section className="rounded-md border bg-card p-4">
+              <section className="rounded-lg border bg-card p-4">
                 <h2 className="mb-3 font-semibold">Subsystems</h2>
                 <form className="mb-3 grid grid-cols-[80px_1fr_auto] gap-2" onSubmit={addSubsystem}>
                   <Input name="letter" placeholder="D" required />
@@ -2323,7 +2313,7 @@ export function AdminRoute() {
                   ))}
                 </div>
               </section>
-              <section className="rounded-md border bg-card p-4">
+              <section className="rounded-lg border bg-card p-4">
                 <h2 className="mb-3 font-semibold">Material tags</h2>
                 <form className="mb-3 grid grid-cols-[1fr_auto] gap-2" onSubmit={addCatalog}>
                   <Input name="label" placeholder="Carbon fiber plate" required />
@@ -2331,7 +2321,7 @@ export function AdminRoute() {
                 </form>
                 <p className="text-sm text-muted-foreground">Additional tools, bits, and storage locations can use the same catalog mutation in a later UI pass.</p>
               </section>
-              <section className="rounded-md border bg-card p-4 lg:col-span-2">
+              <section className="rounded-lg border bg-card p-4 lg:col-span-2">
                 <h2 className="mb-3 font-semibold">Profiles</h2>
                 <div className="grid gap-2">
                   {(profiles ?? []).map((profile) => (

@@ -33,6 +33,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import { validateProfileContent } from "@convex/lib/profanity";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 function initials(nameOrEmail?: string | null) {
   if (!nameOrEmail) {
@@ -289,8 +290,7 @@ export function ProfilePage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Profile"
-        title="My profile"
+        title="Your profile"
         description="Update your public profile and review your training achievements."
       />
 
@@ -361,7 +361,7 @@ export function ProfilePage() {
                     />
                     <p className="text-sm text-muted-foreground">
                       {isUploadingAvatar
-                        ? "Uploading image..."
+                        ? "Uploading image…"
                         : "Choose an image, then save your profile."}
                     </p>
                   </div>
@@ -414,7 +414,7 @@ export function ProfilePage() {
                   disabled={isSavingProfile || isUploadingAvatar || !!profileContentIssue}
                 >
                   <Save className="size-4" />
-                  {isSavingProfile ? "Saving..." : "Save profile"}
+                  {isSavingProfile ? "Saving…" : "Save profile"}
                 </Button>
               </CardContent>
                 </Card>
@@ -509,11 +509,11 @@ export function ProfilePage() {
                         disabled={isSavingSecurity || !!usernameIssue}
                       >
                         <KeyRound className="size-4" />
-                        {isSavingSecurity ? "Saving..." : "Save security"}
+                        {isSavingSecurity ? "Saving…" : "Save security"}
                       </Button>
                     </form>
                   ) : (
-                    <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                    <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
                       This profile is not linked to a provisioned username account.
                     </div>
                   )}
@@ -583,7 +583,7 @@ export function ProfilePage() {
                     </Link>
                   ))}
                   {trackStats.length === 0 && (
-                    <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                    <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
                       No learning tracks available yet.
                     </div>
                   )}
@@ -629,12 +629,10 @@ export function ProfilePage() {
               </CardHeader>
               <CardContent className="space-y-3 px-5 py-5">
                 {awards === undefined && (
-                  <div className="rounded-md border p-3 text-sm text-muted-foreground">
-                    Loading badges...
-                  </div>
+                  <ListSkeleton label="Loading badges" />
                 )}
                 {awards?.length === 0 && (
-                  <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">
+                  <div className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
                     No badges earned yet.
                   </div>
                 )}

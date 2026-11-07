@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   Trash2,
   Upload,
-  Wrench,
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -44,6 +43,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 
 type QuestionType =
   | "multiple_choice"
@@ -723,21 +723,12 @@ export function EquipmentDetailPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Equipment"
-          title="Equipment sign-offs"
-          description="Loading equipment records."
-        />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Equipment"
         title={equipmentRecord?.name ?? "Equipment details"}
         description="Manage this tool's video, safety test, and hands-on demonstration requirements."
         actions={
@@ -764,12 +755,7 @@ export function EquipmentDetailPage() {
       <Authenticated>
         <div className="space-y-4">
           {equipment === undefined && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Loading equipment</CardTitle>
-                <CardDescription>Fetching tool records and safety tests.</CardDescription>
-              </CardHeader>
-            </Card>
+            <ListSkeleton label="Loading equipment" />
           )}
 
           {equipment?.length === 0 && (
@@ -802,7 +788,6 @@ export function EquipmentDetailPage() {
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Wrench className="size-5 text-primary" />
                         <CardTitle>{item.name}</CardTitle>
                         <Badge variant={item.isActive ? "default" : "secondary"}>
                           {item.isActive ? "Active" : "Inactive"}
@@ -922,7 +907,7 @@ export function EquipmentDetailPage() {
                             disabled={completingVideoId === item._id}
                           >
                             <CheckCircle2 className="size-4" />
-                            {completingVideoId === item._id ? "Saving..." : "Mark video complete"}
+                            {completingVideoId === item._id ? "Saving…" : "Mark video complete"}
                           </Button>
                         )}
                       </div>
@@ -1112,14 +1097,13 @@ export function EquipmentDetailPage() {
                           <div className="mt-4 flex justify-end">
                             <Button
                               type="button"
+                              variant="cta"
                               onClick={() => void handleSubmitSafetyTest(item)}
-                              disabled={submittingTestId === item._id}
+                              pending={submittingTestId === item._id}
                               className="w-full sm:w-auto"
                             >
-                              <ClipboardCheck className="size-4" />
-                              {submittingTestId === item._id
-                                ? "Submitting..."
-                                : "Submit safety test"}
+                              {submittingTestId !== item._id && <ClipboardCheck className="size-4" />}
+                              Submit safety test
                             </Button>
                           </div>
                         </div>
@@ -1260,7 +1244,7 @@ export function EquipmentDetailPage() {
                           <Button asChild variant="outline">
                             <label>
                               <Upload className="size-4" />
-                              {uploadingSopId === item._id ? "Uploading..." : "Upload SOP"}
+                              {uploadingSopId === item._id ? "Uploading…" : "Upload SOP"}
                               <input
                                 type="file"
                                 multiple
@@ -1593,9 +1577,7 @@ export function EquipmentDetailPage() {
                           </p>
                         </div>
                         {usersReadyForSignOff === undefined && (
-                          <p className="text-sm text-muted-foreground">
-                            Loading passed safety tests...
-                          </p>
+                          <ListSkeleton label="Loading passed safety tests" />
                         )}
                         {usersReadyForSignOff?.length === 0 && (
                           <div className="rounded-md border p-4 text-sm text-muted-foreground">
@@ -1647,7 +1629,7 @@ export function EquipmentDetailPage() {
                           disabled={savingEquipmentId === item._id}
                         >
                           <Save className="size-4" />
-                          {savingEquipmentId === item._id ? "Saving..." : "Save equipment"}
+                          {savingEquipmentId === item._id ? "Saving…" : "Save equipment"}
                         </Button>
                       </div>
                     </div>

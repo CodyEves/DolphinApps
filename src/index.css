@@ -3,6 +3,20 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Dolphin Apps design system
+ *
+ * Type:    Archivo (headings, semi-condensed), IBM Plex Sans (body),
+ *          IBM Plex Mono (identifiers only: part numbers, codes, usernames).
+ * Color:   Neutrals lean toward the team navy. Primary is ocean blue for
+ *          interactive things. Signal orange is the one accent: it marks the
+ *          main call to action on a page and nothing else.
+ * Radius:  sm 6 / md 8 / lg 12 / xl 16. Nested corners follow
+ *          inner = outer - padding, e.g. a 12px panel with 4px padding holds
+ *          8px items (see TabsList and the segmented controls).
+ * Spacing: 4px steps. Items in a group sit 8-12px apart; groups sit 24-32px apart.
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -18,6 +32,11 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-cta: var(--cta);
+  --color-cta-hover: var(--cta-hover);
+  --color-cta-foreground: var(--cta-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
@@ -28,65 +47,116 @@
   --color-brand-orange: var(--brand-orange);
   --font-sans: var(--font-sans);
   --font-heading: var(--font-heading);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --font-mono: var(--font-mono);
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --animate-pop: pop 320ms cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  --animate-shake: shake 360ms ease-in-out;
+  --animate-rise: rise 220ms ease-out;
 }
 
 :root {
-  --radius: 0.5rem;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --radius: 12px;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: "Archivo", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   --brand-navy: #0f2742;
   --brand-blue: #1769aa;
-  --brand-aqua: #18a9c7;
-  --brand-orange: #d97706;
-  --background: #f7f9fc;
-  --foreground: #111827;
+  --brand-aqua: #13809a;
+  --brand-orange: #c2560f;
+  --background: #f5f7fa;
+  --foreground: #0e1a2b;
   --card: #ffffff;
-  --card-foreground: #111827;
+  --card-foreground: #0e1a2b;
   --popover: #ffffff;
-  --popover-foreground: #111827;
+  --popover-foreground: #0e1a2b;
   --primary: #155e91;
   --primary-foreground: #ffffff;
-  --secondary: #eaf1f7;
-  --secondary-foreground: #17324d;
-  --muted: #eef2f6;
-  --muted-foreground: #5d6b7c;
-  --accent: #e8f5f8;
-  --accent-foreground: #102a43;
+  --secondary: #e8eef5;
+  --secondary-foreground: #15304d;
+  --muted: #edf1f6;
+  --muted-foreground: #475569;
+  --accent: #e6f1f7;
+  --accent-foreground: #0e1a2b;
+  --cta: #d9600f;
+  --cta-hover: #bf520b;
+  --cta-foreground: #ffffff;
+  --success: #15803d;
+  --warning: #b45309;
   --destructive: #b42318;
-  --border: #d8e1ea;
-  --input: #cbd7e3;
-  --ring: #2d8bb8;
-  --shadow-card: 0 1px 2px rgba(15, 39, 66, 0.05);
+  --border: #d5dee8;
+  --input: #c3d0dd;
+  --ring: #1f7fb8;
 }
 
 .dark {
   --brand-navy: #091522;
-  --brand-blue: #60a5fa;
-  --brand-aqua: #2dd4bf;
-  --brand-orange: #f59e0b;
+  --brand-blue: #6cb2f2;
+  --brand-aqua: #4fd1e0;
+  --brand-orange: #ff9a4d;
   --background: #0b1119;
-  --foreground: #f4f7fb;
-  --card: #101923;
-  --card-foreground: #f4f7fb;
-  --popover: #121d29;
-  --popover-foreground: #f4f7fb;
-  --primary: #60a5fa;
-  --primary-foreground: #07111d;
-  --secondary: #182536;
+  --foreground: #eef3f8;
+  --card: #111a25;
+  --card-foreground: #eef3f8;
+  --popover: #141f2c;
+  --popover-foreground: #eef3f8;
+  --primary: #6cb2f2;
+  --primary-foreground: #06121f;
+  --secondary: #1a2738;
   --secondary-foreground: #e6edf5;
   --muted: #172231;
-  --muted-foreground: #a8b4c2;
-  --accent: #15313c;
-  --accent-foreground: #e9fbff;
+  --muted-foreground: #b3bfcc;
+  --accent: #1a2c3d;
+  --accent-foreground: #eef3f8;
+  --cta: #ff8a3d;
+  --cta-hover: #ffa463;
+  --cta-foreground: #1a0d03;
+  --success: #4ade80;
+  --warning: #fbbf24;
   --destructive: #f87171;
-  --border: rgb(209 221 232 / 20%);
+  --border: rgb(209 221 232 / 16%);
   --input: rgb(209 221 232 / 22%);
-  --ring: #5eead4;
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --ring: #6cb2f2;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(4px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @layer base {
@@ -96,26 +166,37 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--brand-blue) 5%, transparent), transparent 18rem),
-      var(--background);
     font-family: var(--font-sans);
+    font-feature-settings: "ss02";
   }
 
   h1,
   h2,
-  h3 {
+  h3,
+  h4 {
     font-family: var(--font-heading);
-    color: color-mix(in srgb, var(--foreground) 94%, var(--brand-navy));
-    letter-spacing: -0.02em;
+    color: var(--foreground);
+    font-stretch: 87.5%;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 
   a {
     text-underline-offset: 0.18em;
   }
 
+  code,
+  kbd,
+  samp {
+    font-family: var(--font-mono);
+  }
+
   ::selection {
-    background: color-mix(in srgb, var(--brand-aqua) 35%, transparent);
+    background: color-mix(in srgb, var(--primary) 30%, transparent);
   }
 
   button,
@@ -123,5 +204,31 @@
   textarea,
   select {
     font: inherit;
+  }
+
+  /* Native selects across the app share the input look. */
+  select {
+    accent-color: var(--primary);
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--primary);
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
   }
 }

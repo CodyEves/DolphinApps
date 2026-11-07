@@ -2,11 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import {
   CheckCircle2,
-  ClipboardCheck,
   ExternalLink,
-  FileCheck2,
-  LockKeyhole,
-  Wrench,
   XCircle,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -26,6 +22,7 @@ import { canReviewLearning } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 
 function formatDate(timestamp: number | undefined) {
   if (!timestamp) {
@@ -82,28 +79,18 @@ export function ReviewsPage() {
   const totalCount = lessonCount + handsOnCount;
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Reviews"
-          title="Review queue"
-          description="Loading items that need attention."
-        />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!isAuthenticated || !isReviewer) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Reviews"
-          title="Review queue"
+          title="Tool checks and files to review"
           description="Review file submissions and hands-on equipment checks."
         />
         <Card>
           <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Review access required</CardTitle>
             <CardDescription>
               Sign in with an admin or mentor account to review student work.
@@ -117,19 +104,15 @@ export function ReviewsPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Reviews"
-        title="Review queue"
+        title="Tool checks and files to review"
         description="Approve uploaded lesson files and verify hands-on equipment demonstrations."
         actions={<Badge variant={totalCount > 0 ? "default" : "outline"}>{totalCount} open</Badge>}
       />
 
       <div className="space-y-5">
-        <div className="rounded-md border bg-card px-5 py-4 shadow-sm">
+        <div className="rounded-lg border bg-card px-5 py-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
-                <ClipboardCheck className="size-5" />
-              </span>
               <div>
                 <h2 className="font-semibold">Review desk</h2>
                 <p className="text-sm text-muted-foreground">
@@ -160,7 +143,6 @@ export function ReviewsPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <FileCheck2 className="size-5 text-primary" />
                   Lesson file submissions
                 </CardTitle>
                 <CardDescription>Student uploads waiting for review.</CardDescription>
@@ -170,11 +152,10 @@ export function ReviewsPage() {
           </CardHeader>
           <CardContent className="space-y-3 px-5 py-5">
             {queue === undefined && (
-              <p className="text-sm text-muted-foreground">Loading submissions...</p>
+              <ListSkeleton label="Loading submissions" />
             )}
             {queue?.lessonSubmissions.length === 0 && (
-              <div className="rounded-md border border-dashed bg-muted/20 p-5 text-center text-sm text-muted-foreground">
-                <FileCheck2 className="mx-auto mb-2 size-7 text-primary" />
+              <div className="rounded-lg border border-dashed bg-muted/20 p-5 text-center text-sm text-muted-foreground">
                 No lesson files need review.
               </div>
             )}
@@ -234,7 +215,6 @@ export function ReviewsPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <Wrench className="size-5 text-primary" />
                   Hands-on verifications
                 </CardTitle>
                 <CardDescription>Passed safety tests waiting for practical sign-off.</CardDescription>
@@ -244,11 +224,10 @@ export function ReviewsPage() {
           </CardHeader>
           <CardContent className="space-y-3 px-5 py-5">
             {queue === undefined && (
-              <p className="text-sm text-muted-foreground">Loading verifications...</p>
+              <ListSkeleton label="Loading verifications" />
             )}
             {queue?.handsOnReviews.length === 0 && (
-              <div className="rounded-md border border-dashed bg-muted/20 p-5 text-center text-sm text-muted-foreground">
-                <Wrench className="mx-auto mb-2 size-7 text-primary" />
+              <div className="rounded-lg border border-dashed bg-muted/20 p-5 text-center text-sm text-muted-foreground">
                 No hands-on verifications need review.
               </div>
             )}

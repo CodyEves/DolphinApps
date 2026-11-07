@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useProgramView } from "@/hooks/use-program-view";
@@ -37,7 +36,6 @@ type LauncherApp = {
   title?: string;
   description: string;
   icon: LucideIcon;
-  iconClassName: string;
   managementOnly?: boolean;
 };
 
@@ -47,42 +45,36 @@ const apps: LauncherApp[] = [
     title: "All apps",
     description: "Home screen",
     icon: Home,
-    iconClassName: "bg-primary text-primary-foreground",
   },
   {
     href: "/dashboard",
     titleKey: "trainingTitle",
     description: "Lessons, safety, badges",
     icon: GraduationCap,
-    iconClassName: "bg-brand-blue text-white",
   },
   {
     href: "/tools",
     title: "Shop Tools",
     description: "SOPs, sign-offs, readers",
     icon: Wrench,
-    iconClassName: "bg-brand-navy text-white",
   },
   {
     href: "/parts",
     titleKey: "partsTitle",
     description: "Parts, BOMs, fab",
     icon: Package,
-    iconClassName: "bg-brand-orange text-white",
   },
   {
     href: "/shop",
     title: "Shop Attendance",
     description: "Sign-ins, hours",
     icon: Clock,
-    iconClassName: "bg-brand-aqua text-brand-navy",
   },
   {
     href: "/batteries",
     title: "Batteries",
     description: "Uses, Beak, analyzer",
     icon: BatteryCharging,
-    iconClassName: "bg-emerald-600 text-white",
   },
   {
     href: "/management",
@@ -90,7 +82,6 @@ const apps: LauncherApp[] = [
     title: "Management",
     description: "Reviews, badges, team admin",
     icon: Settings,
-    iconClassName: "bg-brand-navy text-white",
     managementOnly: true,
   },
 ];
@@ -162,8 +153,8 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
           )}
           aria-label="Open Dolphin apps"
         >
-          <span className="flex size-9 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-[0_0_24px_rgba(56,189,248,0.35)]">
-            <Grid3X3 className="size-5" />
+          <span className="flex size-9 items-center justify-center rounded-lg border bg-card text-foreground">
+            <Grid3X3 className="size-4" />
           </span>
           {!collapsed && (
             <span className="min-w-0 text-left">
@@ -180,12 +171,9 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
       <DropdownMenuContent
         align="start"
         sideOffset={8}
-        className="w-[calc(100vw-2rem)] max-w-80 p-3"
+        className="w-[calc(100vw-2rem)] max-w-80 p-1"
       >
-        <DropdownMenuLabel className="px-1 pb-2 pt-0 text-xs text-muted-foreground">
-          Apps
-        </DropdownMenuLabel>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1">
           {visibleApps.map((app) => {
             const Icon = app.icon;
             const isActive = isActiveApp(location.pathname, app.href);
@@ -198,18 +186,11 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
                 onClick={onSelect}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "group grid min-h-28 place-items-center gap-2 rounded-md border border-transparent p-3 text-center outline-none transition-all hover:border-brand-aqua/30 hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
-                  isActive && "border-brand-aqua/40 bg-accent text-accent-foreground shadow-sm",
+                  "group flex min-h-24 flex-col items-start justify-between gap-3 rounded-md p-3 text-left outline-none transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
+                  isActive && "bg-accent text-accent-foreground",
                 )}
               >
-                <span
-                  className={cn(
-                    "grid size-12 place-items-center rounded-md shadow-sm",
-                    app.iconClassName,
-                  )}
-                >
-                  <Icon className="size-6" />
-                </span>
+                <Icon className={cn("size-5", isActive ? "text-primary" : "text-muted-foreground")} aria-hidden />
                 <span className="grid gap-0.5">
                   <span className="text-sm font-medium leading-5">
                     {title}

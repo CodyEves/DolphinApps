@@ -1,6 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowRight, ClipboardCheck, LayoutGrid, Pencil, Sparkles } from "lucide-react";
+import { ArrowRight, ClipboardCheck, LayoutGrid, Pencil } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 type SkillRow = {
   _id: Id<"learningSkills">;
@@ -115,8 +116,7 @@ export function LearningHomePage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Learning"
-        title="Build your skills"
+        title="Your skills by path"
         description="Pick your path, work through the skills at your own pace, and prove each one with a self-check, a quiz, or a mentor sign-off."
         actions={actions}
       />
@@ -124,7 +124,6 @@ export function LearningHomePage() {
       {!isLoading && !isAuthenticated && (
         <Card className="border-dashed">
           <CardHeader className="items-center text-center">
-            <Sparkles className="size-6 text-primary" />
             <CardTitle>Sign in to see your skills</CardTitle>
             <CardDescription>Your progress is saved to your team account.</CardDescription>
           </CardHeader>
@@ -132,13 +131,12 @@ export function LearningHomePage() {
       )}
 
       {isAuthenticated && data === undefined && (
-        <p className="text-sm text-muted-foreground">Loading your skills…</p>
+        <ListSkeleton label="Loading your skills" />
       )}
 
       {data && paths.length === 0 && (
         <Card className="border-dashed">
           <CardHeader className="items-center gap-3 text-center">
-            <Sparkles className="size-6 text-primary" />
             <CardTitle>No skills yet</CardTitle>
             <CardDescription className="max-w-md">
               {data.canEdit
@@ -146,8 +144,8 @@ export function LearningHomePage() {
                 : "Your mentors haven't published any skills yet. Check back soon."}
             </CardDescription>
             {data.canEdit && (
-              <Button onClick={handleSeed} disabled={isSeeding}>
-                {isSeeding ? "Loading…" : "Load starter skills"}
+              <Button onClick={handleSeed} pending={isSeeding}>
+                {"Load starter skills"}
               </Button>
             )}
           </CardHeader>
@@ -224,7 +222,7 @@ function PathPanel({
 
   return (
     <div className="grid gap-6">
-      <section className="grid gap-4 rounded-lg border bg-card p-5 shadow-sm lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-center">
+      <section className="grid gap-4 rounded-lg border bg-card p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-center">
         <div className="min-w-0 space-y-4">
           <div className="space-y-1.5">
             <h2 className="text-xl font-semibold">{title}</h2>
@@ -250,7 +248,7 @@ function PathPanel({
         <div className={cn("rounded-md p-4", palette.soft)}>
           {upNext ? (
             <div className="space-y-3">
-              <p className={cn("text-xs font-semibold uppercase tracking-[0.08em]", palette.text)}>
+              <p className={cn("text-sm font-semibold", palette.text)}>
                 {upNext.status === "needs_work" ? "Fix this next" : "Up next"} · {upNext.stage}
               </p>
               <p className="text-sm font-semibold leading-snug">{upNext.title}</p>
@@ -258,7 +256,7 @@ function PathPanel({
                 <span className="text-xs text-muted-foreground">
                   {formatMinutes(upNext.estimatedMinutes)} · <CheckTypeLabel checkType={upNext.checkType} />
                 </span>
-                <Button asChild size="sm">
+                <Button asChild variant="cta">
                   <Link to={`/training/skills/${upNext._id}`}>
                     {canTrackProgress ? "Start" : "Open"}
                     <ArrowRight className="size-4" />
@@ -268,7 +266,7 @@ function PathPanel({
             </div>
           ) : (
             <div className="space-y-1">
-              <p className={cn("text-xs font-semibold uppercase tracking-[0.08em]", palette.text)}>
+              <p className={cn("text-sm font-semibold", palette.text)}>
                 {counts.waiting > 0 ? "Almost there" : "Path complete"}
               </p>
               <p className="text-sm">
@@ -314,7 +312,7 @@ function PathPanel({
                                 ? "text-amber-600 dark:text-amber-400"
                                 : skill.status === "needs_work"
                                   ? "text-rose-600 dark:text-rose-400"
-                                  : "text-muted-foreground/60",
+                                  : "text-muted-foreground",
                           )}
                           aria-hidden
                         />

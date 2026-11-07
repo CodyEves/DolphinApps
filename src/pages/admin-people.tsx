@@ -7,13 +7,11 @@ import {
   Copy,
   GraduationCap,
   KeyRound,
-  LockKeyhole,
   MoreHorizontal,
   Plus,
   RotateCcw,
   Save,
   Search,
-  SlidersHorizontal,
   Trash2,
   Upload,
   Users,
@@ -59,6 +57,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 
 type AccountLabel =
   | "varsity_5199"
@@ -734,22 +733,13 @@ export function AdminPeoplePage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Admin"
-          title="People"
-          description="Loading user management."
-        />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Admin"
-        title="People"
+        title="Team accounts"
         description="Manage provisioned usernames, setup links, password recovery, and account labels."
         actions={
           <Button asChild variant="outline">
@@ -764,7 +754,6 @@ export function AdminPeoplePage() {
       <Unauthenticated>
         <Card>
           <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Sign in required</CardTitle>
             <CardDescription>
               User management requires an authenticated admin account.
@@ -777,7 +766,6 @@ export function AdminPeoplePage() {
         {!isAdmin ? (
           <Card>
             <CardHeader>
-              <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Admin access required</CardTitle>
               <CardDescription>
                 The server currently sees this profile as {viewer?.profile.role ?? "unknown"} /{" "}
@@ -792,7 +780,7 @@ export function AdminPeoplePage() {
                   disabled={isRefreshingAdminAccess}
                 >
                   <RotateCcw className="size-4" />
-                  {isRefreshingAdminAccess ? "Refreshing..." : "Refresh admin access"}
+                  {isRefreshingAdminAccess ? "Refreshing…" : "Refresh admin access"}
                 </Button>
               </CardContent>
             )}
@@ -829,7 +817,6 @@ export function AdminPeoplePage() {
             {createdLinks.length > 0 && (
               <Card>
                 <CardHeader>
-                  <Copy className="size-5 text-primary" />
                   <CardTitle>Generated links</CardTitle>
                   <CardDescription>
                     Copy these now. The app stores only token hashes.
@@ -896,7 +883,6 @@ export function AdminPeoplePage() {
               <TabsContent value="directory" className="space-y-4">
                 <Card>
                   <CardHeader>
-                    <SlidersHorizontal className="size-5 text-primary" />
                     <CardTitle>Find accounts</CardTitle>
                     <CardDescription>
                       Search, filter, and sort the roster before making account changes.
@@ -1042,7 +1028,6 @@ export function AdminPeoplePage() {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <div className="flex items-center gap-2">
-                          <KeyRound className="size-5 text-primary" />
                           <CardTitle>Provisioned accounts</CardTitle>
                         </div>
                         <CardDescription>
@@ -1084,7 +1069,7 @@ export function AdminPeoplePage() {
                   </CardHeader>
                   <CardContent className="p-0">
                     {accounts === undefined && (
-                      <p className="p-5 text-sm text-muted-foreground">Loading provisioned accounts...</p>
+                      <ListSkeleton label="Loading provisioned accounts" />
                     )}
                     {accounts?.length === 0 && (
                       <div className="m-5 rounded-md border p-4 text-sm text-muted-foreground">
@@ -1100,7 +1085,7 @@ export function AdminPeoplePage() {
                       <>
                         <div className="overflow-x-auto">
                           <table className="w-full text-sm">
-                            <thead className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                            <thead className="border-b bg-muted/40 text-left text-xs font-medium text-muted-foreground">
                               <tr>
                                 <th className="px-4 py-3 font-medium">Name</th>
                                 <th className="px-4 py-3 font-medium">Account ID</th>
@@ -1444,7 +1429,7 @@ export function AdminPeoplePage() {
                                   </Button>
                                 </div>
                                 {activeLinks.length === 0 ? (
-                                  <div className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+                                  <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
                                     No active one-time links.
                                   </div>
                                 ) : (
@@ -1513,7 +1498,6 @@ export function AdminPeoplePage() {
               <TabsContent value="provision">
                 <Card>
                   <CardHeader>
-                    <Plus className="size-5 text-primary" />
                     <CardTitle>Provision account</CardTitle>
                     <CardDescription>
                       Generate a username and one-time setup link.
@@ -1602,7 +1586,6 @@ export function AdminPeoplePage() {
               <TabsContent value="bulk">
                 <Card>
                   <CardHeader>
-                    <Upload className="size-5 text-primary" />
                     <CardTitle>Bulk import</CardTitle>
                     <CardDescription>
                       CSV columns: firstName, lastName, role, program, graduationYear.
@@ -1625,7 +1608,6 @@ export function AdminPeoplePage() {
               <TabsContent value="classes">
                 <Card>
                   <CardHeader>
-                    <GraduationCap className="size-5 text-primary" />
                     <CardTitle>Class tools</CardTitle>
                     <CardDescription>
                       Deactivate graduating students or use the directory filters to move students between 9271 and 5199.
@@ -1684,7 +1666,6 @@ export function AdminPeoplePage() {
               <TabsContent value="profiles">
                 <Card>
                   <CardHeader>
-                    <Users className="size-5 text-primary" />
                     <CardTitle>Profiles</CardTitle>
                     <CardDescription>
                       Assign active profiles to the correct team or access group.
@@ -1709,7 +1690,7 @@ export function AdminPeoplePage() {
                       </Button>
                     </div>
                     {users === undefined && (
-                      <p className="text-sm text-muted-foreground">Loading users...</p>
+                      <ListSkeleton label="Loading users" />
                     )}
                     {users?.length === 0 && (
                       <div className="rounded-md border p-4 text-sm text-muted-foreground">

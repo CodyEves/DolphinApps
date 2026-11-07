@@ -75,7 +75,7 @@ export function MissionGraphic({
       <div className="absolute inset-x-0 bottom-0 h-20 bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--brand-aqua)_16%,transparent)_0_8px,transparent_8px_18px)]" />
       <div className="relative z-10 flex h-full flex-col justify-between">
         <div className="flex items-center justify-between">
-          <span className="rounded-md border bg-card/90 px-2 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
+          <span className="rounded-lg border bg-card/90 px-2 py-1 text-[11px] font-semibold tracking-wider text-muted-foreground">
             {config.badge}
           </span>
           <span className={cn("grid size-10 place-items-center rounded-md", config.secondary)}>

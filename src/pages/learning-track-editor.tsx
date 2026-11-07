@@ -44,6 +44,7 @@ import { canManageTrainingContent } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { PageSkeleton } from "@/components/ui/skeleton";
 
 type TrackLevel = "intro" | "intermediate" | "advanced";
 
@@ -340,22 +341,13 @@ export function LearningTrackEditorPage() {
   }
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Learning"
-          title={pageTitle}
-          description="Loading the learning track editor."
-        />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!isAuthenticated) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Learning"
           title="Create a new learning track"
           description="Sign in with an admin account to create learning tracks."
         />
@@ -372,22 +364,13 @@ export function LearningTrackEditorPage() {
   }
 
   if (viewer === undefined || (trackId && existingTrack === undefined)) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Learning"
-          title={pageTitle}
-          description="Loading the learning track editor."
-        />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!canEditContent) {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Learning"
           title="Admin access required"
           description="Only admins and leads can create or edit learning tracks."
           actions={
@@ -407,7 +390,6 @@ export function LearningTrackEditorPage() {
     return (
       <div className="mx-auto max-w-6xl">
         <PageHeading
-          eyebrow="Learning"
           title="Learning track not found"
           description="This track may have been removed."
           actions={
@@ -426,7 +408,6 @@ export function LearningTrackEditorPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Learning"
         title={pageTitle}
         description="Build the course outline, create assignments, and open the lesson builder from one workspace."
         actions={
@@ -440,7 +421,7 @@ export function LearningTrackEditorPage() {
               disabled={isPublishing || isDeletingTrack}
             >
               <CheckCircle2 className="size-4" />
-              {isPublishing ? "Publishing..." : "Publish"}
+              {isPublishing ? "Publishing…" : "Publish"}
             </Button>
             {currentTrackId && isAdmin && (
               <Button
@@ -450,7 +431,7 @@ export function LearningTrackEditorPage() {
                 disabled={isDeletingTrack || isPublishing}
               >
                 <Trash2 className="size-4" />
-                {isDeletingTrack ? "Deleting..." : "Delete track"}
+                {isDeletingTrack ? "Deleting…" : "Delete track"}
               </Button>
             )}
             <Button asChild variant="outline">
@@ -556,9 +537,9 @@ export function LearningTrackEditorPage() {
               </Select>
             </div>
             <div className="flex flex-col gap-2 md:col-span-2 sm:flex-row sm:items-center">
-              <Button type="submit" variant="secondary" disabled={isSavingTrack}>
+              <Button type="submit" variant="secondary" pending={isSavingTrack}>
                 <Save className="size-4" />
-                {isSavingTrack ? "Saving..." : "Save track"}
+                {"Save track"}
               </Button>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Clock className="size-4" />
@@ -570,7 +551,7 @@ export function LearningTrackEditorPage() {
       </form>
 
       <div className="mt-5 space-y-4">
-        <div className="rounded-md border bg-card px-5 py-4 shadow-sm">
+        <div className="rounded-lg border bg-card px-5 py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground">
@@ -670,7 +651,7 @@ export function LearningTrackEditorPage() {
                           disabled={savingUnitId === unit._id}
                         >
                           <Save className="size-4" />
-                          {savingUnitId === unit._id ? "Saving..." : "Save unit"}
+                          {savingUnitId === unit._id ? "Saving…" : "Save unit"}
                         </Button>
                         <Button
                           type="button"
@@ -738,7 +719,7 @@ export function LearningTrackEditorPage() {
                 </div>
 
                 {unit.lessons.length === 0 && (
-                  <div className="flex flex-col gap-3 rounded-md border border-dashed bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-col gap-3 rounded-lg border border-dashed bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="font-medium">No lessons yet</p>
                       <p className="text-sm text-muted-foreground">
@@ -822,10 +803,10 @@ export function LearningTrackEditorPage() {
           <Button
             type="button"
             onClick={handlePublish}
-            disabled={isPublishing}
+            pending={isPublishing}
           >
             <CheckCircle2 className="size-4" />
-            {isPublishing ? "Publishing..." : "Publish"}
+            {"Publish"}
           </Button>
         </div>
       </div>

@@ -30,6 +30,7 @@ import { isAdminRole } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 const UNASSIGNED = "__unassigned__";
 
@@ -329,7 +330,6 @@ export function ToolReadersPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Shop Tools"
         title="Card readers"
         description="Devices that gate tool power. Each holds a device key and asks this site whether the tapped card is signed off."
       />
@@ -379,7 +379,7 @@ export function ToolReadersPage() {
         <div className="rounded-md border">
           <div className="border-b px-4 py-3 font-medium">Readers</div>
           {readers === undefined ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">Loading readers...</p>
+            <ListSkeleton label="Loading readers" />
           ) : readers.length === 0 ? (
             <p className="px-4 py-6 text-sm text-muted-foreground">
               No readers yet. Add one above to get a device key.
@@ -458,7 +458,7 @@ export function ToolReadersPage() {
         <div className="rounded-md border">
           <div className="border-b px-4 py-3 font-medium">Recent taps</div>
           {events === undefined ? (
-            <p className="px-4 py-6 text-sm text-muted-foreground">Loading activity...</p>
+            <ListSkeleton label="Loading activity" />
           ) : events.length === 0 ? (
             <p className="px-4 py-6 text-sm text-muted-foreground">
               No card taps recorded yet.
@@ -466,7 +466,7 @@ export function ToolReadersPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                <thead className="border-b bg-muted/40 text-left text-xs font-medium text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 font-medium">When</th>
                     <th className="px-4 py-3 font-medium">Tool</th>

@@ -18,6 +18,7 @@ import {
 import { canManageBadges } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 function formatDate(timestamp: number) {
   return new Intl.DateTimeFormat(undefined, {
@@ -61,9 +62,8 @@ export function BadgesPage() {
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Badges"
-        title="Achievements and certifications"
-        description="Badges are automatically awarded when assigned training and equipment requirements are complete."
+        title="Your badges"
+        description="You earn a badge automatically when you finish its training and tool sign-offs."
         actions={
           <Authenticated>
             {canManageBadgeRecords && (
@@ -99,44 +99,16 @@ export function BadgesPage() {
 
       <Authenticated>
         <div className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Award className="size-4" />
-                Available
-              </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {badges === undefined ? "..." : activeBadgeCount}
-              </p>
-            </div>
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="size-4" />
-                Earned
-              </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {badges === undefined || awards === undefined ? "..." : earnedBadgeCount}
-              </p>
-            </div>
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Users className="size-4" />
-                Managed
-              </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {canManageBadgeRecords ? "On" : "Off"}
-              </p>
-            </div>
-          </div>
+          {badges !== undefined && awards !== undefined && activeBadgeCount > 0 && (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground tabular-nums">{earnedBadgeCount}</span> of{" "}
+              <span className="tabular-nums">{activeBadgeCount}</span> badges earned
+            </p>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {badges === undefined && (
-            <Card className="md:col-span-2 xl:col-span-3">
-              <CardHeader>
-                <CardTitle>Loading badges</CardTitle>
-                <CardDescription>Checking badge requirements.</CardDescription>
-              </CardHeader>
-            </Card>
+            <ListSkeleton className="md:col-span-2 xl:col-span-3" label="Loading badges" />
           )}
           {badges?.length === 0 && (
             <Card className="md:col-span-2 xl:col-span-3">
@@ -159,9 +131,11 @@ export function BadgesPage() {
               <Card key={badge._id} className={award ? "border-primary/60" : undefined}>
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-2">
-                      <Award className="size-5 text-primary" />
-                      <CardTitle>{badge.title}</CardTitle>
+                    <div className="space-y-1">
+                      <CardTitle className="flex items-center gap-2">
+                        <Award className={award ? "size-4 text-primary" : "size-4 text-muted-foreground"} aria-hidden />
+                        {badge.title}
+                      </CardTitle>
                       <CardDescription>{badge.description}</CardDescription>
                     </div>
                     {canManageBadgeRecords && (
@@ -176,13 +150,11 @@ export function BadgesPage() {
                 <CardContent className="space-y-3">
                   <div className="flex flex-wrap gap-2">
                     {award ? (
-                      <Badge>
+                      <Badge variant="success">
                         <CheckCircle2 className="size-3" />
                         Earned {formatDate(award.earnedAt)}
                       </Badge>
-                    ) : (
-                      <Badge variant="outline">Not earned yet</Badge>
-                    )}
+                    ) : null}
                     {!badge.isActive && <Badge variant="secondary">Inactive</Badge>}
                   </div>
                   <p className="text-sm text-muted-foreground">

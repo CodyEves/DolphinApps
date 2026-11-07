@@ -173,7 +173,6 @@ export function AuthPage() {
     return (
       <div className="mx-auto max-w-3xl">
         <PageHeading
-          eyebrow="Authentication"
           title="Checking your session"
           description="Hang tight while Dolphin Apps confirms your account."
         />
@@ -208,7 +207,6 @@ export function AuthPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeading
-        eyebrow={displayedPageCopy.eyebrow}
         title={displayedPageCopy.title}
         description={displayedPageCopy.description}
       />
@@ -262,6 +260,8 @@ export function AuthPage() {
                   )}
                   <Button
                     type="button"
+                    variant="cta"
+                    size="lg"
                     className="w-full"
                     onClick={() => void handleSlackSignIn()}
                     disabled={isSlackRedirecting}
@@ -284,7 +284,7 @@ export function AuthPage() {
                 {mode !== "signIn" && (
                   <div className="rounded-md border bg-muted/40 p-3 text-sm">
                     {!token && "This page requires a one-time setup or reset link."}
-                    {token && preview === undefined && "Checking link..."}
+                    {token && preview === undefined && "Checking link…"}
                     {preview === null && "This link is invalid, expired, or already used."}
                     {preview && (
                       <div className="space-y-3">
@@ -350,7 +350,7 @@ export function AuthPage() {
                       />
                     </div>
                     {error && (
-                      <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      <p key={error} role="alert" className="animate-shake rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                         {error}
                       </p>
                     )}

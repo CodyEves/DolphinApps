@@ -1,29 +1,30 @@
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
+import { LoaderCircle } from "lucide-react";
 import type * as React from "react";
 
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-semibold transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100 aria-busy:cursor-progress [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
     variants: {
       variant: {
-        default:
-          "bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_1px_2px_rgba(15,39,66,0.15)] hover:bg-brand-blue hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.15),0_2px_6px_rgba(15,39,66,0.22)] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.15)]",
+        /** The one main action on a page. Signal orange. */
+        cta: "bg-cta text-cta-foreground hover:bg-cta-hover",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
         outline:
-          "border border-border bg-card hover:border-ring/40 hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-muted hover:text-foreground",
+          "border border-input bg-card hover:bg-accent hover:text-accent-foreground dark:bg-transparent",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-muted",
         ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:text-brand-blue hover:underline",
+        link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md gap-1.5 px-3",
-        lg: "h-10 rounded-md px-6",
+        default: "h-9 px-4",
+        sm: "h-8 gap-1.5 px-3",
+        lg: "h-11 px-6 text-base",
         icon: "size-9",
       },
     },
@@ -39,10 +40,15 @@ function Button({
   variant,
   size,
   asChild = false,
+  pending = false,
+  children,
+  disabled,
   ...props
 }: React.ComponentProps<"button"> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
+    /** Shows a spinner and blocks clicks while an action is running. */
+    pending?: boolean;
   }) {
   const Comp = asChild ? Slot : "button";
 
@@ -50,8 +56,19 @@ function Button({
     <Comp
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      disabled={asChild ? undefined : disabled || pending}
+      aria-busy={pending || undefined}
       {...props}
-    />
+    >
+      {asChild ? (
+        children
+      ) : (
+        <>
+          {pending && <LoaderCircle className="animate-spin" aria-hidden />}
+          {children}
+        </>
+      )}
+    </Comp>
   );
 }
 

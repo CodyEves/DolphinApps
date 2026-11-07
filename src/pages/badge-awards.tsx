@@ -2,9 +2,7 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useQuery } from "convex/react";
 import {
   ArrowLeft,
-  Award,
   CheckCircle2,
-  LockKeyhole,
   Users,
 } from "lucide-react";
 import { Link } from "react-router";
@@ -22,6 +20,7 @@ import {
 import { canManageBadges } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
+import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 
 function formatDate(timestamp: number) {
   return new Intl.DateTimeFormat(undefined, {
@@ -58,22 +57,13 @@ export function BadgeAwardsPage() {
   );
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Badges"
-          title="Badge awards"
-          description="Loading awarded badge records."
-        />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Badges"
-        title="Badge awards"
+        title="Who has earned each badge"
         description="See which students and accounts have earned each badge."
         actions={
           <Button asChild variant="outline">
@@ -88,7 +78,6 @@ export function BadgeAwardsPage() {
       <Unauthenticated>
         <Card>
           <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Sign in required</CardTitle>
             <CardDescription>
               Badge award records require an authenticated admin or mentor account.
@@ -101,7 +90,6 @@ export function BadgeAwardsPage() {
         {!canManageBadgeRecords ? (
           <Card>
             <CardHeader>
-              <LockKeyhole className="size-5 text-primary" />
               <CardTitle>Badge management access required</CardTitle>
               <CardDescription>
                 Switch back to your actual role or sign in with an admin or mentor account.
@@ -111,12 +99,7 @@ export function BadgeAwardsPage() {
         ) : (
           <div className="space-y-4">
             {badgeAwards === undefined && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Loading awards</CardTitle>
-                  <CardDescription>Fetching earned badge records.</CardDescription>
-                </CardHeader>
-              </Card>
+              <ListSkeleton label="Loading awards" />
             )}
             {badgeAwards?.length === 0 && (
               <Card>
@@ -134,7 +117,6 @@ export function BadgeAwardsPage() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Award className="size-5 text-primary" />
                         <CardTitle>{badge.title}</CardTitle>
                         {!badge.isActive && <Badge variant="secondary">Inactive</Badge>}
                       </div>

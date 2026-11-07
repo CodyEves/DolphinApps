@@ -10,6 +10,7 @@ import { PageHeading } from "@/components/page-heading";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { canReviewLearning } from "@/lib/role-access";
 import { cn } from "@/lib/utils";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
@@ -29,7 +30,7 @@ function StatusCell({ status }: { status: SkillStatus }) {
     return <CircleAlert className="mx-auto size-4 text-rose-600 dark:text-rose-400" aria-label="Needs work" />;
   }
 
-  return <Circle className="mx-auto size-3 text-muted-foreground/40" aria-label="Not started" />;
+  return <Circle className="mx-auto size-3 text-muted-foreground" aria-label="Not started" />;
 }
 
 export function LearningTeamPage() {
@@ -55,8 +56,7 @@ export function LearningTeamPage() {
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeading
-        eyebrow="Learning"
-        title="Team progress"
+        title="Who has done which skills"
         description="See where every student is in each path. Use it to plan who needs help in the next class."
         actions={
           <Button asChild variant="outline">
@@ -95,7 +95,7 @@ export function LearningTeamPage() {
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <select
                 aria-label="Team"
-                className="h-8 rounded-md border bg-card px-2 text-sm"
+                className="h-8 rounded-lg border bg-card px-2 text-sm"
                 value={program}
                 onChange={(event) => setProgram(event.target.value as typeof program)}
               >
@@ -120,12 +120,12 @@ export function LearningTeamPage() {
             <span className="inline-flex items-center gap-1"><CircleCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden /> Done</span>
             <span className="inline-flex items-center gap-1"><Hourglass className="size-3.5 text-amber-600 dark:text-amber-400" aria-hidden /> Waiting for mentor</span>
             <span className="inline-flex items-center gap-1"><CircleAlert className="size-3.5 text-rose-600 dark:text-rose-400" aria-hidden /> Needs work</span>
-            <span className="inline-flex items-center gap-1"><Circle className="size-3 text-muted-foreground/40" aria-hidden /> Not started</span>
+            <span className="inline-flex items-center gap-1"><Circle className="size-3 text-muted-foreground" aria-hidden /> Not started</span>
             <span>Hover a column number to see the skill.</span>
           </div>
 
           {team === undefined ? (
-            <p className="text-sm text-muted-foreground">{paths.length === 0 && content ? "No paths yet." : "Loading progress…"}</p>
+            paths.length === 0 && content ? <p className="text-sm text-muted-foreground">No paths yet.</p> : <ListSkeleton rows={6} label="Loading progress" />
           ) : team === null ? (
             <p className="text-sm text-muted-foreground">That path no longer exists.</p>
           ) : (

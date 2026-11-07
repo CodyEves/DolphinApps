@@ -2,15 +2,12 @@ import { useConvexAuth } from "@convex-dev/auth/react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import {
   AlertTriangle,
-  BookOpenCheck,
   CheckCircle2,
   CreditCard,
   Lock,
   MapPin,
   Plus,
   Search,
-  ShieldCheck,
-  Wrench,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -30,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { isAdminRole } from "@/lib/role-access";
 import { useEffectiveRole } from "@/providers/role-preview-provider";
 import { api } from "@convex/_generated/api";
+import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 
 function formatDate(timestamp: number | undefined) {
   if (!timestamp) {
@@ -90,29 +88,19 @@ export function ToolsPage() {
 
       return mySignOff?.isCurrent ?? false;
     }).length ?? 0;
-  const sopCount = visibleEquipment?.filter((item) => item.sopStatus.isPublished).length ?? 0;
   const needsAckCount =
     visibleEquipment?.filter(
       (item) => item.sopStatus.isPublished && !item.sopStatus.hasAcknowledged,
     ).length ?? 0;
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading
-          eyebrow="Shop Tools"
-          title="Shop tools"
-          description="Loading tool records."
-        />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
-        eyebrow="Shop Tools"
-        title="Shop tools"
+        title="Get signed off on shop tools"
         description="Read the SOP, pass the safety test, then get your hands-on sign-off. Your badge only powers a tool once you are signed off."
         actions={
           <Authenticated>
@@ -139,35 +127,17 @@ export function ToolsPage() {
 
       <Authenticated>
         <div className="space-y-5">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <ShieldCheck className="size-4" />
-                Tools you can run
-              </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {visibleEquipment === undefined ? "..." : readyCount}
-              </p>
-            </div>
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <BookOpenCheck className="size-4" />
-                Published SOPs
-              </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {visibleEquipment === undefined ? "..." : sopCount}
-              </p>
-            </div>
-            <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <AlertTriangle className="size-4" />
-                SOPs to read
-              </div>
-              <p className="mt-1 text-2xl font-semibold">
-                {visibleEquipment === undefined ? "..." : needsAckCount}
-              </p>
-            </div>
-          </div>
+          {visibleEquipment !== undefined && visibleEquipment.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              You can run <span className="font-semibold text-foreground tabular-nums">{readyCount}</span> of{" "}
+              <span className="tabular-nums">{visibleEquipment.length}</span> tools
+              {needsAckCount > 0 && (
+                <>
+                  {" "}· <span className="font-semibold text-foreground tabular-nums">{needsAckCount}</span> SOPs to read
+                </>
+              )}
+            </p>
+          )}
 
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -181,12 +151,7 @@ export function ToolsPage() {
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {visibleEquipment === undefined && (
-              <Card className="md:col-span-2 xl:col-span-3">
-                <CardHeader>
-                  <CardTitle>Loading tools</CardTitle>
-                  <CardDescription>Fetching SOPs and sign-offs.</CardDescription>
-                </CardHeader>
-              </Card>
+              <ListSkeleton className="md:col-span-2 xl:col-span-3" label="Loading tools" />
             )}
 
             {visibleEquipment?.length === 0 && (
@@ -195,7 +160,7 @@ export function ToolsPage() {
                   <CardTitle>No tools found</CardTitle>
                   <CardDescription>
                     {search
-                      ? "No tool matches that search."
+                      ? `No tool matches “${search}”.`
                       : "Admins can add the first tool from the top of this page."}
                   </CardDescription>
                 </CardHeader>
@@ -215,14 +180,13 @@ export function ToolsPage() {
                 <Link
                   key={item._id}
                   to={`/tools/${item._id}`}
-                  className="group block rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  className="group block rounded-lg outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 >
                   <Card className="h-full transition-colors group-hover:bg-accent">
                     <CardHeader>
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
-                            <Wrench className="size-5 text-primary" />
                             <CardTitle>{item.name}</CardTitle>
                             {item.isLockedOut && (
                               <Badge variant="destructive">
@@ -256,46 +220,32 @@ export function ToolsPage() {
                         </p>
                       )}
 
-                      <div className="flex flex-wrap gap-2">
-                        {!item.isActive && <Badge variant="secondary">Inactive</Badge>}
-                        <Badge
-                          variant={
-                            !item.sopStatus.isPublished
-                              ? "outline"
-                              : item.sopStatus.hasAcknowledged
-                                ? "default"
-                                : "secondary"
-                          }
-                        >
-                          {item.sopStatus.hasAcknowledged && <CheckCircle2 className="size-3" />}
-                          {!item.sopStatus.isPublished
-                            ? "No SOP yet"
-                            : item.sopStatus.hasAcknowledged
-                              ? "SOP read"
-                              : "SOP to read"}
-                        </Badge>
-                        {item.videoUrl && (
-                          <Badge variant={hasCompletedVideo ? "default" : "outline"}>
-                            {hasCompletedVideo && <CheckCircle2 className="size-3" />}
-                            {hasCompletedVideo ? "Video done" : "Video"}
-                          </Badge>
-                        )}
-                        {item.quiz && (
-                          <Badge variant={hasPassedSafetyTest ? "default" : "outline"}>
-                            {hasPassedSafetyTest && <CheckCircle2 className="size-3" />}
-                            {hasPassedSafetyTest ? "Test passed" : "Safety test"}
-                          </Badge>
-                        )}
-                        {item.instructorApprovalRequired && (
-                          <Badge variant={isSignedOff ? "default" : "outline"}>
-                            {isSignedOff && <CheckCircle2 className="size-3" />}
-                            {isSignedOff ? "Signed off" : "Hands-on needed"}
-                          </Badge>
-                        )}
-                      </div>
+                      <ul className="grid gap-1.5 text-sm">
+                        {[
+                          {
+                            show: true,
+                            done: item.sopStatus.hasAcknowledged,
+                            label: !item.sopStatus.isPublished ? "SOP not written yet" : "Read the SOP",
+                          },
+                          { show: !!item.videoUrl, done: hasCompletedVideo, label: "Watch the training video" },
+                          { show: !!item.quiz, done: hasPassedSafetyTest, label: "Pass the safety test" },
+                          { show: item.instructorApprovalRequired, done: isSignedOff, label: "Hands-on check with a mentor" },
+                        ]
+                          .filter((step) => step.show)
+                          .map((step) => (
+                            <li key={step.label} className={step.done ? "flex items-center gap-2 text-muted-foreground" : "flex items-center gap-2"}>
+                              {step.done ? (
+                                <CheckCircle2 className="size-4 shrink-0 text-success" aria-label="Done" />
+                              ) : (
+                                <span className="mx-[3px] size-2.5 shrink-0 rounded-full border-2 border-muted-foreground/60" aria-label="To do" />
+                              )}
+                              {step.label}
+                            </li>
+                          ))}
+                      </ul>
+                      {!item.isActive && <Badge variant="secondary">Inactive</Badge>}
 
-                      <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <ShieldCheck className="size-4 text-primary" />
+                      <p className="border-t pt-3 text-sm font-medium">
                         {isSignedOff
                           ? mySignOff?.expiresAt
                             ? `Signed off - expires ${formatDate(mySignOff.expiresAt)}`

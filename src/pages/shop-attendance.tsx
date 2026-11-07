@@ -15,9 +15,7 @@ import {
   Clock,
   Download,
   KeyRound,
-  Link as LinkIcon,
   Loader2,
-  LockKeyhole,
   LogOut,
   Maximize2,
   Monitor,
@@ -29,10 +27,8 @@ import {
   Square,
   Trash2,
   TimerReset,
-  Trophy,
   Users,
   X,
-  type LucideIcon,
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
@@ -64,6 +60,7 @@ import { canManageAttendanceEvents } from "@/lib/role-access";
 import { cn } from "@/lib/utils";
 import { api } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
+import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 
 type AttendanceStatus = "open" | "complete" | "needs_review" | "void";
 type BarcodeDetectorConstructor = new (options: { formats: string[] }) => {
@@ -225,73 +222,6 @@ function supportsPictureInPicture() {
   );
 }
 
-function shopNavActive(pathname: string, href: string) {
-  return href === "/shop" ? pathname === href : pathname.startsWith(href);
-}
-
-function ShopSectionNav({
-  pathname,
-  canManage,
-  canDisplayRole,
-  reviewCount,
-}: {
-  pathname: string;
-  canManage: boolean;
-  canDisplayRole: boolean;
-  reviewCount: number;
-}) {
-  const items: Array<{
-    href: string;
-    label: string;
-    icon: LucideIcon;
-    badge?: number;
-  }> = [
-    { href: "/shop", label: "Overview", icon: Clock },
-    ...(canDisplayRole ? [{ href: "/shop/display", label: "Display", icon: Monitor }] : []),
-    ...(canManage
-      ? [
-          { href: "/shop/records", label: "Records", icon: ClipboardList },
-          { href: "/shop/review", label: "Review", icon: ShieldCheck, badge: reviewCount },
-          { href: "/shop/reports", label: "Reports", icon: Download },
-        ]
-      : []),
-  ];
-
-  return (
-    <nav
-      className="mb-5 flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0"
-      aria-label="Shop Attendance navigation"
-    >
-      {items.map((item) => {
-        const Icon = item.icon;
-        const isActive = shopNavActive(pathname, item.href);
-
-        return (
-          <Button
-            key={item.href}
-            asChild
-            variant={isActive ? "secondary" : "outline"}
-            className={cn(
-              "h-10 shrink-0 justify-start gap-2",
-              isActive && "border-primary/20 bg-primary/10 text-primary hover:bg-primary/15",
-            )}
-          >
-            <Link to={item.href}>
-              <Icon className="size-4" />
-              <span>{item.label}</span>
-              {item.badge ? (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[11px]">
-                  {item.badge}
-                </Badge>
-              ) : null}
-            </Link>
-          </Button>
-        );
-      })}
-    </nav>
-  );
-}
-
 function EventDateTimeField({
   id,
   label,
@@ -382,7 +312,7 @@ function ReviewRecord({
   const [note, setNote] = useState(record.reviewNote ?? "");
 
   return (
-    <div className="grid gap-3 rounded-md border bg-card p-4 lg:grid-cols-[1fr_180px_180px_1.2fr_auto] lg:items-end">
+    <div className="grid gap-3 rounded-lg border bg-card p-4 lg:grid-cols-[1fr_180px_180px_1.2fr_auto] lg:items-end">
       <div className="min-w-0">
         <p className="truncate font-medium">{record.studentName}</p>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -474,7 +404,7 @@ function EditableAttendanceRecord({
   const needsOutTime = status === "complete" || status === "needs_review";
 
   return (
-    <div className="grid gap-3 rounded-md border bg-card p-4 xl:grid-cols-[minmax(180px,1fr)_150px_190px_190px_minmax(180px,1fr)_auto] xl:items-end">
+    <div className="grid gap-3 rounded-lg border bg-card p-4 xl:grid-cols-[minmax(180px,1fr)_150px_190px_190px_minmax(180px,1fr)_auto] xl:items-end">
       <div className="min-w-0">
         <p className="truncate font-medium">{record.studentName}</p>
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -1501,7 +1431,7 @@ export function ShopAttendancePage() {
 
   function studentTableSortIcon(column: typeof studentTableSortBy) {
     if (studentTableSortBy !== column) {
-      return <ArrowUpDown className="size-3.5 text-muted-foreground/60" />;
+      return <ArrowUpDown className="size-3.5 text-muted-foreground" />;
     }
 
     return studentTableSortDir === "asc" ? (
@@ -1588,25 +1518,37 @@ export function ShopAttendancePage() {
   );
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <PageHeading eyebrow="Shop Attendance" title="Loading" description="Checking your account." />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeading
-        eyebrow="Dolphin Apps"
-        title="Shop Attendance"
-        description="Track student shop sessions, Slack check-ins, and reviewed hours."
+        title={
+          showDisplayRoute
+            ? "Shop check-in display"
+            : showReportsRoute
+              ? "Shop hours reports"
+              : showReviewRoute
+                ? "Hours waiting for review"
+                : showRecordsRoute
+                  ? "Attendance records"
+                  : canManage
+                    ? "Today's shop session"
+                    : "Your shop hours"
+        }
+        description={
+          showDisplayRoute
+            ? "Put this on the shop screen so students can check in from Slack."
+            : canManage
+              ? "Start a session, see who is in the shop, and fix missed sign-outs."
+              : "Check in and out from Slack with the code on the shop screen."
+        }
       />
 
       <Unauthenticated>
         <Card>
           <CardHeader>
-            <LockKeyhole className="size-5 text-primary" />
             <CardTitle>Sign in required</CardTitle>
             <CardDescription>Use your Dolphin Apps account before linking Slack or viewing attendance.</CardDescription>
           </CardHeader>
@@ -1622,20 +1564,11 @@ export function ShopAttendancePage() {
       </Unauthenticated>
 
       <Authenticated>
-        {!showDisplayRoute && (
-          <ShopSectionNav
-            pathname={location.pathname}
-            canManage={canManage}
-            canDisplayRole={canDisplayRole}
-            reviewCount={reviewRows.length}
-          />
-        )}
         {showStudentRosterRoute ? (
           canManage ? (
             <div className="space-y-5">
               <Card>
                 <CardHeader>
-                  <ClipboardList className="size-5 text-primary" />
                   <CardTitle>
                     {selectedStudentPerson
                       ? selectedStudentPerson.name
@@ -1667,7 +1600,7 @@ export function ShopAttendancePage() {
                         placeholder="Search by name, team, program, or graduation year"
                       />
                       {isStudentSearchOpen && (
-                        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
+                        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg">
                           {studentSearchResults.length === 0 ? (
                             <div className="px-3 py-2 text-sm text-muted-foreground">No students found.</div>
                           ) : (
@@ -1675,7 +1608,7 @@ export function ShopAttendancePage() {
                               <button
                                 key={person.userId}
                                 type="button"
-                                className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
                                 onMouseDown={(event) => event.preventDefault()}
                                 onClick={() => {
                                   setStudentSearch(person.name);
@@ -1760,17 +1693,17 @@ export function ShopAttendancePage() {
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="rounded-md border p-4">
                         <p className="text-sm text-muted-foreground">Records</p>
-                        <p className="mt-1 text-2xl font-semibold">{attendanceRecords.length}</p>
+                        <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{attendanceRecords.length}</p>
                       </div>
                       <div className="rounded-md border p-4">
                         <p className="text-sm text-muted-foreground">Complete</p>
-                        <p className="mt-1 text-2xl font-semibold">
+                        <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">
                           {attendanceRecords.filter((record) => record.status === "complete").length}
                         </p>
                       </div>
                       <div className="rounded-md border p-4">
                         <p className="text-sm text-muted-foreground">Needs review</p>
-                        <p className="mt-1 text-2xl font-semibold">
+                        <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">
                           {attendanceRecords.filter((record) => record.status === "needs_review").length}
                         </p>
                       </div>
@@ -1780,11 +1713,11 @@ export function ShopAttendancePage() {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="rounded-md border p-4">
                         <p className="text-sm text-muted-foreground">Needs review</p>
-                        <p className="mt-1 text-2xl font-semibold">{filteredReviewRows.length}</p>
+                        <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{filteredReviewRows.length}</p>
                       </div>
                       <div className="rounded-md border p-4">
                         <p className="text-sm text-muted-foreground">Total queue</p>
-                        <p className="mt-1 text-2xl font-semibold">{reviewRows.length}</p>
+                        <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{reviewRows.length}</p>
                       </div>
                     </div>
                   )}
@@ -1792,21 +1725,21 @@ export function ShopAttendancePage() {
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <div className="rounded-md border p-4">
                         <p className="text-sm text-muted-foreground">Records</p>
-                        <p className="mt-1 text-2xl font-semibold">{reportRows.length}</p>
+                        <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{reportRows.length}</p>
                       </div>
                       <div className="rounded-md border p-4">
                         <p className="text-sm text-muted-foreground">Total hours</p>
-                        <p className="mt-1 text-2xl font-semibold">{formatHours(totalReportMinutes)}</p>
+                        <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{formatHours(totalReportMinutes)}</p>
                       </div>
                       <div className="rounded-md border p-4">
                         <p className="text-sm text-muted-foreground">Provisional hours</p>
-                        <p className="mt-1 text-2xl font-semibold">
+                        <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">
                           {formatHours(reportTotals.reduce((total, row) => total + row.needsReviewMinutes, 0))}
                         </p>
                       </div>
                       <div className="rounded-md border p-4">
                         <p className="text-sm text-muted-foreground">Events attended</p>
-                        <p className="mt-1 text-2xl font-semibold">{studentEventRows.length}</p>
+                        <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{studentEventRows.length}</p>
                       </div>
                     </div>
                   )}
@@ -1818,7 +1751,7 @@ export function ShopAttendancePage() {
                     <div className="rounded-md border p-4 text-sm text-muted-foreground">Student not found.</div>
                   )}
                   {recordRows === undefined && (
-                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading records...</div>
+                    <ListSkeleton label="Loading records" />
                   )}
                   {recordRows && attendanceRecords.length === 0 && (
                     <div className="rounded-md border p-4 text-sm text-muted-foreground">No attendance records match these filters.</div>
@@ -1839,7 +1772,7 @@ export function ShopAttendancePage() {
                     <div className="rounded-md border p-4 text-sm text-muted-foreground">Student not found.</div>
                   )}
                   {reviewQueue === undefined && (
-                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading review queue...</div>
+                    <ListSkeleton label="Loading review queue" />
                   )}
                   {reviewQueue && filteredReviewRows.length === 0 && (
                     <div className="rounded-md border p-4 text-sm text-muted-foreground">No attendance records need review for this student.</div>
@@ -1858,7 +1791,7 @@ export function ShopAttendancePage() {
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-muted-foreground">Shop hours</h3>
                     {report === undefined && (
-                      <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading report...</div>
+                      <ListSkeleton label="Loading report" />
                     )}
                     {report && reportRows.length === 0 && (
                       <div className="rounded-md border p-4 text-sm text-muted-foreground">No report records match these filters.</div>
@@ -1894,7 +1827,7 @@ export function ShopAttendancePage() {
                       const minutes = minutesBetween(row.signInAt, row.signOutAt);
 
                       return (
-                        <div key={row._id} className="grid gap-2 rounded-md border bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                        <div key={row._id} className="grid gap-2 rounded-lg border bg-card p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
                           <div className="min-w-0">
                             <p className="truncate font-medium">{formatDateTime(row.signInAt)}</p>
                             <p className="text-sm text-muted-foreground">{formatDateTime(row.signOutAt)}</p>
@@ -1910,7 +1843,7 @@ export function ShopAttendancePage() {
                   <div className="space-y-3">
                     <h3 className="text-sm font-semibold text-muted-foreground">Events attended</h3>
                     {studentEventAttendance === undefined && (
-                      <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading events...</div>
+                      <ListSkeleton label="Loading events" />
                     )}
                     {studentEventAttendance && studentEventRows.length === 0 && (
                       <div className="rounded-md border p-4 text-sm text-muted-foreground">No events attended yet.</div>
@@ -1938,7 +1871,7 @@ export function ShopAttendancePage() {
                     {studentEventRows.map((row) => (
                       <div
                         key={row.recordId}
-                        className="grid gap-2 rounded-md border bg-card p-4 sm:grid-cols-[1fr_auto] sm:items-center"
+                        className="grid gap-2 rounded-lg border bg-card p-4 sm:grid-cols-[1fr_auto] sm:items-center"
                       >
                         <div className="min-w-0">
                           <p className="truncate font-medium">{row.eventTitle}</p>
@@ -1957,30 +1890,30 @@ export function ShopAttendancePage() {
               ) : showReportsRoute ? (
                 <div className="space-y-5">
                   {overviewReport === undefined && (
-                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading attendance report...</div>
+                    <ListSkeleton label="Loading attendance report" />
                   )}
                   {overviewSummary && (
                     <>
                       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                        <div className="rounded-md border bg-card p-4">
+                        <div className="rounded-lg border bg-card p-4">
                           <p className="text-sm text-muted-foreground">Students</p>
-                          <p className="mt-1 text-2xl font-semibold">{overviewSummary.studentCount}</p>
+                          <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{overviewSummary.studentCount}</p>
                         </div>
-                        <div className="rounded-md border bg-card p-4">
+                        <div className="rounded-lg border bg-card p-4">
                           <p className="text-sm text-muted-foreground">Shop hours</p>
-                          <p className="mt-1 text-2xl font-semibold">{formatHours(overviewSummary.shopMinutes)}</p>
+                          <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{formatHours(overviewSummary.shopMinutes)}</p>
                         </div>
-                        <div className="rounded-md border bg-card p-4">
+                        <div className="rounded-lg border bg-card p-4">
                           <p className="text-sm text-muted-foreground">Shop records</p>
-                          <p className="mt-1 text-2xl font-semibold">{overviewSummary.shopRecordCount}</p>
+                          <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{overviewSummary.shopRecordCount}</p>
                         </div>
-                        <div className="rounded-md border bg-card p-4">
+                        <div className="rounded-lg border bg-card p-4">
                           <p className="text-sm text-muted-foreground">Events</p>
-                          <p className="mt-1 text-2xl font-semibold">{overviewSummary.eventCount}</p>
+                          <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{overviewSummary.eventCount}</p>
                         </div>
-                        <div className="rounded-md border bg-card p-4">
+                        <div className="rounded-lg border bg-card p-4">
                           <p className="text-sm text-muted-foreground">Event attendance</p>
-                          <p className="mt-1 text-2xl font-semibold">{overviewSummary.eventAttendanceCount}</p>
+                          <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{overviewSummary.eventAttendanceCount}</p>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
@@ -2150,7 +2083,7 @@ export function ShopAttendancePage() {
                         <>
                           <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                              <thead className="border-b bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                              <thead className="border-b bg-muted/40 text-left text-xs font-medium text-muted-foreground">
                                 <tr>
                                   <th className="px-4 py-3 font-medium">
                                     <button
@@ -2285,7 +2218,7 @@ export function ShopAttendancePage() {
               ) : (
                 <div className="space-y-3">
                   {recordPeople === undefined && (
-                    <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading students...</div>
+                    <ListSkeleton label="Loading students" />
                   )}
                   {recordPeople && recordPeopleRows.length === 0 && (
                     <div className="rounded-md border p-4 text-sm text-muted-foreground">No active students found.</div>
@@ -2294,7 +2227,7 @@ export function ShopAttendancePage() {
                     <Link
                       key={person.userId}
                       to={`${routeBase}/${person.userId}`}
-                      className="grid gap-2 rounded-md border bg-card p-4 transition-colors hover:bg-accent hover:text-accent-foreground sm:grid-cols-[1fr_auto] sm:items-center"
+                      className="grid gap-2 rounded-lg border bg-card p-4 transition-colors hover:bg-accent hover:text-accent-foreground sm:grid-cols-[1fr_auto] sm:items-center"
                     >
                       <div className="min-w-0">
                         <p className="truncate font-medium">{person.name}</p>
@@ -2318,7 +2251,6 @@ export function ShopAttendancePage() {
           ) : (
             <Card>
               <CardHeader>
-                <LockKeyhole className="size-5 text-primary" />
                 <CardTitle>Records are restricted</CardTitle>
                 <CardDescription>Only mentors, instructors, and admins can view attendance records.</CardDescription>
               </CardHeader>
@@ -2334,10 +2266,7 @@ export function ShopAttendancePage() {
             <div className="grid min-h-0 gap-6 lg:grid-cols-[1fr_42vw] lg:items-center">
               <section className="grid content-center gap-6">
                 <div>
-                  <Badge variant="secondary" className="mb-4 w-fit">
-                    Shop Attendance
-                  </Badge>
-                  <h1 className="text-4xl font-semibold tracking-normal sm:text-6xl">
+                  <h1 className="text-4xl font-bold sm:text-6xl">
                     {current?.session ? "Scan or enter the shop code" : "No active shop session"}
                   </h1>
                   <p className="mt-4 max-w-2xl text-lg text-muted-foreground sm:text-2xl">
@@ -2347,22 +2276,21 @@ export function ShopAttendancePage() {
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-md border bg-card p-5 font-mono text-xl">/shop in {activeDisplayCode || "CODE"}</div>
-                  <div className="rounded-md border bg-card p-5 font-mono text-xl">/shop out {activeDisplayCode || "CODE"}</div>
+                  <div className="rounded-lg border bg-card p-5 font-mono text-xl">/shop in {activeDisplayCode || "CODE"}</div>
+                  <div className="rounded-lg border bg-card p-5 font-mono text-xl">/shop out {activeDisplayCode || "CODE"}</div>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-md border bg-card p-5">
+                  <div className="rounded-lg border bg-card p-5">
                     <p className="text-sm text-muted-foreground">Signed in now</p>
                     <p className="mt-2 text-5xl font-semibold">{displayCurrentCount}</p>
                   </div>
-                  <div className="rounded-md border bg-card p-5">
+                  <div className="rounded-lg border bg-card p-5">
                     <p className="text-sm text-muted-foreground">Peak today</p>
                     <p className="mt-2 text-5xl font-semibold">{displayPeakToday}</p>
                   </div>
                 </div>
-                <div className="rounded-md border bg-card p-5">
+                <div className="rounded-lg border bg-card p-5">
                   <div className="mb-3 flex items-center gap-2">
-                    <Trophy className="size-5 text-primary" />
                     <p className="font-medium">Top hours this week</p>
                   </div>
                   <div className="space-y-2">
@@ -2380,7 +2308,7 @@ export function ShopAttendancePage() {
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {!current?.session && canManage && (
-                    <Button type="button" onClick={() => void handleDisplayStartSession()}>
+                    <Button type="button" variant="cta" onClick={() => void handleDisplayStartSession()}>
                       <Clock className="size-4" />
                       Start session
                     </Button>
@@ -2443,7 +2371,7 @@ export function ShopAttendancePage() {
                     <QrCode className="size-32 text-muted-foreground" />
                   )}
                 </div>
-                <div className="w-full rounded-md border bg-card p-6 text-center">
+                <div className="w-full rounded-lg border bg-card p-6 text-center">
                   <p className="font-mono text-6xl font-semibold tracking-normal sm:text-8xl">
                     {activeDisplayCode || "------"}
                   </p>
@@ -2536,7 +2464,6 @@ export function ShopAttendancePage() {
                 <section className="space-y-5">
                   <Card>
                     <CardHeader>
-                      <Clock className="size-5 text-primary" />
                       <CardTitle>Shop session</CardTitle>
                       <CardDescription>
                         {current?.session
@@ -2557,7 +2484,7 @@ export function ShopAttendancePage() {
                                 placeholder="Optional session title"
                               />
                             </div>
-                            <Button type="submit">
+                            <Button type="submit" variant="cta">
                               <Clock className="size-4" />
                               Start session
                             </Button>
@@ -2573,15 +2500,15 @@ export function ShopAttendancePage() {
                           <div className="grid gap-3 sm:grid-cols-3">
                             <div className="rounded-md border p-4">
                               <p className="text-sm text-muted-foreground">Signed in</p>
-                              <p className="mt-1 text-2xl font-semibold">{displayCurrentCount}</p>
+                              <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{displayCurrentCount}</p>
                             </div>
                             <div className="rounded-md border p-4">
                               <p className="text-sm text-muted-foreground">Needs review</p>
-                              <p className="mt-1 text-2xl font-semibold">{current.needsReviewCount}</p>
+                              <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{current.needsReviewCount}</p>
                             </div>
                             <div className="rounded-md border p-4">
                               <p className="text-sm text-muted-foreground">Peak today</p>
-                              <p className="mt-1 text-2xl font-semibold">{displayPeakToday}</p>
+                              <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{displayPeakToday}</p>
                             </div>
                           </div>
                           <Textarea
@@ -2606,7 +2533,6 @@ export function ShopAttendancePage() {
 
                 <Card>
                   <CardHeader>
-                    <QrCode className="size-5 text-primary" />
                     <CardTitle>Current code</CardTitle>
                     <CardDescription>
                       {current?.session
@@ -2666,7 +2592,6 @@ export function ShopAttendancePage() {
             <TabsContent value="schedule">
               <Card>
                 <CardHeader>
-                  <Clock className="size-5 text-primary" />
                   <CardTitle>Scheduled starts</CardTitle>
                   <CardDescription>Automatically start shop sessions from a weekly schedule.</CardDescription>
                 </CardHeader>
@@ -2741,7 +2666,6 @@ export function ShopAttendancePage() {
               <div className="grid gap-5 lg:grid-cols-[420px_1fr]">
                   <Card>
                     <CardHeader>
-                      <Plus className="size-5 text-primary" />
                       <CardTitle>Create event</CardTitle>
                       <CardDescription>Create a simple attendance event with a shareable code.</CardDescription>
                     </CardHeader>
@@ -2813,13 +2737,12 @@ export function ShopAttendancePage() {
                   <div className="space-y-5">
                     <Card>
                       <CardHeader>
-                        <CalendarDays className="size-5 text-primary" />
                         <CardTitle>Events</CardTitle>
                         <CardDescription>Pick an event to view attendees or regenerate its code.</CardDescription>
                       </CardHeader>
                       <CardContent className="space-y-3">
                         {attendanceEvents === undefined && (
-                          <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading events...</div>
+                          <ListSkeleton label="Loading events" />
                         )}
                         {attendanceEvents && attendanceEventRows.length === 0 && (
                           <div className="rounded-md border p-4 text-sm text-muted-foreground">No attendance events yet.</div>
@@ -2867,7 +2790,7 @@ export function ShopAttendancePage() {
                           <div className="grid gap-3 sm:grid-cols-3">
                             <div className="rounded-md border p-4">
                               <p className="text-sm text-muted-foreground">Attendees</p>
-                              <p className="mt-1 text-2xl font-semibold">{selectedEventRecords.length}</p>
+                              <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{selectedEventRecords.length}</p>
                             </div>
                             <div className="rounded-md border p-4">
                               <p className="text-sm text-muted-foreground">Status</p>
@@ -2959,7 +2882,7 @@ export function ShopAttendancePage() {
                                 disabled={selectedAttendanceEvent.status !== "active"}
                               />
                               {isEventCheckInSearchOpen && (
-                                <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
+                                <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg">
                                   {eventCheckInResults.length === 0 ? (
                                     <div className="px-3 py-2 text-sm text-muted-foreground">No people found.</div>
                                   ) : (
@@ -2967,7 +2890,7 @@ export function ShopAttendancePage() {
                                       <button
                                         key={person.userId}
                                         type="button"
-                                        className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                        className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
                                         onMouseDown={(event) => event.preventDefault()}
                                         onClick={() => {
                                           setEventCheckInUserId(person.userId);
@@ -3008,7 +2931,7 @@ export function ShopAttendancePage() {
                           )}
                           <div className="space-y-2">
                             {selectedEventAttendance === undefined && (
-                              <div className="rounded-md border p-4 text-sm text-muted-foreground">Loading attendees...</div>
+                              <ListSkeleton label="Loading attendees" />
                             )}
                             {selectedEventAttendance && selectedEventRecords.length === 0 && (
                               <div className="rounded-md border p-4 text-sm text-muted-foreground">No students have checked in yet.</div>
@@ -3135,7 +3058,6 @@ export function ShopAttendancePage() {
             <TabsContent value="live">
               <Card>
                 <CardHeader>
-                  <Users className="size-5 text-primary" />
                   <CardTitle>Currently signed in</CardTitle>
                   <CardDescription>{current?.session ? "Live shop roster." : "No active shop session."}</CardDescription>
                 </CardHeader>
@@ -3161,7 +3083,7 @@ export function ShopAttendancePage() {
                         <p className="text-xs text-muted-foreground">Start a shop session first.</p>
                       )}
                       {isLiveSignInSearchOpen && (
-                        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-popover p-1 shadow-lg">
+                        <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg">
                           {liveSignInResults.length === 0 ? (
                             <div className="px-3 py-2 text-sm text-muted-foreground">No students found.</div>
                           ) : (
@@ -3169,7 +3091,7 @@ export function ShopAttendancePage() {
                               <button
                                 key={person.userId}
                                 type="button"
-                                className="flex w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                                className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
                                 onMouseDown={(event) => event.preventDefault()}
                                 onClick={() => {
                                   setLiveSignInUserId(person.userId);
@@ -3242,7 +3164,6 @@ export function ShopAttendancePage() {
             <TabsContent value="review" className="space-y-5">
               <Card>
                 <CardHeader>
-                  <ShieldCheck className="size-5 text-primary" />
                   <CardTitle>Review queue</CardTitle>
                   <CardDescription>Approve corrected hours or void records that should not count.</CardDescription>
                 </CardHeader>
@@ -3263,7 +3184,6 @@ export function ShopAttendancePage() {
 
               <Card>
                 <CardHeader>
-                  <Plus className="size-5 text-primary" />
                   <CardTitle>Manual correction</CardTitle>
                   <CardDescription>Add a reviewed attendance record for a missed punch.</CardDescription>
                 </CardHeader>
@@ -3310,7 +3230,6 @@ export function ShopAttendancePage() {
             <TabsContent value="reports" className="space-y-5">
               <Card>
                 <CardHeader>
-                  <ClipboardList className="size-5 text-primary" />
                   <CardTitle>Hours report</CardTitle>
                   <CardDescription>Total reviewed and provisional shop time.</CardDescription>
                 </CardHeader>
@@ -3353,15 +3272,15 @@ export function ShopAttendancePage() {
                   <div className="grid gap-3 sm:grid-cols-3">
                     <div className="rounded-md border p-4">
                       <p className="text-sm text-muted-foreground">People</p>
-                      <p className="mt-1 text-2xl font-semibold">{reportTotals.length}</p>
+                      <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{reportTotals.length}</p>
                     </div>
                     <div className="rounded-md border p-4">
                       <p className="text-sm text-muted-foreground">Records</p>
-                      <p className="mt-1 text-2xl font-semibold">{reportRows.length}</p>
+                      <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{reportRows.length}</p>
                     </div>
                     <div className="rounded-md border p-4">
                       <p className="text-sm text-muted-foreground">Total hours</p>
-                      <p className="mt-1 text-2xl font-semibold">{formatHours(totalReportMinutes)}</p>
+                      <p className="mt-1 font-heading text-2xl font-semibold tabular-nums [font-stretch:87.5%]">{formatHours(totalReportMinutes)}</p>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -3428,13 +3347,11 @@ export function SlackLinkPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeading
-        eyebrow="Shop Attendance"
         title="Link Slack"
         description="Connect your Slack identity to your Dolphin Apps account."
       />
       <Card>
         <CardHeader>
-          <LinkIcon className="size-5 text-primary" />
           <CardTitle>{preview ? "Ready to link" : "Slack link"}</CardTitle>
           <CardDescription>
             {preview

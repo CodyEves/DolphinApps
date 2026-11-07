@@ -40,6 +40,7 @@ import {
   type BatteryState,
   type BatteryUseKind,
 } from "@convex/lib/batteryDomain";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 type Program = "frc_5199" | "frc_9271";
 type ActionKind = "into" | "out" | "check" | "analyzer" | "edit" | "adjust" | "add";
@@ -132,7 +133,7 @@ function StatePill({ battery }: { battery: Pick<BatterySummary, "state" | "openU
 function Stat({ label, value, className }: { label: string; value: ReactNode; className?: string }) {
   return (
     <div className="min-w-0">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
       <p className={cn("truncate text-lg font-semibold tabular-nums", className)}>{value}</p>
     </div>
   );
@@ -1013,17 +1014,17 @@ export function BatteriesPage() {
     <div className="mx-auto grid max-w-5xl gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-heading text-2xl font-semibold tracking-tight">Batteries</h1>
+          <h1 className="text-[1.75rem] leading-tight font-bold sm:text-[2rem]">Which batteries are ready</h1>
           <LoggerLine writer={actions.writer} />
         </div>
-        <div className="inline-flex rounded-md border bg-card p-1">
+        <div className="inline-flex rounded-lg border bg-card p-1">
           {(["frc_5199", "frc_9271"] as const).map((option) => (
             <button
               key={option}
               type="button"
               onClick={() => setProgram(option)}
               className={cn(
-                "rounded px-3 py-1.5 text-sm font-semibold",
+                "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
                 program === option ? "bg-primary text-primary-foreground" : "text-muted-foreground",
               )}
             >
@@ -1034,7 +1035,7 @@ export function BatteriesPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Button size="lg" className="h-12" onClick={() => actions.open("into")}>
+        <Button size="lg" variant="cta" className="h-12" onClick={() => actions.open("into")}>
           <Bot /> Into robot
         </Button>
         <Button size="lg" variant="outline" className="h-12" onClick={() => actions.open("out")}>
@@ -1057,7 +1058,7 @@ export function BatteriesPage() {
         </div>
       )}
 
-      {batteries === undefined && <p className="text-sm text-muted-foreground">Loading batteries…</p>}
+      {batteries === undefined && <ListSkeleton label="Loading batteries" />}
 
       {batteries !== undefined && list.length === 0 && (
         <div className="rounded-lg border border-dashed bg-card p-6 text-center">
@@ -1070,7 +1071,7 @@ export function BatteriesPage() {
         (group) =>
           group.items.length > 0 && (
             <section key={group.label} className="grid gap-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</h2>
+              <h2 className="text-base font-semibold">{group.label}</h2>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {group.items.map((battery) => (
                   <BatteryCard key={battery._id} battery={battery} />
@@ -1187,7 +1188,7 @@ export function BatteryDetailPage() {
   }, [data, fleet]);
 
   if (data === undefined) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <ListSkeleton label="Loading" />;
   }
 
   if (data === null) {
@@ -1229,10 +1230,10 @@ export function BatteryDetailPage() {
       <div className="grid gap-3 rounded-lg border bg-card p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {battery.program === "frc_5199" ? "5199" : "9271"} · {battery.pool === "competition" ? "Competition" : "Practice"}
             </p>
-            <h1 className="font-heading text-2xl font-semibold leading-tight">{battery.name}</h1>
+            <h1 className="text-[1.75rem] leading-tight font-bold">{battery.name}</h1>
             {battery.nickname && <p className="text-muted-foreground">"{battery.nickname}"</p>}
           </div>
           <StatePill battery={battery} />
@@ -1259,7 +1260,7 @@ export function BatteryDetailPage() {
                 <BatteryCharging /> Out of robot
               </Button>
             ) : (
-              <Button size="lg" className="h-12" onClick={() => actions.open("into")}>
+              <Button size="lg" variant="cta" className="h-12" onClick={() => actions.open("into")}>
                 <Bot /> Into robot
               </Button>
             )}
