@@ -191,7 +191,7 @@ export function DashboardPage() {
         )}
       </section>
 
-      <section aria-label="Readiness" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section aria-label="Readiness" className={canReview ? "grid gap-3 sm:grid-cols-2 lg:grid-cols-4" : "grid gap-3 sm:grid-cols-2"}>
         <StatLink
           to="/tools"
           icon={Wrench}
@@ -199,7 +199,7 @@ export function DashboardPage() {
           value={equipment === undefined ? undefined : equipmentApprovalSummary?.approved ?? 0}
           detail={
             equipmentApprovalSummary && equipmentApprovalSummary.pending > 0
-              ? `${equipmentApprovalSummary.pending} tools still need a hands-on check`
+              ? `${equipmentApprovalSummary.pending} ${equipmentApprovalSummary.pending === 1 ? "tool still needs" : "tools still need"} a hands-on check`
               : "Every tool that needs a sign-off is done"
           }
         />

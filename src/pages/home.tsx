@@ -130,8 +130,11 @@ export function HomePage() {
           Other apps
         </h2>
         <ul className="grid gap-px overflow-hidden rounded-lg border bg-border sm:grid-cols-2">
-          {apps.map((app) => (
-            <li key={app.href} className="bg-card">
+          {apps.map((app, index) => (
+            <li
+              key={app.href}
+              className={cn("bg-card", apps.length % 2 === 1 && index === apps.length - 1 && "sm:col-span-2")}
+            >
               <Link
                 to={app.href}
                 className="group flex h-full items-start gap-4 p-5 outline-none transition-colors hover:bg-accent focus-visible:bg-accent"
