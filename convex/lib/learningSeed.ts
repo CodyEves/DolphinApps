@@ -157,6 +157,30 @@ const motorRatioLesson: LearningResource = {
   minutes: 30,
 };
 
+const readLightsLesson: LearningResource = {
+  title: "Interactive lesson: Read the lights",
+  url: "/training/labs/read-the-lights",
+  kind: "interactive",
+  source: "Robot Dolphins",
+  minutes: 30,
+};
+
+const prototypingLesson: LearningResource = {
+  title: "Interactive lesson: Prototype like a scientist",
+  url: "/training/labs/prototyping",
+  kind: "interactive",
+  source: "Robot Dolphins",
+  minutes: 35,
+};
+
+const gameBreakdownLesson: LearningResource = {
+  title: "Interactive lesson: Break down a game",
+  url: "/training/labs/game-breakdown",
+  kind: "interactive",
+  source: "Robot Dolphins",
+  minutes: 30,
+};
+
 function youtube(query: string): LearningResource {
   return {
     title: `Find videos: ${query}`,
@@ -185,7 +209,7 @@ const mechanical: SeedPath = {
         "Pick a past game none of you built for. Read the manual and write the one-page summary without looking at anyone else's.",
       checkType: "self",
       estimatedMinutes: 120,
-      resources: [lynkStrategy, blueAlliance, youtube("FRC game reveal animation")],
+      resources: [gameBreakdownLesson, lynkStrategy, blueAlliance, youtube("FRC game reveal animation")],
     },
     {
       key: "mech-score-estimate",
@@ -197,7 +221,7 @@ const mechanical: SeedPath = {
         "Estimate cycle time for one scoring action, then multiply out for a full teleop period. Compare your number to real results on Statbotics.",
       checkType: "self",
       estimatedMinutes: 45,
-      resources: [statbotics, blueAlliance],
+      resources: [gameBreakdownLesson, statbotics, blueAlliance],
     },
     {
       key: "mech-design-rules",
@@ -219,7 +243,7 @@ const mechanical: SeedPath = {
       practice: "For each scoring action, divide points by the seconds it takes. Rank them, then argue about the top three.",
       checkType: "quiz",
       estimatedMinutes: 40,
-      resources: [lynkStrategy, youtube("Effective FIRST Strategies Karthik")],
+      resources: [gameBreakdownLesson, lynkStrategy, youtube("Effective FIRST Strategies Karthik")],
       quiz: [
         {
           prompt:
@@ -255,7 +279,7 @@ const mechanical: SeedPath = {
       practice: "Write 5 requirements for your chosen strategy. If one names a mechanism, rewrite it as what the robot must do.",
       checkType: "mentor",
       estimatedMinutes: 40,
-      resources: [lynkStrategy, lynkDesign],
+      resources: [gameBreakdownLesson, lynkStrategy, lynkDesign],
     },
     {
       key: "mech-brainstorm",
@@ -319,7 +343,7 @@ const mechanical: SeedPath = {
       practice: "For your chosen design, list everything you don't know yet. Circle the one that could sink the design.",
       checkType: "quiz",
       estimatedMinutes: 20,
-      resources: [spectrumTraining, lynkDesign],
+      resources: [prototypingLesson, spectrumTraining, lynkDesign],
       quiz: [
         {
           prompt: "Which is the best question for a prototype to answer?",
@@ -352,7 +376,7 @@ const mechanical: SeedPath = {
       practice: "Fill in a prototype test card before cutting any material: question, variable, measurement, success, results table, decision.",
       checkType: "mentor",
       estimatedMinutes: 25,
-      resources: [spectrumTraining],
+      resources: [prototypingLesson, spectrumTraining],
     },
     {
       key: "mech-run-trials",
@@ -362,7 +386,7 @@ const mechanical: SeedPath = {
       practice: "Run your prototype at 3 settings, 5 trials each. Record every result, including the bad ones.",
       checkType: "quiz",
       estimatedMinutes: 60,
-      resources: [youtube("FRC prototype testing")],
+      resources: [prototypingLesson, youtube("FRC prototype testing")],
       quiz: [
         {
           prompt: "Why run at least 5 trials at each setting?",
@@ -396,7 +420,7 @@ const mechanical: SeedPath = {
       practice: "Write 3–5 sentences: what the data shows, how sure you are, and the next decision or test.",
       checkType: "mentor",
       estimatedMinutes: 20,
-      resources: [lynkDesign],
+      resources: [prototypingLesson, lynkDesign],
     },
     {
       key: "mech-fast-rig",
@@ -698,7 +722,7 @@ const electrical: SeedPath = {
       practice: "Power up the practice board, look at each device's lights, and look up what each one means.",
       checkType: "self",
       estimatedMinutes: 30,
-      resources: [statusLights, talonFxReference],
+      resources: [readLightsLesson, statusLights, talonFxReference],
     },
     {
       key: "elec-diagnose-lights",
@@ -708,7 +732,7 @@ const electrical: SeedPath = {
       practice: "Have a teammate plant a fault (loose CAN wire, duplicate ID, tripped breaker). Find it from the lights alone.",
       checkType: "mentor",
       estimatedMinutes: 30,
-      resources: [statusLights, talonFxReference],
+      resources: [readLightsLesson, statusLights, talonFxReference],
     },
     {
       key: "elec-tuner-firmware",

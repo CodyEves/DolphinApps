@@ -264,7 +264,7 @@ export function LearningSkillPage() {
   );
 }
 
-function SelfCheck({ skillId, completedAt }: { skillId: Id<"learningSkills">; completedAt: number | undefined }) {
+export function SelfCheck({ skillId, completedAt }: { skillId: Id<"learningSkills">; completedAt: number | undefined }) {
   const markDone = useMutation(api.learning.markDone);
   const undoDone = useMutation(api.learning.undoDone);
   const [isSaving, setIsSaving] = useState(false);
@@ -471,7 +471,7 @@ type MentorProgress = {
   reviewerName: string | null;
 } | null;
 
-function MentorCheck({ skillId, progress }: { skillId: Id<"learningSkills">; progress: MentorProgress }) {
+export function MentorCheck({ skillId, progress }: { skillId: Id<"learningSkills">; progress: MentorProgress }) {
   const requestSignoff = useMutation(api.learning.requestSignoff);
   const cancelSignoffRequest = useMutation(api.learning.cancelSignoffRequest);
   const [note, setNote] = useState(progress?.evidenceNote ?? "");

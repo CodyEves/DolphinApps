@@ -75,6 +75,15 @@ const LearningSkillPage = lazy(() =>
 const LearningTeamPage = lazy(() =>
   import("@/pages/learning-team").then((module) => ({ default: module.LearningTeamPage })),
 );
+const ReadLightsLessonPage = lazy(() =>
+  import("@/pages/lesson-read-lights").then((module) => ({ default: module.ReadLightsLessonPage })),
+);
+const PrototypingLessonPage = lazy(() =>
+  import("@/pages/lesson-prototyping").then((module) => ({ default: module.PrototypingLessonPage })),
+);
+const GameBreakdownLessonPage = lazy(() =>
+  import("@/pages/lesson-game-breakdown").then((module) => ({ default: module.GameBreakdownLessonPage })),
+);
 const MotorRatioLessonPage = lazy(() =>
   import("@/pages/lesson-motor-ratio").then((module) => ({ default: module.MotorRatioLessonPage })),
 );
@@ -149,6 +158,9 @@ const router = createBrowserRouter([
       { path: "training/team", element: <LearningTeamPage /> },
       { path: "training/manage", element: <LearningManagePage /> },
       { path: "training/labs/motor-ratio", element: <MotorRatioLessonPage /> },
+      { path: "training/labs/read-the-lights", element: <ReadLightsLessonPage /> },
+      { path: "training/labs/prototyping", element: <PrototypingLessonPage /> },
+      { path: "training/labs/game-breakdown", element: <GameBreakdownLessonPage /> },
       // Old track and lesson links from before the skills rebuild land on the Learning home.
       { path: "training/tracks/*", element: <Navigate to="/training" replace /> },
       { path: "training/lessons/*", element: <Navigate to="/training" replace /> },

@@ -1,14 +1,10 @@
-import { useConvexAuth } from "@convex-dev/auth/react";
-import { useQuery } from "convex/react";
-import { ArrowLeft, ArrowRight, ExternalLink } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ExternalLink } from "lucide-react";
+import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "react-router";
 
 import { Choice, Goals, Lab, LineChart, Readouts, Slider, SpinningShafts, Takeaway } from "@/components/learning/lab-ui";
+import { LessonShell, SkillCheckChapter } from "@/components/learning/lesson-shell";
 import type { Tone } from "@/components/learning/lab-ui";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   MOTORS,
   elevatorSweep,
@@ -21,20 +17,6 @@ import {
   simulateArm,
   simulateElevator,
 } from "@/lib/motor-physics";
-import { cn } from "@/lib/utils";
-import { QuizCheck } from "@/pages/learning-skill";
-import { api } from "@convex/_generated/api";
-
-const CHAPTERS = [
-  { id: "trade", title: "What a gear ratio trades", minutes: 5 },
-  { id: "load", title: "The load sets the current", minutes: 6 },
-  { id: "arm", title: "Hold and swing an arm", minutes: 7 },
-  { id: "elevator", title: "Find the fastest elevator ratio", minutes: 6 },
-  { id: "limit", title: "Design under a motor limit", minutes: 6 },
-  { id: "quiz", title: "Check your understanding", minutes: 4 },
-] as const;
-
-type ChapterId = (typeof CHAPTERS)[number]["id"];
 
 const motorOptions = MOTORS.map((motor) => ({ value: motor.id, label: motor.name }));
 const toneForBand = (tone: "good" | "warn" | "bad"): Tone => tone;
@@ -48,83 +30,18 @@ function ratioFormat(value: number) {
 }
 
 export function MotorRatioLessonPage() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const hash = location.hash.replace("#", "") as ChapterId;
-  const index = Math.max(0, CHAPTERS.findIndex((chapter) => chapter.id === hash));
-  const chapter = CHAPTERS[index];
-  const totalMinutes = CHAPTERS.reduce((sum, item) => sum + item.minutes, 0);
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [index]);
-
-  function go(target: number) {
-    navigate({ hash: CHAPTERS[target].id });
-  }
-
   return (
-    <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
-      <nav aria-label="Lesson chapters" className="lg:sticky lg:top-20 lg:self-start">
-        <Link to="/training" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-4" aria-hidden />
-          Learning
-        </Link>
-        <p className="mb-3 text-sm text-muted-foreground">About {totalMinutes} min</p>
-        <ol className="grid gap-1">
-          {CHAPTERS.map((item, itemIndex) => (
-            <li key={item.id}>
-              <Link
-                to={{ hash: item.id }}
-                aria-current={itemIndex === index ? "step" : undefined}
-                className={cn(
-                  "flex gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent",
-                  itemIndex === index ? "bg-accent font-semibold text-foreground" : "text-muted-foreground",
-                )}
-              >
-                <span className="w-4 shrink-0 tabular-nums">{itemIndex + 1}</span>
-                <span>{item.title}</span>
-              </Link>
-            </li>
-          ))}
-        </ol>
-      </nav>
-
-      <article className="min-w-0 max-w-3xl">
-        <header className="mb-6 space-y-2 border-b pb-6">
-          <p className="text-sm text-muted-foreground">
-            Pick a motor and gear ratio · Chapter {index + 1} of {CHAPTERS.length} · {chapter.minutes} min
-          </p>
-          <h1 className="text-[1.75rem] leading-tight font-bold sm:text-[2rem]">{chapter.title}</h1>
-        </header>
-
-        <div className="space-y-4 text-base leading-7 [&_p]:max-w-[65ch]">
-          {chapter.id === "trade" && <ChapterTrade />}
-          {chapter.id === "load" && <ChapterLoad />}
-          {chapter.id === "arm" && <ChapterArm />}
-          {chapter.id === "elevator" && <ChapterElevator />}
-          {chapter.id === "limit" && <ChapterLimit />}
-          {chapter.id === "quiz" && <ChapterQuiz />}
-        </div>
-
-        <nav aria-label="Chapter navigation" className="mt-10 flex flex-wrap justify-between gap-3 border-t pt-5">
-          {index > 0 ? (
-            <Button variant="outline" onClick={() => go(index - 1)}>
-              <ArrowLeft />
-              {CHAPTERS[index - 1].title}
-            </Button>
-          ) : (
-            <span />
-          )}
-          {index < CHAPTERS.length - 1 && (
-            <Button variant="cta" onClick={() => go(index + 1)}>
-              Next: {CHAPTERS[index + 1].title}
-              <ArrowRight />
-            </Button>
-          )}
-        </nav>
-      </article>
-    </div>
+    <LessonShell
+      title="Pick a motor and gear ratio"
+      chapters={[
+        { id: "trade", title: "What a gear ratio trades", minutes: 5, render: () => <ChapterTrade /> },
+        { id: "load", title: "The load sets the current", minutes: 6, render: () => <ChapterLoad /> },
+        { id: "arm", title: "Hold and swing an arm", minutes: 7, render: () => <ChapterArm /> },
+        { id: "elevator", title: "Find the fastest elevator ratio", minutes: 6, render: () => <ChapterElevator /> },
+        { id: "limit", title: "Design under a motor limit", minutes: 6, render: () => <ChapterLimit /> },
+        { id: "quiz", title: "Check your understanding", minutes: 4, render: () => <ChapterQuiz /> },
+      ]}
+    />
   );
 }
 
@@ -465,50 +382,9 @@ function ChapterLimit() {
 // ---- Quiz ----------------------------------------------------------------
 
 function ChapterQuiz() {
-  const { isAuthenticated } = useConvexAuth();
-  const skillId = useQuery(api.learning.skillIdBySeedKey, isAuthenticated ? { seedKey: "mech-ratios" } : "skip");
-  const skill = useQuery(api.learning.skill, skillId ? { skillId } : "skip");
-
-  if (!isAuthenticated) {
-    return <P>Sign in to take the quiz and get credit for the gear ratio skill.</P>;
-  }
-
-  if (skillId === undefined || (skillId && skill === undefined)) {
-    return (
-      <div className="space-y-3" aria-busy>
-        <Skeleton className="h-6 w-2/3" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    );
-  }
-
-  if (!skillId || !skill || skill.notFound) {
-    return (
-      <P>
-        The gear ratio skill isn't published yet, so there is no quiz to take. A mentor can add it from Learning by clicking Load starter
-        skills.
-      </P>
-    );
-  }
-
   return (
     <>
-      <P>
-        Pass this quiz to complete the skill “{skill.skill.title.replace(/^I can /, "")}”. Your result is saved to your Learning progress.
-      </P>
-      <div className="rounded-xl border bg-card p-5">
-        {skill.canTrackProgress ? (
-          <QuizCheck
-            skillId={skill.skill._id}
-            questions={skill.skill.quiz}
-            passPercent={skill.skill.passPercent}
-            completedAt={skill.progress?.status === "completed" ? skill.progress.completedAt : undefined}
-            bestPercent={skill.progress?.quizBestPercent}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">Your profile is view-only, so quiz results can't be saved.</p>
-        )}
-      </div>
+      <SkillCheckChapter seedKey="mech-ratios" />
       <p className="text-sm text-muted-foreground">
         Want to go further? Try the same mechanisms in{" "}
         <a href="https://www.reca.lc/" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
