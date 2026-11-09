@@ -12,9 +12,10 @@ import {
   Sparkles,
   Trash2,
   UserPlus,
+  Users,
   X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
@@ -138,7 +139,7 @@ export function InterviewBoardPage() {
   );
 }
 
-function KeyGate({
+export function KeyGate({
   keyConfigured,
   hadKey,
   onKey,
@@ -316,6 +317,11 @@ function Board({
               </Button>
             )}
             <Button variant="outline" asChild>
+              <Link to="/interviews/mentor">
+                <Users className="size-4" /> Mentor schedule
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
               <Link to="/interviews/schedule" target="_blank">
                 <ExternalLink className="size-4" /> Public schedule
               </Link>
@@ -390,6 +396,7 @@ function Board({
             )}
           </div>
           <CandidatePanel
+            day={day}
             round={round}
             candidates={candidates}
             slotByCandidate={slotByCandidate}
@@ -1004,6 +1011,7 @@ function CandidatePanel({
   onReviewKey,
   onImport,
   followUp,
+  day,
 }: {
   round: Round;
   candidates: Candidate[];
@@ -1016,6 +1024,8 @@ function CandidatePanel({
   onReviewKey: () => void;
   onImport: () => void;
   followUp: number;
+  /** The day open on the board: students free that day sort to the top. */
+  day: string;
 }) {
   const [filter, setFilter] = useState<Filter>("todo");
   const [search, setSearch] = useState("");
@@ -1038,11 +1048,16 @@ function CandidatePanel({
       return true;
     })
     .filter((c) => !needle || c.name.toLowerCase().includes(needle) || c.email?.includes(needle))
-    .sort((a, b) =>
-      filter === "todo"
-        ? a.availableDates.length - b.availableDates.length || a.name.localeCompare(b.name)
-        : a.name.localeCompare(b.name),
-    );
+    .sort((a, b) => {
+      const freeA = a.availableDates.includes(day) ? 0 : 1;
+      const freeB = b.availableDates.includes(day) ? 0 : 1;
+      return (
+        freeA - freeB ||
+        (filter === "todo" ? a.availableDates.length - b.availableDates.length : 0) ||
+        a.name.localeCompare(b.name)
+      );
+    });
+  const freeCount = day ? visible.filter((c) => c.availableDates.includes(day)).length : visible.length;
 
   return (
     <Card className="h-fit overflow-hidden py-0 xl:sticky xl:top-20">
@@ -1051,7 +1066,7 @@ function CandidatePanel({
           <div>
             <CardTitle>Students</CardTitle>
             <CardDescription>
-              {filter === "todo" ? "Fewest free days first. " : ""}Click a name to place them.
+              Students free on {day ? formatDay(day) : "the selected day"} come first. Click a name to place them.
             </CardDescription>
           </div>
           <Button size="sm" variant="outline" onClick={onImport}>
@@ -1104,28 +1119,53 @@ function CandidatePanel({
             {filter === "todo" && !needle ? "Everyone has a time." : "Nobody here."}
           </p>
         )}
-        {visible.map((candidate) => (
-          <CandidateRow
-            key={candidate._id}
-            round={round}
-            candidate={candidate}
-            slot={slotByCandidate.get(candidate._id)}
-            roomCount={roomCount}
-            selected={selectedId === candidate._id}
-            expanded={openId === candidate._id}
-            onSelect={() => onSelect(selectedId === candidate._id ? null : candidate._id)}
-            onToggle={() => setOpenId(openId === candidate._id ? null : candidate._id)}
-            creds={creds}
-            applicant={applicants.status === "ready" ? applicants.match?.(candidate.name) ?? null : undefined}
-            reviewKey={applicants.key}
-          />
+        {visible.map((candidate, index) => (
+          <Fragment key={candidate._id}>
+            {day && index === 0 && freeCount > 0 && (
+              <ListDivider tone="free">
+                Free {formatDay(day)} · {freeCount}
+              </ListDivider>
+            )}
+            {day && index === freeCount && (
+              <ListDivider>
+                Didn't pick {formatDay(day)} · {visible.length - freeCount}
+              </ListDivider>
+            )}
+            <CandidateRow
+              key={candidate._id}
+              round={round}
+              candidate={candidate}
+              slot={slotByCandidate.get(candidate._id)}
+              roomCount={roomCount}
+              selected={selectedId === candidate._id}
+              expanded={openId === candidate._id}
+              onSelect={() => onSelect(selectedId === candidate._id ? null : candidate._id)}
+              onToggle={() => setOpenId(openId === candidate._id ? null : candidate._id)}
+              creds={creds}
+              applicant={applicants.status === "ready" ? applicants.match?.(candidate.name) ?? null : undefined}
+              reviewKey={applicants.key}
+            />
+          </Fragment>
         ))}
       </CardContent>
     </Card>
   );
 }
 
-function ReviewConnect({
+function ListDivider({ tone, children }: { tone?: "free"; children: ReactNode }) {
+  return (
+    <div
+      className={cn(
+        "sticky top-0 z-10 mx-1 mt-2 mb-1 rounded-md bg-card/95 px-2 py-1 text-xs font-semibold backdrop-blur",
+        tone === "free" ? "text-primary" : "text-muted-foreground",
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function ReviewConnect({
   applicants,
   onReviewKey,
 }: {

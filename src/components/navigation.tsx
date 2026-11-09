@@ -112,6 +112,7 @@ const shopNavItems: NavItem[] = [
 
 const interviewNavItems: NavItem[] = [
   { href: "/interviews", label: "Scheduling board", icon: CalendarDays },
+  { href: "/interviews/mentor", label: "Mentor schedule", icon: Users },
   { href: "/interviews/schedule", label: "Posted schedule", icon: CalendarClock },
 ];
 

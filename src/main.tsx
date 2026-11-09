@@ -95,6 +95,9 @@ const ManagementPlaceholderPage = lazy(() =>
 const InterviewBoardPage = lazy(() =>
   import("@/pages/interviews").then((module) => ({ default: module.InterviewBoardPage })),
 );
+const InterviewMentorSchedulePage = lazy(() =>
+  import("@/pages/interview-mentor-schedule").then((module) => ({ default: module.InterviewMentorSchedulePage })),
+);
 const InterviewSchedulePage = lazy(() =>
   import("@/pages/interview-schedule").then((module) => ({ default: module.InterviewSchedulePage })),
 );
@@ -202,6 +205,7 @@ const router = createBrowserRouter([
       { path: "reviews", element: <ReviewsPage /> },
       { path: "interviews", element: <InterviewBoardPage /> },
       { path: "interviews/schedule", element: <InterviewSchedulePage /> },
+      { path: "interviews/mentor", element: <InterviewMentorSchedulePage /> },
       { path: "badges", element: <BadgesPage /> },
       { path: "badges/awards", element: <BadgeAwardsPage /> },
       { path: "badges/new", element: <BadgeEditorPage /> },
