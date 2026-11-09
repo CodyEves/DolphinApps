@@ -14,3 +14,6 @@ coverage
 
 # Convex generated deployment metadata is local to each developer.
 .convex
+
+# Holds the interview mentor key; run locally, never commit.
+setup-interviews.bat

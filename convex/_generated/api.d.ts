@@ -22,6 +22,7 @@ import type * as demo from "../demo.js";
 import type * as equipment from "../equipment.js";
 import type * as equipmentSop from "../equipmentSop.js";
 import type * as http from "../http.js";
+import type * as interviews from "../interviews.js";
 import type * as learning from "../learning.js";
 import type * as lib_authz from "../lib/authz.js";
 import type * as lib_batteryDomain from "../lib/batteryDomain.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   equipment: typeof equipment;
   equipmentSop: typeof equipmentSop;
   http: typeof http;
+  interviews: typeof interviews;
   learning: typeof learning;
   "lib/authz": typeof lib_authz;
   "lib/batteryDomain": typeof lib_batteryDomain;

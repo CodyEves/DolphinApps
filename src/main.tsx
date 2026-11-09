@@ -92,6 +92,12 @@ const ManagementPlaceholderPage = lazy(() =>
     default: module.ManagementPlaceholderPage,
   })),
 );
+const InterviewBoardPage = lazy(() =>
+  import("@/pages/interviews").then((module) => ({ default: module.InterviewBoardPage })),
+);
+const InterviewSchedulePage = lazy(() =>
+  import("@/pages/interview-schedule").then((module) => ({ default: module.InterviewSchedulePage })),
+);
 const ReviewsPage = lazy(() =>
   import("@/pages/reviews").then((module) => ({ default: module.ReviewsPage })),
 );
@@ -194,6 +200,8 @@ const router = createBrowserRouter([
       { path: "shop/link-slack", element: <SlackLinkPage /> },
       { path: "equipment/:equipmentId", element: <LegacyEquipmentRedirect /> },
       { path: "reviews", element: <ReviewsPage /> },
+      { path: "interviews", element: <InterviewBoardPage /> },
+      { path: "interviews/schedule", element: <InterviewSchedulePage /> },
       { path: "badges", element: <BadgesPage /> },
       { path: "badges/awards", element: <BadgeAwardsPage /> },
       { path: "badges/new", element: <BadgeEditorPage /> },

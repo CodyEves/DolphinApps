@@ -50,6 +50,13 @@ function currentAppCopy(pathname: string, program: Program = "frc_5199") {
     };
   }
 
+  if (pathname.startsWith("/interviews")) {
+    return {
+      title: "Interviews",
+      description: "Interview scheduling and the posted schedule.",
+    };
+  }
+
   if (pathname.startsWith("/shop")) {
     return {
       title: "Shop Attendance",

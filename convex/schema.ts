@@ -856,4 +856,76 @@ export default defineSchema({
     focusPathId: v.optional(v.id("learningPaths")),
     updatedAt: v.number(),
   }).index("by_user", ["userId"]),
+
+  // ---- Interview scheduling (convex/interviews.ts) ---------------------
+  interviewRounds: defineTable({
+    /** URL-safe id, e.g. "5199-2026". */
+    slug: v.string(),
+    program: programValidator,
+    title: v.string(),
+    /** ISO dates (YYYY-MM-DD) students could pick on the availability form. */
+    dates: v.array(v.string()),
+    /** Shown on the public schedule, e.g. "Room 1101, after school". */
+    location: v.optional(v.string()),
+    publicMessage: v.optional(v.string()),
+    publicNameStyle: v.union(v.literal("full"), v.literal("initial")),
+    /** Interviewer names per day and panel. */
+    panels: v.array(
+      v.object({ date: v.string(), room: v.string(), interviewers: v.string() }),
+    ),
+    /** Snapshot students see. Mentors keep editing the draft until they publish again. */
+    published: v.optional(
+      v.object({
+        at: v.number(),
+        by: v.string(),
+        location: v.optional(v.string()),
+        message: v.optional(v.string()),
+        slots: v.array(
+          v.object({
+            date: v.string(),
+            startMinutes: v.number(),
+            durationMinutes: v.number(),
+            room: v.string(),
+            name: v.string(),
+            note: v.optional(v.string()),
+          }),
+        ),
+      }),
+    ),
+    lastEditedBy: v.optional(v.string()),
+    lastEditedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  }).index("by_slug", ["slug"]),
+
+  interviewCandidates: defineTable({
+    roundId: v.id("interviewRounds"),
+    name: v.string(),
+    email: v.optional(v.string()),
+    /** ISO dates from the round's date list. */
+    availableDates: v.array(v.string()),
+    /** Anything on the form that wasn't one of the listed dates. */
+    availabilityNote: v.optional(v.string()),
+    mentorNote: v.optional(v.string()),
+    withdrawn: v.boolean(),
+    source: v.union(v.literal("form"), v.literal("manual")),
+    submittedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_round", ["roundId"])
+    .index("by_round_email", ["roundId", "email"]),
+
+  interviewSlots: defineTable({
+    roundId: v.id("interviewRounds"),
+    date: v.string(),
+    startMinutes: v.number(),
+    durationMinutes: v.number(),
+    room: v.string(),
+    candidateId: v.optional(v.id("interviewCandidates")),
+    note: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_round", ["roundId"])
+    .index("by_round_date", ["roundId", "date"])
+    .index("by_candidate", ["candidateId"]),
 });

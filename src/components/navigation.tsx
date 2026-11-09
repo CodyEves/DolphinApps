@@ -7,6 +7,8 @@ import {
   Clock,
   ClipboardCheck,
   ClipboardList,
+  CalendarClock,
+  CalendarDays,
   Download,
   Factory,
   FileCheck,
@@ -108,11 +110,20 @@ const shopNavItems: NavItem[] = [
   { href: "/shop/reports", label: "Reports", icon: Download, managementOnly: true },
 ];
 
+const interviewNavItems: NavItem[] = [
+  { href: "/interviews", label: "Scheduling board", icon: CalendarDays },
+  { href: "/interviews/schedule", label: "Posted schedule", icon: CalendarClock },
+];
+
 const batteryNavItems: NavItem[] = [{ href: "/batteries", label: "Batteries", icon: BatteryCharging }];
 
 function navItemsForPath(pathname: string) {
   if (pathname.startsWith("/batteries")) {
     return batteryNavItems;
+  }
+
+  if (pathname.startsWith("/interviews")) {
+    return interviewNavItems;
   }
 
   if (pathname.startsWith("/management") || pathname.startsWith("/admin")) {
@@ -130,7 +141,7 @@ function navItemsForPath(pathname: string) {
   return pathname.startsWith("/parts") ? partsNavItems : trainingNavItems;
 }
 
-const exactMatchHrefs = new Set(["/", "/parts", "/shop", "/tools", "/training"]);
+const exactMatchHrefs = new Set(["/", "/parts", "/shop", "/tools", "/training", "/interviews"]);
 
 /**
  * NavLink's className callback is lost when it sits inside a TooltipTrigger
@@ -218,6 +229,10 @@ function appNameForPath(pathname: string, trainingTitle: string, partsTitle: str
     return "Batteries";
   }
 
+  if (pathname.startsWith("/interviews")) {
+    return "Interviews";
+  }
+
   if (pathname.startsWith("/parts")) {
     return partsTitle;
   }
@@ -283,6 +298,10 @@ export function MobileNav() {
     ? "Shop Attendance"
     : location.pathname.startsWith("/tools")
     ? "Shop Tools"
+    : location.pathname.startsWith("/interviews")
+    ? "Interviews"
+    : location.pathname.startsWith("/batteries")
+    ? "Batteries"
     : location.pathname.startsWith("/parts")
     ? activeProgramMeta.partsTitle
     : activeProgramMeta.trainingTitle;

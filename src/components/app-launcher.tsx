@@ -1,5 +1,6 @@
 import {
   BatteryCharging,
+  CalendarDays,
   Clock,
   GraduationCap,
   Grid3X3,
@@ -77,6 +78,13 @@ const apps: LauncherApp[] = [
     icon: BatteryCharging,
   },
   {
+    href: "/interviews",
+    title: "Interviews",
+    description: "Schedule tryout interviews",
+    icon: CalendarDays,
+    managementOnly: true,
+  },
+  {
     href: "/management",
     titleKey: "trainingTitle",
     title: "Management",
@@ -111,9 +119,14 @@ function isActiveApp(pathname: string, href: string) {
     return pathname.startsWith("/batteries");
   }
 
+  if (href === "/interviews") {
+    return pathname.startsWith("/interviews");
+  }
+
   return (
     pathname !== "/" &&
     !pathname.startsWith("/batteries") &&
+    !pathname.startsWith("/interviews") &&
     !pathname.startsWith("/parts") &&
     !pathname.startsWith("/tools") &&
     !pathname.startsWith("/management") &&

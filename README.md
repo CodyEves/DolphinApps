@@ -109,6 +109,8 @@ bun run preview
 | `/parts/dashboard` | Parts, fab, order, and transmission overview |
 | `/batteries` | Battery fleet status, logging, CSV export (no sign-in to view) |
 | `/batteries/:batteryId` | One battery: last analyzer run, IR trend, full history |
+| `/interviews` | Interview scheduling board for mentors (no sign-in: mentor link `#key=` from `INTERVIEW_KEY`, or a mentor account) |
+| `/interviews/schedule` | Published interview schedule for students (public, no sign-in) |
 | `/shop` | Shop attendance overview and student check-in |
 | `/shop/display` | Kiosk/display code view |
 | `/shop/review` | Attendance correction review |
