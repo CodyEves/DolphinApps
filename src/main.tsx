@@ -84,6 +84,9 @@ const PrototypingLessonPage = lazy(() =>
 const GameBreakdownLessonPage = lazy(() =>
   import("@/pages/lesson-game-breakdown").then((module) => ({ default: module.GameBreakdownLessonPage })),
 );
+const UltimateAscentKickoffPage = lazy(() =>
+  import("@/pages/kickoff-2013").then((module) => ({ default: module.UltimateAscentKickoffPage })),
+);
 const MotorRatioLessonPage = lazy(() =>
   import("@/pages/lesson-motor-ratio").then((module) => ({ default: module.MotorRatioLessonPage })),
 );
@@ -170,6 +173,7 @@ const router = createBrowserRouter([
       { path: "training/labs/read-the-lights", element: <ReadLightsLessonPage /> },
       { path: "training/labs/prototyping", element: <PrototypingLessonPage /> },
       { path: "training/labs/game-breakdown", element: <GameBreakdownLessonPage /> },
+      { path: "training/kickoff/2013", element: <UltimateAscentKickoffPage /> },
       // Old track and lesson links from before the skills rebuild land on the Learning home.
       { path: "training/tracks/*", element: <Navigate to="/training" replace /> },
       { path: "training/lessons/*", element: <Navigate to="/training" replace /> },

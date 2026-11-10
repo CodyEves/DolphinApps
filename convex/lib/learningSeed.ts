@@ -4,6 +4,7 @@ import type {
   LearningQuizQuestion,
   LearningResource,
 } from "./learningDomain";
+import { KICKOFF_2013_PATH, KICKOFF_2013_QUIZ, KICKOFF_2013_SKILL_KEY } from "./kickoff2013";
 
 /**
  * Starter content for the Learning app, matching the 2026 pre-season
@@ -181,6 +182,14 @@ const gameBreakdownLesson: LearningResource = {
   minutes: 30,
 };
 
+const kickoff2013Page: LearningResource = {
+  title: "Interactive lesson: Mock kickoff, ULTIMATE ASCENT (2013)",
+  url: KICKOFF_2013_PATH,
+  kind: "interactive",
+  source: "Robot Dolphins",
+  minutes: 45,
+};
+
 function youtube(query: string): LearningResource {
   return {
     title: `Find videos: ${query}`,
@@ -209,7 +218,19 @@ const mechanical: SeedPath = {
         "Pick a past game none of you built for. Read the manual and write the one-page summary without looking at anyone else's.",
       checkType: "self",
       estimatedMinutes: 120,
-      resources: [gameBreakdownLesson, lynkStrategy, blueAlliance, youtube("FRC game reveal animation")],
+      resources: [gameBreakdownLesson, kickoff2013Page, lynkStrategy, blueAlliance, youtube("FRC game reveal animation")],
+    },
+    {
+      key: KICKOFF_2013_SKILL_KEY,
+      stage: "Game analysis",
+      title: "I can answer rules questions about our mock kickoff game (2013 ULTIMATE ASCENT)",
+      successCriteria: "80% or better on the ULTIMATE ASCENT rules quiz, with each answer backed by a rule number.",
+      practice:
+        "Read the cheat sheet tabs, look up three rules in the real manual, then take the quiz. You can take it signed out; sign in at the end to save your score.",
+      checkType: "quiz",
+      estimatedMinutes: 30,
+      resources: [kickoff2013Page],
+      quiz: KICKOFF_2013_QUIZ.map(({ prompt, options, correctIndex, explanation }) => ({ prompt, options, correctIndex, explanation })),
     },
     {
       key: "mech-score-estimate",
@@ -232,7 +253,7 @@ const mechanical: SeedPath = {
       practice: "Go through the robot rules section and list every rule that would change what you build.",
       checkType: "self",
       estimatedMinutes: 45,
-      resources: [lynkStrategy],
+      resources: [kickoff2013Page, lynkStrategy],
     },
     {
       key: "mech-rank-actions",
