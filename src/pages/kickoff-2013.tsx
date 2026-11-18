@@ -1,13 +1,19 @@
-import { ExternalLink, Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useConvexAuth } from "@convex-dev/auth/react";
+import { useMutation, useQuery } from "convex/react";
+import { ExternalLink, LogIn, Save, Search } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 
 import { Choice, Goals, Lab, Readouts, Slider, Takeaway } from "@/components/learning/lab-ui";
 import { Sorter } from "@/components/learning/lesson-shell";
+import { DriveSim2013 } from "@/components/learning/drive-sim-2013";
+import { FieldSvg } from "@/components/learning/field-2013";
 import { PageHeading } from "@/components/page-heading";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { api } from "@convex/_generated/api";
+import { KICKOFF_2013_PATH, KICKOFF_2013_QUIZ as QUIZ, KICKOFF_2013_SKILL_KEY } from "@convex/lib/kickoff2013";
 
 /*
  * Mock kickoff: FRC 2013 ULTIMATE ASCENT.
@@ -127,7 +133,7 @@ function Rule({ refs }: { refs: string }) {
         const ref = raw.trim();
         const page = pageFor(ref);
         const className =
-          "inline-flex items-center gap-0.5 rounded-md border px-1.5 py-px font-mono text-xs font-semibold whitespace-nowrap no-underline";
+          "inline-flex min-h-6 items-center gap-0.5 rounded-md border px-1.5 py-0.5 font-mono text-xs font-semibold whitespace-nowrap no-underline sm:min-h-0 sm:py-px";
 
         if (!page) {
           return (
@@ -159,7 +165,7 @@ function Rule({ refs }: { refs: string }) {
 
 function Panel({ title, rules, hint, children }: { title: string; rules?: string; hint?: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-xl border bg-card p-5">
+    <section className="rounded-xl border bg-card p-4 sm:p-5">
       <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
         {title}
         {rules && <Rule refs={rules} />}
@@ -172,9 +178,9 @@ function Panel({ title, rules, hint, children }: { title: string; rules?: string
 
 function Tile({ value, label, rules }: { value: string; label: ReactNode; rules?: string }) {
   return (
-    <div className="rounded-lg bg-muted p-4">
-      <p className="font-heading text-2xl font-bold text-primary tabular-nums [font-stretch:87.5%]">{value}</p>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <div className="min-w-0 rounded-lg bg-muted p-3 sm:p-4">
+      <p className="font-heading text-xl font-bold text-primary tabular-nums [font-stretch:87.5%] sm:text-2xl">{value}</p>
+      <p className="mt-1 text-[13px] leading-5 text-muted-foreground sm:text-sm">
         {label} {rules && <Rule refs={rules} />}
       </p>
     </div>
@@ -182,7 +188,7 @@ function Tile({ value, label, rules }: { value: string; label: ReactNode; rules?
 }
 
 function Tiles({ children }: { children: ReactNode }) {
-  return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>;
+  return <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">{children}</div>;
 }
 
 function Think({ children }: { children: ReactNode }) {
@@ -197,107 +203,49 @@ function Think({ children }: { children: ReactNode }) {
 // ---- Tab: The game --------------------------------------------------
 
 function FieldSketch() {
-  // 12 px per foot. Field is 54 x 27 ft. Red drives from the left wall.
-  const x0 = 36;
-  const y0 = 24;
-  const w = 648;
-  const h = 324;
-  const cx = x0 + w / 2;
-  const autoOffset = 108; // 108 in = 9 ft = 108 px
-  const pyr = 94; // 94 in base, about 7.8 ft
-  const pyrY = y0 + h / 2 - pyr / 2;
-
   return (
-    <div className="overflow-x-auto">
-      <svg viewBox="0 0 720 390" role="img" aria-label="Simplified top-down sketch of the 2013 Ultimate Ascent field" className="w-full min-w-[600px] max-w-[900px]">
-        <rect x={x0} y={y0} width={w} height={h} rx={6} className="fill-muted stroke-border" strokeWidth={2} />
-
-        {/* Driver walls */}
-        <rect x={x0 - 14} y={y0 + 60} width={14} height={h - 120} className="fill-rose-600 dark:fill-rose-400" />
-        <rect x={x0 + w} y={y0 + 60} width={14} height={h - 120} className="fill-sky-600 dark:fill-sky-400" />
-
-        {/* Center + auto lines */}
-        <line x1={cx} y1={y0} x2={cx} y2={y0 + h} className="stroke-foreground" strokeWidth={2} strokeDasharray="6 5" />
-        <line x1={cx + autoOffset} y1={y0} x2={cx + autoOffset} y2={y0 + h} className="stroke-rose-600 dark:stroke-rose-400" strokeWidth={2.5} />
-        <line x1={cx - autoOffset} y1={y0} x2={cx - autoOffset} y2={y0 + h} className="stroke-sky-600 dark:stroke-sky-400" strokeWidth={2.5} />
-
-        {/* Pyramids: each sits in the half where its alliance scores */}
-        <g>
-          <rect x={cx + autoOffset} y={pyrY} width={pyr} height={pyr} className="fill-rose-600/15 stroke-rose-600 dark:stroke-rose-400" strokeWidth={3} />
-          <line x1={cx + autoOffset} y1={pyrY} x2={cx + autoOffset + pyr} y2={pyrY + pyr} className="stroke-rose-600 dark:stroke-rose-400" strokeWidth={1.5} />
-          <line x1={cx + autoOffset + pyr} y1={pyrY} x2={cx + autoOffset} y2={pyrY + pyr} className="stroke-rose-600 dark:stroke-rose-400" strokeWidth={1.5} />
-          <rect x={cx + autoOffset + pyr / 2 - 12} y={pyrY + pyr / 2 - 12} width={24} height={24} className="fill-card stroke-rose-600 dark:stroke-rose-400" strokeWidth={2} />
-        </g>
-        <g>
-          <rect x={cx - autoOffset - pyr} y={pyrY} width={pyr} height={pyr} className="fill-sky-600/15 stroke-sky-600 dark:stroke-sky-400" strokeWidth={3} />
-          <line x1={cx - autoOffset - pyr} y1={pyrY} x2={cx - autoOffset} y2={pyrY + pyr} className="stroke-sky-600 dark:stroke-sky-400" strokeWidth={1.5} />
-          <line x1={cx - autoOffset} y1={pyrY} x2={cx - autoOffset - pyr} y2={pyrY + pyr} className="stroke-sky-600 dark:stroke-sky-400" strokeWidth={1.5} />
-          <rect x={cx - autoOffset - pyr / 2 - 12} y={pyrY + pyr / 2 - 12} width={24} height={24} className="fill-card stroke-sky-600 dark:stroke-sky-400" strokeWidth={2} />
-        </g>
-
-        {/* Goals above each wall: the RED goals hang over the BLUE wall and vice versa */}
-        <rect x={x0 + w - 6} y={y0 + 96} width={10} height={40} rx={2} className="fill-rose-600 dark:fill-rose-400" />
-        <rect x={x0 + w - 6} y={y0 + 142} width={10} height={40} rx={2} className="fill-rose-700 dark:fill-rose-300" />
-        <rect x={x0 + w - 6} y={y0 + 188} width={10} height={40} rx={2} className="fill-rose-600 dark:fill-rose-400" />
-        <rect x={x0 - 4} y={y0 + 96} width={10} height={40} rx={2} className="fill-sky-600 dark:fill-sky-400" />
-        <rect x={x0 - 4} y={y0 + 142} width={10} height={40} rx={2} className="fill-sky-700 dark:fill-sky-300" />
-        <rect x={x0 - 4} y={y0 + 188} width={10} height={40} rx={2} className="fill-sky-600 dark:fill-sky-400" />
-
-        {/* Low goals: in a corner of the opponent's wall */}
-        <rect x={x0 + w - 30} y={y0 + h - 30} width={30} height={30} className="fill-rose-600/40 stroke-rose-600 dark:stroke-rose-400" strokeWidth={2} />
-        <rect x={x0} y={y0} width={30} height={30} className="fill-sky-600/40 stroke-sky-600 dark:stroke-sky-400" strokeWidth={2} />
-
-        {/* Feeder stations + loading zones */}
-        <path d={`M${x0} ${y0 + h - 70} L${x0 + 40} ${y0 + h} L${x0 + 110} ${y0 + h}`} fill="none" className="stroke-rose-600 dark:stroke-rose-400" strokeWidth={5} />
-        <path d={`M${x0} ${y0 + h - 100} L${x0 + 140} ${y0 + h}`} className="stroke-rose-600/70 dark:stroke-rose-400/70" strokeWidth={2} strokeDasharray="4 3" />
-        <path d={`M${x0 + w} ${y0 + 70} L${x0 + w - 40} ${y0} L${x0 + w - 110} ${y0}`} fill="none" className="stroke-sky-600 dark:stroke-sky-400" strokeWidth={5} />
-        <path d={`M${x0 + w} ${y0 + 100} L${x0 + w - 140} ${y0}`} className="stroke-sky-600/70 dark:stroke-sky-400/70" strokeWidth={2} strokeDasharray="4 3" />
-        <line x1={x0 + 30} y1={y0} x2={x0 + 60} y2={y0} className="stroke-rose-600 dark:stroke-rose-400" strokeWidth={5} />
-        <line x1={x0 + w - 30} y1={y0 + h} x2={x0 + w - 60} y2={y0 + h} className="stroke-sky-600 dark:stroke-sky-400" strokeWidth={5} />
-
-        <g className="fill-foreground text-[11px] font-semibold">
-          <text x={x0 + 4} y={y0 + h / 2 - 4} transform={`rotate(-90 ${x0 - 22} ${y0 + h / 2})`} textAnchor="middle">RED DRIVERS</text>
-          <text x={x0 + w + 40} y={y0 + h / 2 - 4} transform={`rotate(90 ${x0 + w + 22} ${y0 + h / 2})`} textAnchor="middle">BLUE DRIVERS</text>
-          <text x={cx} y={y0 - 8} textAnchor="middle" className="fill-muted-foreground">CENTER LINE</text>
-          <text x={cx + autoOffset + pyr / 2} y={pyrY - 8} textAnchor="middle">RED PYRAMID</text>
-          <text x={cx - autoOffset - pyr / 2} y={pyrY - 8} textAnchor="middle">BLUE PYRAMID</text>
-          <text x={cx + autoOffset + 4} y={y0 + h - 8} className="fill-rose-700 dark:fill-rose-300">RED AUTO LINE</text>
-          <text x={cx - autoOffset + 4} y={y0 + 16} className="fill-sky-700 dark:fill-sky-300">BLUE AUTO LINE</text>
-          <text x={x0 + w - 16} y={y0 + 250} textAnchor="end" className="fill-rose-700 dark:fill-rose-300">RED HIGH + MIDDLE GOALS</text>
-          <text x={x0 + 16} y={y0 + 84} className="fill-sky-700 dark:fill-sky-300">BLUE HIGH + MIDDLE GOALS</text>
-          <text x={x0 + w - 36} y={y0 + h - 12} textAnchor="end" className="fill-rose-700 dark:fill-rose-300">RED LOW GOAL</text>
-          <text x={x0 + 36} y={y0 + 20} className="fill-sky-700 dark:fill-sky-300">BLUE LOW GOAL</text>
-          <text x={x0 + 100} y={y0 + h - 40} className="fill-rose-700 dark:fill-rose-300">RED FEEDERS</text>
-          <text x={x0 + w - 100} y={y0 + 48} textAnchor="end" className="fill-sky-700 dark:fill-sky-300">BLUE FEEDERS</text>
-        </g>
-        <text x={360} y={378} textAnchor="middle" className="fill-muted-foreground text-[11px]">
-          Red loads at its own wall, then crosses the field to shoot at goals over the blue wall. Blue does the mirror image.
-        </text>
-      </svg>
-    </div>
+    <figure className="space-y-2">
+      <FieldSvg o="landscape" />
+      <FieldSvg o="portrait" />
+      <figcaption className="text-center text-xs text-muted-foreground">
+        Red loads at its own wall, then crosses the field to shoot at goals over the blue wall. Blue does the mirror image.
+      </figcaption>
+    </figure>
   );
 }
 
 function TimelineBar() {
   const parts = [
-    { label: "AUTO", sub: "15 s · discs worth double", flex: 15, className: "bg-emerald-700" },
-    { label: "TELEOP", sub: "90 s · drivers in control", flex: 90, className: "bg-slate-600" },
-    { label: "LAST 30 s", sub: "climb · feeders may toss over", flex: 30, className: "bg-violet-700" },
+    { label: "AUTO", time: "15 s", sub: "discs worth double", flex: 15, className: "bg-emerald-700" },
+    { label: "TELEOP", time: "90 s", sub: "drivers in control", flex: 90, className: "bg-slate-600" },
+    { label: "END", time: "30 s", sub: "climb · feeders may toss over", flex: 30, className: "bg-violet-700" },
   ];
 
   return (
-    <div className="overflow-x-auto">
-      <div className="flex h-16 min-w-[560px] overflow-hidden rounded-lg text-center text-xs font-bold text-white">
-        {parts.map((part) => (
-          <div key={part.label} style={{ flex: part.flex }} className={cn("flex flex-col justify-center border-r-2 border-card px-1 last:border-r-0", part.className)}>
-            {part.label}
-            <span className="font-normal opacity-90">{part.sub}</span>
-          </div>
-        ))}
-      </div>
+    <div className="flex h-16 overflow-hidden rounded-lg text-center text-xs font-bold text-white">
+      {parts.map((part) => (
+        <div
+          key={part.label}
+          style={{ flex: part.flex, minWidth: "3.5rem" }}
+          className={cn("flex flex-col justify-center border-r-2 border-card px-1 leading-4 last:border-r-0", part.className)}
+        >
+          {part.label}
+          <span className="font-normal tabular-nums opacity-90">{part.time}</span>
+          <span className="hidden font-normal opacity-90 sm:block">{part.sub}</span>
+        </div>
+      ))}
     </div>
   );
 }
+
+const AREAS = [
+  { name: "GOALS", text: "HIGH and two MIDDLE goals hang above the opponent's wall. Your LOW GOAL sits in a corner at that same end.", rules: "2.2.3" },
+  { name: "PYRAMID", text: "Your steel climbing structure, in the half where you score, next to your AUTO LINE. A PYRAMID GOAL sits on top.", rules: "2.2.5" },
+  { name: "AUTO LINE", text: "A red or blue tape line 108 in from the CENTER LINE. Your AUTO ZONE runs from it to the wall where you score.", rules: "2.2.2" },
+  { name: "FEEDER STATION", text: "Three per alliance at your own wall, each with three FEEDER SLOTS your human player pushes discs through.", rules: "2.2.7" },
+  { name: "LOADING ZONE", text: "The taped area in front of your two side-by-side FEEDER STATIONS. Opponents can't touch you while you're in it.", rules: "2.2.2, G30" },
+  { name: "CENTER LINE", text: "Splits the field. In AUTO you may not leave your starting half.", rules: "2.2.2, G19" },
+];
 
 function TabGame() {
   return (
@@ -343,49 +291,16 @@ function TabGame() {
 
       <Panel title="The field" rules="2.2, 2.2.2" hint={<>Simplified sketch, roughly to scale. Use Figure 2-2 in the manual and the <a className="text-primary underline" href={FIELD_DWG_URL} target="_blank" rel="noreferrer">field drawings</a> for exact positions.</>}>
         <FieldSketch />
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs text-muted-foreground">
-              <tr>
-                <th className="py-2 pr-3 font-medium">Area</th>
-                <th className="py-2 pr-3 font-medium">What it is</th>
-                <th className="py-2 font-medium">Rule</th>
-              </tr>
-            </thead>
-            <tbody className="[&_td]:border-t [&_td]:py-2 [&_td]:pr-3 [&_td]:align-top">
-              <tr>
-                <td className="font-semibold">GOALS</td>
-                <td>HIGH and two MIDDLE goals hang above the opponent's wall. Your LOW GOAL sits in a corner at that same end.</td>
-                <td><Rule refs="2.2.3" /></td>
-              </tr>
-              <tr>
-                <td className="font-semibold">PYRAMID</td>
-                <td>Your steel climbing structure, in the half where you score, next to your AUTO LINE. A PYRAMID GOAL sits on top.</td>
-                <td><Rule refs="2.2.5" /></td>
-              </tr>
-              <tr>
-                <td className="font-semibold">AUTO LINE</td>
-                <td>A red or blue tape line 108 in from the CENTER LINE. Your AUTO ZONE runs from it to the wall where you score.</td>
-                <td><Rule refs="2.2.2" /></td>
-              </tr>
-              <tr>
-                <td className="font-semibold">FEEDER STATION</td>
-                <td>Three per alliance at your own wall, each with three FEEDER SLOTS your human player pushes discs through.</td>
-                <td><Rule refs="2.2.7" /></td>
-              </tr>
-              <tr>
-                <td className="font-semibold">LOADING ZONE</td>
-                <td>The taped area in front of your two side-by-side FEEDER STATIONS. Opponents can't touch you while you're in it.</td>
-                <td><Rule refs="2.2.2, G30" /></td>
-              </tr>
-              <tr>
-                <td className="font-semibold">CENTER LINE</td>
-                <td>Splits the field. In AUTO you may not leave your starting half.</td>
-                <td><Rule refs="2.2.2, G19" /></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <dl className="divide-y rounded-lg border">
+          {AREAS.map((area) => (
+            <div key={area.name} className="p-3">
+              <dt className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                {area.name} <Rule refs={area.rules} />
+              </dt>
+              <dd className="mt-1 text-sm leading-6 text-muted-foreground">{area.text}</dd>
+            </div>
+          ))}
+        </dl>
         <Think>
           your feeders are at one end and your goals are at the other. Every cycle is a full-field trip unless you pick discs off the floor. Does
           that change how fast your drivetrain needs to be, or whether you need a floor intake at all?
@@ -398,11 +313,48 @@ function TabGame() {
 // ---- Tab: Key numbers -----------------------------------------------
 
 const SCORING = [
-  { goal: "HIGH GOAL", auto: 6, teleop: 3 },
-  { goal: "MIDDLE GOAL", auto: 4, teleop: 2 },
-  { goal: "LOW GOAL", auto: 2, teleop: 1 },
-  { goal: "PYRAMID GOAL", auto: null, teleop: 5 },
+  { goal: "HIGH", auto: 6, teleop: 3 },
+  { goal: "MIDDLE", auto: 4, teleop: 2 },
+  { goal: "LOW", auto: 2, teleop: 1 },
+  { goal: "PYRAMID", auto: null, teleop: 5 },
 ] as const;
+
+const HEIGHTS: { inches: number; label: string; kind: "goal" | "limit" | "rung" | "slot" }[] = [
+  { inches: 104.125, label: "HIGH GOAL bottom edge", kind: "goal" },
+  { inches: 90, label: "PYRAMID top rung", kind: "rung" },
+  { inches: 88.625, label: "MIDDLE GOAL bottom edge", kind: "goal" },
+  { inches: 84, label: "Max robot height (AUTO ZONE or on PYRAMID)", kind: "limit" },
+  { inches: 62, label: "Top FEEDER SLOT", kind: "slot" },
+  { inches: 60, label: "Max robot height everywhere else · Level 3 rung", kind: "limit" },
+  { inches: 42, label: "Middle FEEDER SLOT", kind: "slot" },
+  { inches: 30, label: "Level 2 rung", kind: "rung" },
+  { inches: 22, label: "Bottom FEEDER SLOT", kind: "slot" },
+  { inches: 19, label: "LOW GOAL bottom edge", kind: "goal" },
+];
+
+const HEIGHT_TONE = {
+  goal: "bg-cta",
+  limit: "bg-destructive",
+  rung: "bg-muted-foreground",
+  slot: "bg-primary",
+} as const;
+
+/** Phone version of the side view: every height that matters, tallest first. */
+function HeightLadder() {
+  return (
+    <ol className="divide-y rounded-lg border sm:hidden">
+      {HEIGHTS.map((item) => (
+        <li key={item.label} className="flex items-center gap-3 px-3 py-2.5">
+          <span className="w-16 shrink-0 font-heading text-lg font-bold tabular-nums [font-stretch:87.5%]">
+            {Number.isInteger(item.inches) ? item.inches : item.inches.toFixed(1)}"
+          </span>
+          <span className={cn("size-2.5 shrink-0 rounded-full", HEIGHT_TONE[item.kind])} aria-hidden />
+          <span className="text-sm leading-5">{item.label}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 function SideView() {
   // 2.6 px per inch, floor at y = 330.
@@ -411,8 +363,8 @@ function SideView() {
   const y = (inches: number) => floor - inches * s;
 
   return (
-    <div className="overflow-x-auto">
-      <svg viewBox="0 0 720 360" role="img" aria-label="Side view of goal, feeder slot, pyramid rung and robot height limits, drawn to scale" className="w-full min-w-[600px] max-w-[880px]">
+    <div>
+      <svg viewBox="0 0 720 360" role="img" aria-label="Side view of goal, feeder slot, pyramid rung and robot height limits, drawn to scale" className="w-full max-w-[880px]">
         {[0, 30, 60, 90, 120].map((inches) => (
           <g key={inches}>
             <line x1={50} x2={700} y1={y(inches)} y2={y(inches)} className={inches === 0 ? "stroke-foreground" : "stroke-border"} strokeWidth={inches === 0 ? 2 : 1} />
@@ -475,7 +427,7 @@ function TabNumbers() {
                 <th className="py-2 pr-3 font-medium">Goal</th>
                 <th className="py-2 pr-3 text-right font-medium">AUTO</th>
                 <th className="py-2 pr-3 text-right font-medium">TELEOP</th>
-                <th className="py-2 font-medium">Teleop value</th>
+                <th className="py-2 font-medium"><span className="sr-only">Teleop value</span></th>
               </tr>
             </thead>
             <tbody>
@@ -484,7 +436,7 @@ function TabNumbers() {
                   <td className="py-2 pr-3 font-semibold">{row.goal}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{row.auto ?? "—"}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{row.teleop}</td>
-                  <td className="w-1/2 py-2">
+                  <td className="w-2/5 py-2 sm:w-1/2">
                     <div className="h-4 overflow-hidden rounded bg-muted">
                       <div className="h-full rounded bg-primary" style={{ width: `${(row.teleop / 5) * 100}%` }} />
                     </div>
@@ -514,8 +466,11 @@ function TabNumbers() {
         </ul>
       </Panel>
 
-      <Panel title="Heights that matter" rules="2.2.3, 2.2.5, 2.2.7, G22" hint="Side view, drawn to scale. Your shooter has to clear the goal edges, your intake may need to reach a feeder slot, and your climber has to work inside the height limits.">
-        <SideView />
+      <Panel title="Heights that matter" rules="2.2.3, 2.2.5, 2.2.7, G22" hint="Your shooter has to clear the goal edges, your intake may need to reach a feeder slot, and your climber has to work inside the height limits.">
+        <div className="hidden sm:block">
+          <SideView />
+        </div>
+        <HeightLadder />
       </Panel>
 
       <Panel title="DISCS" rules="2.2.10, 3.1.1">
@@ -528,7 +483,7 @@ function TabNumbers() {
       </Panel>
 
       <Panel title="Penalties" rules="3.1.4">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <Tile value="+3" label="to the opponent per FOUL" />
           <Tile value="+20" label="to the opponent per TECHNICAL FOUL" />
         </div>
@@ -586,7 +541,7 @@ function TabRobot() {
       </Panel>
 
       <Panel title="Motors" rules="R32, R33" hint="Max count per motor type. Motors can't be modified inside.">
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {MOTORS.map(([name, count]) => (
             <div key={name} className="flex items-center justify-between rounded-md bg-muted px-3 py-2 text-sm">
               <span>{name}</span>
@@ -739,7 +694,7 @@ function TabAsk() {
           className="h-12 w-full rounded-lg border border-input bg-background pr-4 pl-10 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         />
       </label>
-      <div className="flex flex-wrap gap-2">
+      <div className={cn("flex flex-wrap gap-2", query.trim() && "hidden")}>
         {chips.map((chip) => (
           <Button key={chip} type="button" size="sm" variant="outline" className="rounded-full" onClick={() => setQuery(chip)}>
             {chip}
@@ -910,7 +865,7 @@ function TabPractice() {
           <li>Write a one-paragraph summary of ULTIMATE ASCENT: how a match starts, what scores, how it ends. Don't look at anyone else's.</li>
           <li>List every way to score, its points, and when it counts. Check yourself against the Key Numbers tab.</li>
           <li>List every rule that limits the robot (size, height, disc count, climbing). Cite each rule number.</li>
-          <li>Use the estimator below to find which actions are worth the most points per second.</li>
+          <li>Time a real cycle in the <Link to={{ hash: "drive" }} className="text-primary underline">Drive Sim</Link> tab, then use the estimator below to find which actions are worth the most points per second.</li>
         </ol>
         <MatchEstimator />
         <Takeaway>Expected points = points × how often it works. A reliable low-goal robot can beat a high-goal robot that misses.</Takeaway>
@@ -1023,25 +978,30 @@ function EnvelopeCheck() {
   );
 }
 
+// ---- Tab: Drive sim ------------------------------------------------
+
+function TabDrive() {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h2 className="flex flex-wrap items-center gap-2 text-lg font-semibold">
+          How long does it take to cross the field? <Rule refs="2.2.1" />
+        </h2>
+        <p className="max-w-[70ch] text-sm text-muted-foreground">
+          Our drivers have holonomic drive, so the robot can slide in any direction without turning first. Draw a path and see how long it really takes.
+        </p>
+      </div>
+      <DriveSim2013 />
+      <Think>
+        a 2013 cycle is: load at your feeder, cross the field, shoot 4 discs, come back. What cycle time would let your robot score more than a Level 3
+        climb (30 points) in the last 30 seconds? Put your cycle time into the match estimator on the Practice tab.
+      </Think>
+    </div>
+  );
+}
+
 // ---- Tab: Quiz ------------------------------------------------------
 
-const QUIZ: { q: string; options: string[]; answer: number; why: string; rules: string }[] = [
-  { q: "How long is AUTO in ULTIMATE ASCENT?", options: ["10 seconds", "15 seconds", "20 seconds", "30 seconds"], answer: 1, why: "AUTO is the first 15 seconds of a 2:15 match.", rules: "3.1.2" },
-  { q: "A disc goes in the HIGH GOAL during AUTO. How many points?", options: ["3", "4", "5", "6"], answer: 3, why: "HIGH is 6 in AUTO and 3 in TELEOP.", rules: "3.1.5.1" },
-  { q: "Where are your alliance's HIGH and MIDDLE goals?", options: ["Above your own driver station", "Above the opponent's alliance wall", "On top of your PYRAMID", "On the side walls"], answer: 1, why: "You load at your own wall and shoot at goals over the opponent's wall.", rules: "2.2.3" },
-  { q: "Which discs score in your PYRAMID GOAL?", options: ["Any disc", "White discs only", "Your alliance's colored discs only", "Opponent colored discs"], answer: 2, why: "Only discs that match the pyramid's color, 5 points each, TELEOP only.", rules: "3.1.5.1" },
-  { q: "What's the most discs a robot may control at once?", options: ["2", "3", "4", "No limit"], answer: 2, why: "4. Each extra disc is a FOUL.", rules: "G24" },
-  { q: "How tall may a robot be while crossing the middle of the field?", options: ["54 in", "60 in", "84 in", "No limit"], answer: 1, why: "60 in, unless it's in its AUTO ZONE or touching its PYRAMID, where 84 in is allowed.", rules: "G22" },
-  { q: "The robot must always fit inside a circle of what diameter?", options: ["36 in", "48 in", "54 in", "60 in"], answer: 2, why: "54 in, including anything that extends.", rules: "R03, G23" },
-  { q: "What's the max frame perimeter?", options: ["100 in", "112 in", "120 in", "128 in"], answer: 1, why: "112 in, e.g. 28 × 28 in.", rules: "R03" },
-  { q: "A robot's lowest point is above the 30 in rung but below the 60 in rung. What level?", options: ["Level 1", "Level 2", "Level 3", "No climb"], answer: 1, why: "Level 2: 20 points.", rules: "3.1.5.2" },
-  { q: "Can a robot reach straight from the floor to the 60 in rung and skip Level 2?", options: ["Yes", "No, levels must go in order, touching no more than two at once", "Only in AUTO", "Only with a belay"], answer: 1, why: "A climb is sequential and may never touch more than two levels at once.", rules: "3.1.5.2" },
-  { q: "How many points does a TECHNICAL FOUL give the opponent?", options: ["3", "5", "10", "20"], answer: 3, why: "FOUL = 3, TECHNICAL FOUL = 20.", rules: "3.1.4" },
-  { q: "You touch an opponent who is climbing their PYRAMID. What happens?", options: ["Nothing, defense is legal", "A FOUL", "A TECHNICAL FOUL, and they can get Level 3 points", "You lose your climb"], answer: 2, why: "Robots touching their PYRAMID are protected.", rules: "G30" },
-  { q: "How many discs may a robot preload if it starts outside its AUTO ZONE?", options: ["1", "2", "3", "4"], answer: 2, why: "3 outside the AUTO ZONE, 2 inside it.", rules: "G06" },
-  { q: "In AUTO, a robot drives across the CENTER LINE. What happens?", options: ["Nothing", "A FOUL (TECHNICAL FOUL if it hits someone)", "It's disabled", "Its discs don't count"], answer: 1, why: "Robots must stay on their starting half in AUTO.", rules: "G19" },
-  { q: "What's the max robot weight?", options: ["100 lb", "120 lb with battery", "120 lb without battery and bumpers", "150 lb"], answer: 2, why: "120 lb, not counting battery and BUMPERS.", rules: "R05" },
-];
 
 function shuffled(count: number) {
   const order = Array.from({ length: count }, (_, index) => index);
@@ -1054,20 +1014,211 @@ function shuffled(count: number) {
   return order;
 }
 
+/** Finished-but-unsaved answers survive a trip to the sign-in page in this tab. */
+const PENDING_KEY = "kickoff-2013-quiz-pending";
+
+function readPending(): number[] | null {
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+
+    return Array.isArray(parsed) && parsed.length === QUIZ.length && parsed.every((value) => typeof value === "number") ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePending(answers: number[] | null) {
+  try {
+    if (answers) {
+      window.sessionStorage.setItem(PENDING_KEY, JSON.stringify(answers));
+    } else {
+      window.sessionStorage.removeItem(PENDING_KEY);
+    }
+  } catch {
+    // Storage blocked (private mode): the score just can't carry over a sign-in.
+  }
+}
+
+function percentFor(answers: number[]) {
+  return Math.round((answers.filter((answer, index) => answer === QUIZ[index].correctIndex).length / QUIZ.length) * 100);
+}
+
+type SaveState =
+  | { kind: "idle" }
+  | { kind: "saving" }
+  | { kind: "saved"; percent: number; passed: boolean; passPercent: number }
+  | { kind: "error"; message: string };
+
+/** Signed-in status, the saved best score, and the save action for the quiz. */
+function useQuizSaving() {
+  const { isAuthenticated, isLoading } = useConvexAuth();
+  const skillId = useQuery(api.learning.skillIdBySeedKey, { seedKey: KICKOFF_2013_SKILL_KEY });
+  const skill = useQuery(api.learning.skill, isAuthenticated && skillId ? { skillId } : "skip");
+  const submitQuiz = useMutation(api.learning.submitQuiz);
+  const [state, setState] = useState<SaveState>({ kind: "idle" });
+
+  const ready = skill && !skill.notFound ? skill : null;
+  const quizMatches = ready ? ready.skill.quiz.length === QUIZ.length : true;
+  const canSave = Boolean(isAuthenticated && skillId && ready && ready.canTrackProgress && quizMatches);
+
+  async function save(answers: number[]) {
+    if (!skillId) {
+      return;
+    }
+
+    setState({ kind: "saving" });
+
+    try {
+      const result = await submitQuiz({ skillId, answers });
+      writePending(null);
+      setState({ kind: "saved", percent: result.percent, passed: result.passed, passPercent: result.passPercent });
+    } catch (error) {
+      setState({ kind: "error", message: error instanceof Error ? error.message : "Couldn't save your score. Try again." });
+    }
+  }
+
+  return {
+    isAuthenticated,
+    isLoading,
+    skillMissing: skillId === null,
+    viewOnly: Boolean(ready && !ready.canTrackProgress),
+    quizMatches,
+    canSave,
+    best: ready?.progress?.quizBestPercent,
+    state,
+    save,
+  };
+}
+
+const SIGN_IN_URL = `/auth?returnTo=${encodeURIComponent(`${KICKOFF_2013_PATH}#quiz`)}`;
+
+function SaveScoreBox({ answers, saving }: { answers: number[]; saving: ReturnType<typeof useQuizSaving> }) {
+  const { state } = saving;
+
+  if (state.kind === "saved") {
+    return (
+      <p className="rounded-lg border border-success/40 bg-emerald-50 p-4 text-sm dark:bg-emerald-950/30">
+        <span className="font-semibold text-success">Score saved. </span>
+        {state.passed
+          ? "This counts toward your Learning progress."
+          : `You need ${state.passPercent}% to complete the skill. Your best score is kept, so try again any time.`}
+      </p>
+    );
+  }
+
+  if (!saving.isAuthenticated) {
+    return (
+      <div className="space-y-3 rounded-lg border bg-accent p-4 text-sm">
+        <p>
+          <span className="font-semibold">Want this score to count?</span> Sign in and you'll come right back here to save it.
+        </p>
+        <Button asChild variant="cta" className="w-full sm:w-auto">
+          <Link to={SIGN_IN_URL} onClick={() => writePending(answers)}>
+            <LogIn aria-hidden />
+            Sign in to save my score
+          </Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (saving.skillMissing) {
+    return <p className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">Score saving isn't turned on yet. A mentor can turn it on in Learning → Manage → Load starter skills.</p>;
+  }
+
+  if (saving.viewOnly) {
+    return <p className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">Your profile is view-only, so scores can't be saved.</p>;
+  }
+
+  if (!saving.quizMatches) {
+    return <p className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">The saved version of this quiz was changed in Learning, so this score can't be saved here. Take it from the skill page instead.</p>;
+  }
+
+  return (
+    <div className="space-y-2" aria-live="polite">
+      {state.kind === "error" && <p className="text-sm text-destructive">{state.message}</p>}
+      <Button type="button" variant="cta" className="w-full sm:w-auto" pending={state.kind === "saving"} disabled={!saving.canSave} onClick={() => void saving.save(answers)}>
+        <Save aria-hidden />
+        {state.kind === "error" ? "Try saving again" : "Save my score"}
+      </Button>
+    </div>
+  );
+}
+
 function TabQuiz() {
+  const saving = useQuizSaving();
   const [order, setOrder] = useState(() => shuffled(QUIZ.length));
-  const [index, setIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [picked, setPicked] = useState<number | null>(null);
+  const [step, setStep] = useState(0);
+  /** answers[i] is the option picked for QUIZ[i], in the saved quiz order. -1 = not answered yet. */
+  const [answers, setAnswers] = useState<number[]>(() => QUIZ.map(() => -1));
+  const [pending, setPending] = useState<number[] | null>(() => readPending());
+  const autoSaved = useRef(false);
+  const quizTop = useRef<HTMLDivElement>(null);
+
+  // On a phone the Next button is far down; bring the new question into view.
+  useEffect(() => {
+    const top = quizTop.current?.getBoundingClientRect().top ?? 0;
+
+    if (top < 0) {
+      quizTop.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [step]);
+
+  const done = step >= order.length;
+  const score = answers.filter((answer, index) => answer === QUIZ[index].correctIndex).length;
+
+  // Signed in when they finish: save straight away, no extra tap.
+  useEffect(() => {
+    if (done && saving.canSave && !autoSaved.current) {
+      autoSaved.current = true;
+      void saving.save(answers);
+    }
+  }, [done, saving, answers]);
 
   function restart() {
     setOrder(shuffled(QUIZ.length));
-    setIndex(0);
-    setScore(0);
-    setPicked(null);
+    setStep(0);
+    setAnswers(QUIZ.map(() => -1));
+    autoSaved.current = false;
   }
 
-  if (index >= order.length) {
+  const bestNote =
+    saving.isAuthenticated && saving.best !== undefined ? `Your best saved score: ${saving.best}%` : !saving.isAuthenticated && !saving.isLoading ? "Not signed in: you can take the quiz, then sign in at the end to save your score." : null;
+
+  // Came back from signing in with a finished quiz waiting to be saved.
+  if (pending && saving.isAuthenticated && step === 0 && saving.state.kind !== "saved") {
+    return (
+      <Panel title="Save your quiz score?">
+        <Readouts items={[{ label: "Your score", value: `${percentFor(pending)}%` }, { label: "Questions", value: `${QUIZ.length}` }]} />
+        <SaveScoreBox answers={pending} saving={saving} />
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full sm:w-auto"
+          onClick={() => {
+            writePending(null);
+            setPending(null);
+          }}
+        >
+          Skip and take it again
+        </Button>
+      </Panel>
+    );
+  }
+
+  if (pending && saving.state.kind === "saved" && step === 0) {
+    return (
+      <Panel title="Quiz saved">
+        <SaveScoreBox answers={pending} saving={saving} />
+        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setPending(null)}>
+          Take it again
+        </Button>
+      </Panel>
+    );
+  }
+
+  if (done) {
     const percent = Math.round((score / order.length) * 100);
 
     return (
@@ -1079,90 +1230,86 @@ function TabQuiz() {
           ]}
         />
         <p className="text-sm">{percent >= 90 ? "Rules expert." : percent >= 70 ? "Solid. Review the ones you missed." : "Re-read Key Numbers and Robot Rules, then try again."}</p>
-        <Button type="button" variant="cta" onClick={restart}>
+        <SaveScoreBox answers={answers} saving={saving} />
+        <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={restart}>
           Try again
         </Button>
       </Panel>
     );
   }
 
-  const item = QUIZ[order[index]];
+  const questionIndex = order[step];
+  const item = QUIZ[questionIndex];
+  const picked = answers[questionIndex] >= 0 ? answers[questionIndex] : null;
 
   function choose(option: number) {
     if (picked !== null) {
       return;
     }
 
-    setPicked(option);
-
-    if (option === item.answer) {
-      setScore((value) => value + 1);
-    }
+    setAnswers((current) => current.map((value, index) => (index === questionIndex ? option : value)));
   }
 
   return (
-    <Panel title="Rules quiz" hint={`Question ${index + 1} of ${order.length} · Score ${score}`}>
-      <div className="h-2 overflow-hidden rounded-full bg-muted">
-        <div className="h-full bg-primary transition-[width]" style={{ width: `${(index / order.length) * 100}%` }} />
-      </div>
-      <p className="text-lg font-semibold">{item.q}</p>
-      <div className="grid gap-2">
-        {item.options.map((option, optionIndex) => {
-          const isAnswer = picked !== null && optionIndex === item.answer;
-          const isWrong = picked === optionIndex && optionIndex !== item.answer;
-
-          return (
-            <button
-              key={option}
-              type="button"
-              disabled={picked !== null}
-              onClick={() => choose(optionIndex)}
-              className={cn(
-                "rounded-lg border-2 px-4 py-3 text-left text-base transition-colors",
-                picked === null && "hover:border-primary",
-                isAnswer && "border-success bg-emerald-50 dark:bg-emerald-950/30",
-                isWrong && "border-destructive bg-rose-50 dark:bg-rose-950/30",
-              )}
-            >
-              {option}
-            </button>
-          );
-        })}
-      </div>
-      {picked !== null && (
-        <div key={index} className={cn("space-y-3", picked === item.answer ? "animate-rise" : "animate-shake")} aria-live="polite">
-          <p className="rounded-lg bg-muted px-4 py-3 text-sm leading-6">
-            <span className={cn("font-semibold", picked === item.answer ? "text-success" : "text-destructive")}>
-              {picked === item.answer ? "Correct! " : "Not quite. "}
-            </span>
-            {item.why} <Rule refs={item.rules} />
-          </p>
-          <Button
-            type="button"
-            variant="cta"
-            onClick={() => {
-              setIndex((value) => value + 1);
-              setPicked(null);
-            }}
-          >
-            {index + 1 < order.length ? "Next question" : "See results"}
-          </Button>
+    <div ref={quizTop} className="scroll-mt-32">
+      <Panel title="Rules quiz" hint={`Question ${step + 1} of ${order.length} · Score ${score}`}>
+        {bestNote && step === 0 && picked === null && <p className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">{bestNote}</p>}
+        <div className="h-2 overflow-hidden rounded-full bg-muted">
+          <div className="h-full bg-primary transition-[width]" style={{ width: `${(step / order.length) * 100}%` }} />
         </div>
-      )}
-    </Panel>
+        <p className="text-lg leading-snug font-semibold">{item.prompt}</p>
+        <div className="grid gap-2">
+          {item.options.map((option, optionIndex) => {
+            const isAnswer = picked !== null && optionIndex === item.correctIndex;
+            const isWrong = picked === optionIndex && optionIndex !== item.correctIndex;
+
+            return (
+              <button
+                key={option}
+                type="button"
+                disabled={picked !== null}
+                onClick={() => choose(optionIndex)}
+                className={cn(
+                  "min-h-12 rounded-lg border-2 px-4 py-3 text-left text-base transition-colors",
+                  picked === null && "hover:border-primary active:bg-accent",
+                  isAnswer && "border-success bg-emerald-50 dark:bg-emerald-950/30",
+                  isWrong && "border-destructive bg-rose-50 dark:bg-rose-950/30",
+                )}
+              >
+                {option}
+              </button>
+            );
+          })}
+        </div>
+        {picked !== null && (
+          <div key={step} className={cn("space-y-3", picked === item.correctIndex ? "animate-rise" : "animate-shake")} aria-live="polite">
+            <p className="rounded-lg bg-muted px-4 py-3 text-sm leading-6">
+              <span className={cn("font-semibold", picked === item.correctIndex ? "text-success" : "text-destructive")}>
+                {picked === item.correctIndex ? "Correct! " : "Not quite. "}
+              </span>
+              {item.explanation} <Rule refs={item.rules} />
+            </p>
+            <Button type="button" variant="cta" className="w-full sm:w-auto" onClick={() => setStep((value) => value + 1)}>
+              {step + 1 < order.length ? "Next question" : "See results"}
+            </Button>
+          </div>
+        )}
+      </Panel>
+    </div>
   );
 }
 
 // ---- Page -----------------------------------------------------------
 
 const TABS = [
-  { id: "game", label: "The Game", render: () => <TabGame /> },
-  { id: "numbers", label: "Key Numbers", render: () => <TabNumbers /> },
-  { id: "robot", label: "Robot Rules", render: () => <TabRobot /> },
-  { id: "watch", label: "Watch Out", render: () => <TabWatch /> },
-  { id: "ask", label: "Ask the Rulebook", render: () => <TabAsk /> },
-  { id: "practice", label: "Practice", render: () => <TabPractice /> },
-  { id: "quiz", label: "Quiz", render: () => <TabQuiz /> },
+  { id: "game", label: "The Game", short: "Game", render: () => <TabGame /> },
+  { id: "numbers", label: "Key Numbers", short: "Numbers", render: () => <TabNumbers /> },
+  { id: "robot", label: "Robot Rules", short: "Robot", render: () => <TabRobot /> },
+  { id: "watch", label: "Watch Out", short: "Watch Out", render: () => <TabWatch /> },
+  { id: "ask", label: "Ask the Rulebook", short: "Ask", render: () => <TabAsk /> },
+  { id: "practice", label: "Practice", short: "Practice", render: () => <TabPractice /> },
+  { id: "drive", label: "Drive Sim", short: "Drive", render: () => <TabDrive /> },
+  { id: "quiz", label: "Quiz", short: "Quiz", render: () => <TabQuiz /> },
 ];
 
 export function UltimateAscentKickoffPage() {
@@ -1170,6 +1317,13 @@ export function UltimateAscentKickoffPage() {
   const navigate = useNavigate();
   const hash = location.hash.replace("#", "");
   const active = TABS.find((tab) => tab.id === hash) ?? TABS[0];
+  const tabBar = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+
+  // Keep the chosen tab visible in the swipeable tab bar on phones.
+  useEffect(() => {
+    tabBar.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [active.id]);
 
   return (
     <div className="mx-auto max-w-6xl">
@@ -1183,12 +1337,12 @@ export function UltimateAscentKickoffPage() {
           <>
             <Button asChild variant="outline" size="sm">
               <a href={MANUAL_URL} target="_blank" rel="noreferrer">
-                Game Manual <ExternalLink aria-hidden />
+                Manual <ExternalLink aria-hidden />
               </a>
             </Button>
             <Button asChild variant="outline" size="sm">
               <a href={UPDATES_URL} target="_blank" rel="noreferrer">
-                Team Updates <ExternalLink aria-hidden />
+                Updates <ExternalLink aria-hidden />
               </a>
             </Button>
             <Button asChild variant="outline" size="sm">
@@ -1201,7 +1355,7 @@ export function UltimateAscentKickoffPage() {
       />
 
       <nav aria-label="Cheat sheet sections" className="sticky top-14 z-30 -mx-4 mb-6 border-b bg-background/95 px-4 py-2 backdrop-blur sm:mx-0 sm:rounded-lg sm:border sm:px-2">
-        <div className="flex gap-1 overflow-x-auto">
+        <div ref={tabBar} className="flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -1209,20 +1363,25 @@ export function UltimateAscentKickoffPage() {
               aria-current={tab.id === active.id ? "page" : undefined}
               onClick={() => {
                 navigate({ hash: tab.id });
-                window.scrollTo({ top: 0, behavior: "smooth" });
+
+                // Already scrolled into the content? Jump back to its start, just under the tab bar.
+                if ((content.current?.getBoundingClientRect().top ?? 0) < 0) {
+                  content.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
               }}
               className={cn(
-                "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors",
+                "min-h-9 shrink-0 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors",
                 tab.id === active.id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
               )}
             >
-              {tab.label}
+              <span className="sm:hidden">{tab.short}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
             </button>
           ))}
         </div>
       </nav>
 
-      <div key={active.id} className="animate-rise">
+      <div ref={content} key={active.id} className="animate-rise scroll-mt-32">
         {active.render()}
       </div>
 
