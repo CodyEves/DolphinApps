@@ -1,6 +1,6 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
-import { ArrowRight, ClipboardCheck, LayoutGrid, Pencil } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -84,41 +84,11 @@ export function LearningHomePage() {
     }
   }
 
-  const actions = data && (data.canReview || data.canEdit) && (
-    <>
-      {data.canReview && (
-        <>
-          <Button asChild variant="outline">
-            <Link to="/training/sign-offs">
-              <ClipboardCheck className="size-4" />
-              Sign-offs
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link to="/training/team">
-              <LayoutGrid className="size-4" />
-              Team progress
-            </Link>
-          </Button>
-        </>
-      )}
-      {data.canEdit && (
-        <Button asChild variant="outline">
-          <Link to="/training/manage">
-            <Pencil className="size-4" />
-            Edit skills
-          </Link>
-        </Button>
-      )}
-    </>
-  );
-
   return (
     <div className="mx-auto max-w-6xl">
       <PageHeading
         title="Your skills by path"
         description="Pick your path, work through the skills at your own pace, and prove each one with a self-check, a quiz, or a mentor sign-off."
-        actions={actions}
       />
 
       {!isLoading && !isAuthenticated && (

@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { api } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
 import { PageHeading } from "@/components/page-heading";
+import { TeamSwitcher } from "@/components/team-plate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -178,21 +179,13 @@ function PartsProgramSelector({
   }
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-card p-2">
-      <span className="px-2 text-xs font-medium text-muted-foreground">
-        Robot program
-      </span>
-      {availablePrograms.map((program) => (
-        <Button
-          key={program}
-          type="button"
-          size="sm"
-          variant={selectedProgram === program ? "default" : "outline"}
-          onClick={() => onSelect(program)}
-        >
-          {programMeta[program].teamNumber}
-        </Button>
-      ))}
+    <div className="mb-6 flex items-center gap-3">
+      <span className="text-sm font-medium text-muted-foreground">Team</span>
+      <TeamSwitcher
+        options={availablePrograms.map((program) => ({ value: program, teamNumber: programMeta[program].teamNumber }))}
+        value={selectedProgram}
+        onChange={onSelect}
+      />
     </div>
   );
 }

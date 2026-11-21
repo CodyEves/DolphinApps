@@ -18,6 +18,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { toast } from "sonner";
 
+import { TeamSwitcher } from "@/components/team-plate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -99,9 +100,9 @@ function formatDay(timestamp: number) {
 }
 
 const HEALTH_STYLES: Record<BatteryHealth, string> = {
-  good: "text-emerald-700 dark:text-emerald-400",
-  watch: "text-amber-700 dark:text-amber-400",
-  bad: "text-red-700 dark:text-red-400",
+  good: "",
+  watch: "text-warning",
+  bad: "text-destructive",
   unknown: "text-muted-foreground",
 };
 
@@ -113,18 +114,27 @@ const HEALTH_LABELS: Record<BatteryHealth, string> = {
 };
 
 const STATE_STYLES: Record<BatteryState, string> = {
-  in_robot: "bg-brand-blue text-white",
-  ready: "bg-emerald-600 text-white",
-  needs_charge: "bg-amber-500 text-amber-950",
+  in_robot: "bg-primary/12 text-primary dark:bg-primary/18",
+  ready: "bg-success/12 text-success dark:bg-success/15",
+  needs_charge: "bg-warning/14 text-warning dark:bg-warning/15",
   unknown: "bg-muted text-muted-foreground",
   retired: "bg-muted text-muted-foreground line-through",
+};
+
+/** Fill color for the charge meter on each battery card. */
+const METER_STYLES: Record<BatteryState, string> = {
+  in_robot: "bg-primary",
+  ready: "bg-success",
+  needs_charge: "bg-warning",
+  unknown: "bg-muted-foreground/30",
+  retired: "bg-muted-foreground/30",
 };
 
 function StatePill({ battery }: { battery: Pick<BatterySummary, "state" | "openUse"> }) {
   const label = battery.state === "in_robot" && battery.openUse ? `In robot · ${battery.openUse.label}` : STATE_LABELS[battery.state];
 
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold", STATE_STYLES[battery.state])}>
+    <span className={cn("inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-semibold", STATE_STYLES[battery.state])}>
       {label}
     </span>
   );
@@ -960,27 +970,43 @@ function downloadCsv(rows: Record<string, unknown>[], filename: string) {
 }
 
 function BatteryCard({ battery }: { battery: BatterySummary }) {
+  const charge = battery.lastChargePercent;
+  const fill = battery.state === "in_robot" ? 100 : charge === undefined ? 0 : Math.max(6, Math.min(100, charge));
+
   return (
     <Link
       to={`/batteries/${battery._id}`}
       className={cn(
-        "grid gap-3 rounded-lg border bg-card p-4 shadow-xs transition hover:border-brand-aqua/50 hover:shadow-sm",
-        battery.health === "bad" && "border-red-300 dark:border-red-900",
-        battery.health === "watch" && "border-amber-300 dark:border-amber-900",
+        "group flex gap-4 rounded-xl border bg-card p-4 outline-none transition-colors hover:border-primary/40 focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        battery.health === "bad" && "border-destructive/50",
+        battery.health === "watch" && "border-warning/50",
         battery.retired && "opacity-60",
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-heading text-lg font-semibold leading-tight">{battery.name}</p>
-          <p className="truncate text-sm text-muted-foreground">{battery.nickname ? `"${battery.nickname}"` : "No nickname"}</p>
+      <span
+        aria-hidden
+        className="relative w-3 shrink-0 overflow-hidden rounded-[4px] bg-muted shadow-[inset_0_0_0_1px_var(--border)]"
+      >
+        <span
+          className={cn("absolute inset-x-0 bottom-0 rounded-[3px] transition-[height] duration-500", METER_STYLES[battery.state])}
+          style={{ height: `${fill}%` }}
+        />
+      </span>
+      <div className="grid min-w-0 flex-1 gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <span className="block font-heading text-lg leading-tight font-semibold [font-stretch:87.5%]">{battery.name}</span>
+            {battery.nickname && (
+              <span className="block truncate text-sm text-muted-foreground">&ldquo;{battery.nickname}&rdquo;</span>
+            )}
+          </div>
+          <StatePill battery={battery} />
         </div>
-        <StatePill battery={battery} />
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        <Stat label="Cycles" value={battery.cycleCount} />
-        <Stat label="Charge" value={formatPercent(battery.lastChargePercent)} />
-        <Stat label="IR" value={formatResistance(battery.lastResistanceOhms)} className={HEALTH_STYLES[battery.health]} />
+        <div className="grid grid-cols-3 gap-2">
+          <Stat label="Cycles" value={battery.cycleCount} />
+          <Stat label="Charge" value={formatPercent(battery.lastChargePercent)} />
+          <Stat label="IR" value={formatResistance(battery.lastResistanceOhms)} className={HEALTH_STYLES[battery.health]} />
+        </div>
       </div>
     </Link>
   );
@@ -1017,21 +1043,14 @@ export function BatteriesPage() {
           <h1 className="text-[1.75rem] leading-tight font-bold sm:text-[2rem]">Which batteries are ready</h1>
           <LoggerLine writer={actions.writer} />
         </div>
-        <div className="inline-flex rounded-lg border bg-card p-1">
-          {(["frc_5199", "frc_9271"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              onClick={() => setProgram(option)}
-              className={cn(
-                "rounded-md px-3 py-1.5 text-sm font-semibold transition-colors",
-                program === option ? "bg-primary text-primary-foreground" : "text-muted-foreground",
-              )}
-            >
-              {option === "frc_5199" ? "5199" : "9271"}
-            </button>
-          ))}
-        </div>
+        <TeamSwitcher
+          options={[
+            { value: "frc_5199" as const, teamNumber: "5199" },
+            { value: "frc_9271" as const, teamNumber: "9271" },
+          ]}
+          value={program}
+          onChange={setProgram}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -1050,11 +1069,11 @@ export function BatteriesPage() {
       </div>
 
       {batteries !== undefined && active.length > 0 && (
-        <div className="grid grid-cols-4 gap-2 rounded-lg border bg-card p-3 text-center">
+        <div className="grid grid-cols-2 divide-border rounded-xl border bg-card sm:grid-cols-4 sm:divide-x [&>*]:px-4 [&>*]:py-3">
           <Stat label="In robot" value={counts.inRobot} />
-          <Stat label="Charged" value={counts.ready} className="text-emerald-700 dark:text-emerald-400" />
-          <Stat label="Need charge" value={counts.charge} className="text-amber-700 dark:text-amber-400" />
-          <Stat label="Flagged" value={counts.flagged} className={counts.flagged ? "text-red-700 dark:text-red-400" : undefined} />
+          <Stat label="Charged" value={counts.ready} className={counts.ready ? "text-success" : undefined} />
+          <Stat label="Need charge" value={counts.charge} className={counts.charge ? "text-warning" : undefined} />
+          <Stat label="Flagged" value={counts.flagged} className={counts.flagged ? "text-destructive" : undefined} />
         </div>
       )}
 
