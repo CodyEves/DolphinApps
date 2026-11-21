@@ -28,6 +28,8 @@ import { api } from "@convex/_generated/api";
 
 type AppLauncherProps = {
   collapsed?: boolean;
+  /** Top-bar style: a ghost button reading "Apps" (icon only on small screens). */
+  labelled?: boolean;
   onSelect?: () => void;
 };
 
@@ -44,7 +46,7 @@ const apps: LauncherApp[] = [
   {
     href: "/",
     title: "All apps",
-    description: "Home screen",
+    description: "Today and every app",
     icon: Home,
   },
   {
@@ -134,7 +136,7 @@ function isActiveApp(pathname: string, href: string) {
   );
 }
 
-export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
+export function AppLauncher({ collapsed = false, labelled = false, onSelect }: AppLauncherProps) {
   const location = useLocation();
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
@@ -157,32 +159,39 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          className={cn(
-            "h-12 justify-start gap-2 px-0 hover:bg-transparent",
-            collapsed && "size-10 justify-center p-0",
-          )}
-          aria-label="Open Dolphin apps"
-        >
-          <span className="flex size-9 items-center justify-center rounded-lg border bg-card text-foreground">
-            <Grid3X3 className="size-4" />
-          </span>
-          {!collapsed && (
-            <span className="min-w-0 text-left">
-              <span className="block truncate text-sm font-semibold">
-                {activeAppName}
-              </span>
-              <span className="block truncate text-xs font-normal text-muted-foreground">
-                Apps
-              </span>
+        {labelled ? (
+          <Button type="button" variant="ghost" className="gap-2 px-2.5 sm:px-3" aria-label="Switch app">
+            <Grid3X3 className="size-4" aria-hidden />
+            <span className="hidden sm:inline">Apps</span>
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            className={cn(
+              "h-12 justify-start gap-2 px-0 hover:bg-transparent",
+              collapsed && "size-10 justify-center p-0",
+            )}
+            aria-label="Open Dolphin apps"
+          >
+            <span className="flex size-9 items-center justify-center rounded-lg border bg-card text-foreground">
+              <Grid3X3 className="size-4" />
             </span>
-          )}
-        </Button>
+            {!collapsed && (
+              <span className="min-w-0 text-left">
+                <span className="block truncate text-sm font-semibold">
+                  {activeAppName}
+                </span>
+                <span className="block truncate text-xs font-normal text-muted-foreground">
+                  Apps
+                </span>
+              </span>
+            )}
+          </Button>
+        )}
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="start"
+        align={labelled ? "end" : "start"}
         sideOffset={8}
         className="w-[calc(100vw-2rem)] max-w-80 p-1"
       >
@@ -203,7 +212,14 @@ export function AppLauncher({ collapsed = false, onSelect }: AppLauncherProps) {
                   isActive && "bg-accent text-accent-foreground",
                 )}
               >
-                <Icon className={cn("size-5", isActive ? "text-primary" : "text-muted-foreground")} aria-hidden />
+                <span
+                  className={cn(
+                    "grid size-9 place-items-center rounded-[8px]",
+                    isActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary dark:bg-primary/15",
+                  )}
+                >
+                  <Icon className="size-[18px]" aria-hidden />
+                </span>
                 <span className="grid gap-0.5">
                   <span className="text-sm font-medium leading-5">
                     {title}

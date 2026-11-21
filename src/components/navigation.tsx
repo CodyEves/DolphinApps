@@ -15,6 +15,8 @@ import {
   Gauge,
   Menu,
   Monitor,
+  PanelLeftClose,
+  PanelLeftOpen,
   Package,
   Settings,
   ShieldCheck,
@@ -26,11 +28,11 @@ import {
   PencilLine,
   UserCheck,
 } from "lucide-react";
-import { NavLink, useLocation } from "react-router";
+import { Link, NavLink, useLocation } from "react-router";
 import type { LucideIcon } from "lucide-react";
 
+import { TeamPlate } from "@/components/team-plate";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   Sheet,
   SheetContent,
@@ -171,43 +173,92 @@ function visibleItems(items: NavItem[], role: string) {
   );
 }
 
-function NavList({ collapsed = false }: { collapsed?: boolean }) {
-  const setMobileNavOpen = useUiStore((state) => state.setMobileNavOpen);
+function isRestricted(item: NavItem) {
+  return Boolean(
+    item.adminOnly || item.badgeManagerOnly || item.managementOnly || item.reviewOnly || item.learningEditorOnly,
+  );
+}
+
+function useVisibleNavItems() {
   const location = useLocation();
   const { isAuthenticated } = useConvexAuth();
   const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
   const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const visibleNavItems = visibleItems(navItemsForPath(location.pathname), effectiveRole);
+
+  return visibleItems(navItemsForPath(location.pathname), effectiveRole);
+}
+
+function NavItemLink({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
+  const setMobileNavOpen = useUiStore((state) => state.setMobileNavOpen);
+  const location = useLocation();
+  const isActive = isNavItemActive(location.pathname, item.href);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <NavLink
+          to={item.href}
+          end={exactMatchHrefs.has(item.href)}
+          onClick={() => setMobileNavOpen(false)}
+          aria-current={isActive ? "page" : undefined}
+          aria-label={collapsed ? item.label : undefined}
+          className={cn(
+            "group relative rounded-md text-sm font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            collapsed
+              ? "mx-auto flex size-10 items-center justify-center p-0"
+              : "flex h-9 w-full items-center justify-start gap-3 px-3",
+            isActive &&
+              "bg-accent font-semibold text-foreground [&_svg]:text-primary before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-primary",
+          )}
+        >
+          <item.icon className="size-4 shrink-0" aria-hidden />
+          {!collapsed && <span className="min-w-0 truncate">{item.label}</span>}
+        </NavLink>
+      </TooltipTrigger>
+      {collapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
+    </Tooltip>
+  );
+}
+
+/**
+ * Everyday items first. Mentor and admin items sit in their own labelled group
+ * so students never wonder why a link is there, and staff can find their tools.
+ */
+function NavList({ collapsed = false }: { collapsed?: boolean }) {
+  const items = useVisibleNavItems();
+  const everyday = items.filter((item) => !isRestricted(item));
+  const staff = items.filter(isRestricted);
+  const showGroups = everyday.length > 0 && staff.length > 0;
 
   return (
     <TooltipProvider delayDuration={100}>
-      <nav className="grid gap-1">
-        {visibleNavItems.map((item) => (
-          <Tooltip key={item.href}>
-            <TooltipTrigger asChild>
-              <NavLink
-                to={item.href}
-                end={exactMatchHrefs.has(item.href)}
-                onClick={() => setMobileNavOpen(false)}
-                aria-current={isNavItemActive(location.pathname, item.href) ? "page" : undefined}
-                className={cn(
-                  "group rounded-md text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-                  collapsed
-                    ? "mx-auto flex size-10 items-center justify-center p-0"
-                    : "flex h-9 w-full items-center justify-start gap-3 px-3",
-                  isNavItemActive(location.pathname, item.href) &&
-                    "bg-accent font-semibold text-foreground [&_svg]:text-primary",
-                )}
-              >
-                <item.icon className="size-4 shrink-0" />
-                {!collapsed && <span className="min-w-0 truncate">{item.label}</span>}
-              </NavLink>
-            </TooltipTrigger>
-            {collapsed && (
-              <TooltipContent side="right">{item.label}</TooltipContent>
-            )}
-          </Tooltip>
-        ))}
+      <nav aria-label="App pages" className="grid gap-5">
+        {everyday.length > 0 && (
+          <ul className="grid gap-0.5">
+            {everyday.map((item) => (
+              <li key={item.href}>
+                <NavItemLink item={item} collapsed={collapsed} />
+              </li>
+            ))}
+          </ul>
+        )}
+        {staff.length > 0 && (
+          <div className="grid gap-1.5">
+            {showGroups &&
+              (collapsed ? (
+                <span aria-hidden className="mx-auto h-px w-6 bg-border" />
+              ) : (
+                <p className="px-3 text-xs font-medium text-muted-foreground">Mentor tools</p>
+              ))}
+            <ul className="grid gap-0.5" aria-label={showGroups ? "Mentor tools" : undefined}>
+              {staff.map((item) => (
+                <li key={item.href}>
+                  <NavItemLink item={item} collapsed={collapsed} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </nav>
     </TooltipProvider>
   );
@@ -241,45 +292,69 @@ function appNameForPath(pathname: string, trainingTitle: string, partsTitle: str
   return trainingTitle;
 }
 
-function SidebarAppName() {
+/** The current app's name and page, for the sidebar title and the top bar. */
+export function useAppLocation() {
   const location = useLocation();
   const { activeProgramMeta } = useProgramView();
+  const items = useVisibleNavItems();
+  const appName = appNameForPath(location.pathname, activeProgramMeta.trainingTitle, activeProgramMeta.partsTitle);
+  const current = items.find((item) => isNavItemActive(location.pathname, item.href));
+
+  return { appName, pageName: current?.label ?? null, teamNumber: activeProgramMeta.teamNumber };
+}
+
+function HomeLink({ collapsed }: { collapsed: boolean }) {
+  const { teamNumber } = useAppLocation();
 
   return (
-    <p className="min-w-0 flex-1 truncate px-3 font-heading text-base font-semibold [font-stretch:87.5%]">
-      {appNameForPath(location.pathname, activeProgramMeta.trainingTitle, activeProgramMeta.partsTitle)}
-    </p>
+    <Link
+      to="/"
+      aria-label="Dolphin Apps home"
+      className={cn(
+        "flex items-center gap-2.5 rounded-md text-sm font-semibold text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        collapsed ? "mx-auto justify-center" : "px-2 py-1",
+      )}
+    >
+      <TeamPlate number={teamNumber} size="sm" />
+      {!collapsed && <span>Dolphin Apps</span>}
+    </Link>
   );
 }
 
 export function Sidebar() {
   const collapsed = useUiStore((state) => state.isSidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const { appName } = useAppLocation();
 
   return (
     <aside
       className={cn(
-        "sticky top-0 hidden h-screen shrink-0 border-r bg-card p-3 shadow-[1px_0_0_rgba(15,39,66,0.03)] transition-[width] lg:block",
-        collapsed ? "w-[4.5rem]" : "w-64",
+        "sticky top-0 hidden h-screen shrink-0 border-r bg-card transition-[width] duration-200 lg:block",
+        collapsed ? "w-[4.5rem]" : "w-60",
       )}
     >
-      <div className="flex h-full flex-col">
-        <div className="flex h-12 items-center justify-between gap-2">
-          {!collapsed && (
-            <SidebarAppName />
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className={collapsed ? "mx-auto" : undefined}
-            onClick={toggleSidebar}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
-            <Menu className="size-4" />
-          </Button>
+      <div className="flex h-full flex-col px-3 pb-3">
+        <div className="-mx-3 flex h-14 shrink-0 items-center border-b px-3">
+          <HomeLink collapsed={collapsed} />
         </div>
-        <Separator className="my-2" />
-        <NavList collapsed={collapsed} />
+        {!collapsed && (
+          <p className="truncate px-3 pt-5 pb-3 font-heading text-lg leading-6 font-bold [font-stretch:87.5%]">
+            {appName}
+          </p>
+        )}
+        <div className={cn("min-h-0 flex-1 overflow-y-auto", collapsed && "pt-4")}>
+          <NavList collapsed={collapsed} />
+        </div>
+        <Button
+          variant="ghost"
+          size={collapsed ? "icon" : "sm"}
+          className={cn("text-muted-foreground", collapsed ? "mx-auto" : "justify-start gap-3 px-3")}
+          onClick={toggleSidebar}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+          {!collapsed && <span className="font-medium">Collapse</span>}
+        </Button>
       </div>
     </aside>
   );
@@ -288,48 +363,29 @@ export function Sidebar() {
 export function MobileNav() {
   const isOpen = useUiStore((state) => state.isMobileNavOpen);
   const setOpen = useUiStore((state) => state.setMobileNavOpen);
-  const location = useLocation();
-  const { isAuthenticated } = useConvexAuth();
-  const viewer = useQuery(api.profiles.viewer, isAuthenticated ? {} : "skip");
-  const effectiveRole = useEffectiveRole(viewer?.profile.role);
-  const { activeProgramMeta } = useProgramView();
-  const appLabel = location.pathname.startsWith("/management") || location.pathname.startsWith("/admin")
-    ? "Management"
-    : location.pathname.startsWith("/shop")
-    ? "Shop Attendance"
-    : location.pathname.startsWith("/tools")
-    ? "Shop Tools"
-    : location.pathname.startsWith("/interviews")
-    ? "Interviews"
-    : location.pathname.startsWith("/batteries")
-    ? "Batteries"
-    : location.pathname.startsWith("/parts")
-    ? activeProgramMeta.partsTitle
-    : activeProgramMeta.trainingTitle;
-  const visibleNavItems = visibleItems(navItemsForPath(location.pathname), effectiveRole);
-
-  const current = visibleNavItems.find((item) => isNavItemActive(location.pathname, item.href));
+  const { appName, pageName } = useAppLocation();
 
   return (
-    <div className="flex items-center gap-3 lg:hidden">
+    <div className="flex min-w-0 items-center gap-3 lg:hidden">
       <Sheet open={isOpen} onOpenChange={setOpen}>
         <SheetTrigger asChild>
-          <Button variant="outline" size="icon" aria-label="Open navigation">
-            <Menu className="size-4" />
+          <Button variant="ghost" size="icon" aria-label="Open navigation">
+            <Menu className="size-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-72">
-          <SheetHeader>
-            <SheetTitle>{appLabel}</SheetTitle>
+        <SheetContent side="left" className="w-72 gap-0">
+          <SheetHeader className="gap-3 border-b pb-4">
+            <HomeLink collapsed={false} />
+            <SheetTitle className="px-2 font-heading text-lg [font-stretch:87.5%]">{appName}</SheetTitle>
           </SheetHeader>
-          <div className="px-4">
+          <div className="overflow-y-auto px-3 py-4">
             <NavList />
           </div>
         </SheetContent>
       </Sheet>
-      <div>
-        <p className="text-xs text-muted-foreground">{appLabel}</p>
-        <p className="text-sm font-semibold">{current?.label ?? appLabel}</p>
+      <div className="min-w-0">
+        <p className="truncate text-xs text-muted-foreground">{appName}</p>
+        <p className="truncate text-sm font-semibold">{pageName ?? appName}</p>
       </div>
     </div>
   );
