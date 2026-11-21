@@ -322,9 +322,11 @@ function BatteryStatus({ batteries, teamNumber }: { batteries: BatteryData; team
   const ready = active.filter((battery) => battery.state === "ready").length;
   const inRobot = active.filter((battery) => battery.state === "in_robot").length;
   const needsCharge = active.filter((battery) => battery.state === "needs_charge").length;
+  const noReading = active.filter((battery) => battery.state === "unknown").length;
   const detail = [
     inRobot > 0 ? `${inRobot} in the robot` : null,
     needsCharge > 0 ? `${needsCharge} ${needsCharge === 1 ? "needs" : "need"} a charge` : null,
+    noReading > 0 ? `${noReading} ${noReading === 1 ? "has" : "have"} no Beak reading yet` : null,
   ]
     .filter(Boolean)
     .join(", ");

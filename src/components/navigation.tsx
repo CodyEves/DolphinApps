@@ -384,8 +384,14 @@ export function MobileNav() {
         </SheetContent>
       </Sheet>
       <div className="min-w-0">
-        <p className="truncate text-xs text-muted-foreground">{appName}</p>
-        <p className="truncate text-sm font-semibold">{pageName ?? appName}</p>
+        {pageName && pageName !== appName ? (
+          <>
+            <p className="truncate text-xs text-muted-foreground">{appName}</p>
+            <p className="truncate text-sm font-semibold">{pageName}</p>
+          </>
+        ) : (
+          <p className="truncate text-sm font-semibold">{appName}</p>
+        )}
       </div>
     </div>
   );
