@@ -24,7 +24,7 @@ export function InterviewSchedulePage() {
   if (!published || published.slots.length === 0) {
     return (
       <div className="mx-auto max-w-2xl">
-        <h1 className="mb-6 font-heading text-[1.75rem] leading-tight font-bold sm:text-[2rem]">{title}</h1>
+        <h1 className="mb-6 font-heading text-[1.625rem] leading-tight font-semibold sm:text-[1.875rem]">{title}</h1>
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <CalendarClock className="size-8 text-muted-foreground" />
@@ -48,7 +48,7 @@ export function InterviewSchedulePage() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 space-y-3">
-        <h1 className="font-heading text-[1.75rem] leading-tight font-bold sm:text-[2rem]">{title}</h1>
+        <h1 className="font-heading text-[1.625rem] leading-tight font-semibold sm:text-[1.875rem]">{title}</h1>
         {published.location && (
           <p className="flex items-center gap-2 text-base font-medium">
             <MapPin className="size-4 text-primary" /> {published.location}

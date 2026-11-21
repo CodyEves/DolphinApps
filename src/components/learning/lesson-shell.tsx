@@ -72,7 +72,7 @@ export function LessonShell({ title, chapters }: { title: string; chapters: Less
           <p className="text-sm text-muted-foreground">
             {title} · Chapter {index + 1} of {chapters.length} · {chapter.minutes} min
           </p>
-          <h1 className="text-[1.75rem] leading-tight font-bold sm:text-[2rem]">{chapter.title}</h1>
+          <h1 className="text-[1.625rem] leading-tight font-semibold sm:text-[1.875rem]">{chapter.title}</h1>
         </header>
 
         <div key={chapter.id} className="animate-rise space-y-4 text-base leading-7 [&>p]:max-w-[65ch]">

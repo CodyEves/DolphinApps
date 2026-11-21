@@ -83,7 +83,7 @@ export function InterviewMentorSchedulePage() {
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 space-y-3">
         <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Mentor view · read only</p>
-        <h1 className="font-heading text-[1.75rem] leading-tight font-bold sm:text-[2rem]">{board.round.title}</h1>
+        <h1 className="font-heading text-[1.625rem] leading-tight font-semibold sm:text-[1.875rem]">{board.round.title}</h1>
         {board.round.location && (
           <p className="flex items-center gap-2 text-base font-medium">
             <MapPin className="size-4 text-primary" /> {board.round.location}

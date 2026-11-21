@@ -8,18 +8,16 @@ import { cn } from "@/lib/utils";
  * heading or label next to it, delete it.
  */
 const badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-sm border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 gap-1 [&>svg]:size-3 pointer-events-none transition-colors overflow-hidden tabular-nums",
+  "inline-flex items-center justify-center rounded-full border px-2.5 py-0.5 text-xs font-semibold w-fit whitespace-nowrap shrink-0 gap-1 [&>svg]:size-3 pointer-events-none transition-colors overflow-hidden tabular-nums",
   {
     variants: {
       variant: {
-        default: "border-transparent bg-primary text-primary-foreground",
-        secondary: "border-transparent bg-secondary text-secondary-foreground",
-        destructive: "border-transparent bg-destructive text-white",
-        outline: "border-border text-foreground",
-        success:
-          "border-transparent bg-emerald-50 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200",
-        warning:
-          "border-transparent bg-amber-50 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200",
+        default: "border-transparent bg-primary/10 text-primary dark:bg-primary/18",
+        secondary: "border-transparent bg-muted text-muted-foreground",
+        destructive: "border-transparent bg-destructive/10 text-destructive dark:bg-destructive/18",
+        outline: "border-border bg-card text-foreground",
+        success: "border-transparent bg-success/12 text-success dark:bg-success/15",
+        warning: "border-transparent bg-warning/12 text-warning dark:bg-warning/15",
       },
     },
     defaultVariants: {

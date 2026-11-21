@@ -98,99 +98,97 @@ export function HomePage() {
   const teamNumber = activeProgramMeta.teamNumber;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-10 pb-8 sm:space-y-12">
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6">
-        {canSwitchPrograms && availablePrograms.length > 1 ? (
-          <TeamSwitcher
-            size="lg"
-            options={availablePrograms.map((program) => ({ value: program, teamNumber: programMeta[program].teamNumber }))}
-            value={selectedProgram}
-            onChange={selectProgram}
-          />
-        ) : signedOut ? (
-          <div className="flex items-center gap-2" aria-hidden>
-            <TeamPlate number="5199" size="lg" />
-            <TeamPlate number="9271" size="lg" />
-          </div>
-        ) : (
-          <TeamPlate number={teamNumber} size="lg" className="self-start sm:self-auto" />
-        )}
-
-        <div className="min-w-0 space-y-1">
-          <h1 className="text-[2rem] leading-[1.1] font-bold sm:text-[2.5rem]">
-            {signedOut ? "Robot Dolphins team apps" : name ? `${greeting()}, ${name}` : greeting()}
-          </h1>
-          <p className="text-base text-muted-foreground">
-            {signedOut
-              ? "Skills, shop hours, parts, and batteries for teams 5199 and 9271."
-              : `${dateFormat.format(new Date())}`}
-          </p>
-        </div>
-      </header>
-
-      {signedOut && (
-        <section className="flex flex-col gap-5 rounded-xl border bg-card p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-bold">Sign in to see your next skill</h2>
-            <p className="text-muted-foreground">Your progress, shop hours, and sign-offs load after you sign in.</p>
-          </div>
-          <Button asChild variant="cta" size="lg" className="self-start sm:self-auto">
-            <Link to="/auth">
-              <LogIn />
-              Sign in
-            </Link>
-          </Button>
-        </section>
-      )}
-
-      <section aria-labelledby="now-heading" className="space-y-3">
-        <h2 id="now-heading" className="text-lg font-semibold">
-          Right now
-        </h2>
-        <div
-          className={cn(
-            "grid overflow-hidden rounded-xl border bg-card",
-            signedOut ? "grid-cols-1" : "divide-y md:grid-cols-3 md:divide-x md:divide-y-0",
-          )}
-        >
-          {!signedOut && (
-            <ShopStatus
-              shop={shop}
-              myAttendance={myAttendance}
-              canCheckIn={effectiveRole !== "kiosk" && isActive}
+    <div>
+      <section className="starfield bg-app-bar text-white">
+        <div className="mx-auto flex max-w-[75rem] flex-col gap-6 px-4 pt-6 pb-24 sm:flex-row sm:items-center sm:gap-8 sm:px-6 sm:pt-10 sm:pb-28">
+          {canSwitchPrograms && availablePrograms.length > 1 ? (
+            <TeamSwitcher
+              size="lg"
+              tone="onBrand"
+              options={availablePrograms.map((program) => ({ value: program, teamNumber: programMeta[program].teamNumber }))}
+              value={selectedProgram}
+              onChange={selectProgram}
             />
+          ) : signedOut ? (
+            <div className="flex items-center gap-2" aria-hidden>
+              <TeamPlate number="5199" size="lg" tone="onBrand" />
+              <TeamPlate number="9271" size="lg" tone="onBrand" />
+            </div>
+          ) : (
+            <TeamPlate number={teamNumber} size="lg" tone="onBrand" className="self-start sm:self-auto" />
           )}
-          <BatteryStatus batteries={batteries} teamNumber={teamNumber} />
-          {!signedOut && <WaitingOnYou feed={feed} />}
+
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <h1 className="text-[1.875rem] leading-[1.15] font-semibold text-white sm:text-[2.5rem]">
+              {signedOut ? "Robot Dolphins team apps" : name ? `${greeting()}, ${name}` : greeting()}
+            </h1>
+            <p className="text-[15px] text-white/75 sm:text-base">
+              {signedOut
+                ? "Skills, shop hours, parts, and batteries for teams 5199 and 9271."
+                : dateFormat.format(new Date())}
+            </p>
+          </div>
+
+          {signedOut && (
+            <Button asChild variant="cta" size="lg" className="self-start sm:self-auto">
+              <Link to="/auth">
+                <LogIn />
+                Sign in
+              </Link>
+            </Button>
+          )}
         </div>
       </section>
 
+      <div className="mx-auto -mt-16 max-w-[75rem] space-y-10 px-4 pb-14 sm:px-6 sm:space-y-12">
+        <section aria-labelledby="now-heading">
+          <h2 id="now-heading" className="sr-only">
+            Right now
+          </h2>
+          <div
+            className={cn(
+              "grid overflow-hidden rounded-xl border bg-card shadow-pop",
+              signedOut ? "grid-cols-1" : "divide-y md:grid-cols-3 md:divide-x md:divide-y-0",
+            )}
+          >
+            {!signedOut && (
+              <ShopStatus
+                shop={shop}
+                myAttendance={myAttendance}
+                canCheckIn={effectiveRole !== "kiosk" && isActive}
+              />
+            )}
+            <BatteryStatus batteries={batteries} teamNumber={teamNumber} />
+            {!signedOut && <WaitingOnYou feed={feed} />}
+          </div>
+        </section>
 
-      {!signedOut && <LearningFeature learning={learning} />}
+        {!signedOut && <LearningFeature learning={learning} />}
 
-      <section aria-labelledby="apps-heading" className="space-y-4">
-        <h2 id="apps-heading" className="text-lg font-semibold">
-          Apps
-        </h2>
-        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-          {apps.map((app) => (
-            <li key={app.href}>
-              <Link
-                to={app.href}
-                className="group flex h-full flex-col gap-3 rounded-xl p-3 outline-none transition-colors hover:bg-card focus-visible:bg-card focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:flex-row sm:items-center sm:p-4"
-              >
-                <span className="grid size-11 shrink-0 place-items-center rounded-[10px] bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground dark:bg-primary/15">
-                  <app.icon className="size-5" aria-hidden />
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-semibold leading-5">{app.title}</span>
-                  <span className="mt-0.5 block text-sm leading-5 text-muted-foreground">{app.description}</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+        <section aria-labelledby="apps-heading" className="space-y-4">
+          <h2 id="apps-heading" className="text-xl">
+            Apps
+          </h2>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {apps.map((app) => (
+              <li key={app.href}>
+                <Link
+                  to={app.href}
+                  className="group flex h-full flex-col gap-4 rounded-lg border bg-card p-4 shadow-card outline-none transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-pop focus-visible:ring-[3px] focus-visible:ring-ring/45 sm:p-5"
+                >
+                  <span className="grid size-11 shrink-0 place-items-center rounded-[11px] bg-primary text-primary-foreground shadow-[inset_0_-2px_0_rgb(0_0_0/0.18)]">
+                    <app.icon className="size-5" aria-hidden />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-heading text-[15px] leading-5 font-semibold">{app.title}</span>
+                    <span className="mt-1 block text-sm leading-5 text-muted-foreground">{app.description}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
     </div>
   );
 }
@@ -267,7 +265,7 @@ function ShopStatus({
 
   return (
     <StatusCell title="Shop" action={action}>
-      <p className="flex items-center gap-2 font-heading text-xl font-semibold [font-stretch:87.5%]">
+      <p className="flex items-center gap-2 font-heading text-xl font-semibold">
         <span
           aria-hidden
           className={cn(
@@ -333,7 +331,7 @@ function BatteryStatus({ batteries, teamNumber }: { batteries: BatteryData; team
 
   return (
     <StatusCell title={title} action={{ label: "Open batteries", href: "/batteries" }}>
-      <p className="font-heading text-xl font-semibold tabular-nums [font-stretch:87.5%]">
+      <p className="font-heading text-xl font-semibold tabular-nums">
         {ready} of {active.length} charged
       </p>
       <ul className="flex h-7 items-end gap-1 pt-1" aria-label="Battery charge states">
@@ -374,7 +372,7 @@ function WaitingOnYou({ feed }: { feed: FeedData }) {
   if (items.length === 0) {
     return (
       <StatusCell title="Waiting on you">
-        <p className="font-heading text-xl font-semibold [font-stretch:87.5%]">All caught up</p>
+        <p className="font-heading text-xl font-semibold">All caught up</p>
         <p className="text-sm text-muted-foreground">Reviews and feedback for you will show up here.</p>
       </StatusCell>
     );
@@ -385,7 +383,7 @@ function WaitingOnYou({ feed }: { feed: FeedData }) {
       title="Waiting on you"
       action={feed.canReview ? { label: "Open review queue", href: "/management/reviews" } : undefined}
     >
-      <p className="font-heading text-xl font-semibold tabular-nums [font-stretch:87.5%]">
+      <p className="font-heading text-xl font-semibold tabular-nums">
         {feed.unreadCount > 100 ? "100+" : feed.unreadCount} {feed.unreadCount === 1 ? "item" : "items"}
       </p>
       <ul className="space-y-0.5">
@@ -435,7 +433,7 @@ function LearningFeature({ learning }: { learning: LearningData }) {
             {next ? "Your next skill" : "Learning"}
             {focus ? ` in ${focus.title}` : ""}
           </p>
-          <h2 id="learning-heading" className="text-2xl leading-tight font-bold sm:text-[1.75rem]">
+          <h2 id="learning-heading" className="text-2xl leading-tight font-semibold sm:text-[1.75rem]">
             {next ? next.title : total === 0 ? "No skills are published yet" : "You've finished this path"}
           </h2>
           {next?.stage && <p className="text-sm text-muted-foreground">Part of {next.stage}</p>}

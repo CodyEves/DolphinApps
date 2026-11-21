@@ -16,11 +16,11 @@ export function PageHeading({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div className="max-w-3xl space-y-2">
-        <h1 className="text-[1.75rem] leading-tight font-bold sm:text-[2rem]">{title}</h1>
+    <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="max-w-3xl space-y-1.5">
+        <h1 className="text-[1.625rem] leading-tight font-semibold sm:text-[1.875rem]">{title}</h1>
         {description && (
-          <p className="max-w-[65ch] text-base leading-7 text-muted-foreground">{description}</p>
+          <p className="max-w-[65ch] text-[15px] leading-6 text-muted-foreground">{description}</p>
         )}
       </div>
       {actions && (

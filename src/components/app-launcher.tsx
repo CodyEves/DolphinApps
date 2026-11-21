@@ -1,6 +1,7 @@
 import {
   BatteryCharging,
   CalendarDays,
+  ChevronDown,
   Clock,
   GraduationCap,
   Grid3X3,
@@ -130,6 +131,8 @@ function isActiveApp(pathname: string, href: string) {
     !pathname.startsWith("/batteries") &&
     !pathname.startsWith("/interviews") &&
     !pathname.startsWith("/parts") &&
+    !pathname.startsWith("/shop") &&
+    !pathname.startsWith("/auth") &&
     !pathname.startsWith("/tools") &&
     !pathname.startsWith("/management") &&
     !pathname.startsWith("/admin")
@@ -160,10 +163,14 @@ export function AppLauncher({ collapsed = false, labelled = false, onSelect }: A
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         {labelled ? (
-          <Button type="button" variant="ghost" className="gap-2 px-2.5 sm:px-3" aria-label="Switch app">
-            <Grid3X3 className="size-4" aria-hidden />
-            <span className="hidden sm:inline">Apps</span>
-          </Button>
+          <button
+            type="button"
+            className="group flex h-10 min-w-0 items-center gap-1.5 rounded-[10px] px-2.5 text-[15px] font-semibold text-white outline-none transition-colors hover:bg-white/12 focus-visible:ring-[3px] focus-visible:ring-white/50 data-[state=open]:bg-white/15"
+            aria-label={`Current app: ${activeAppName}. Switch app`}
+          >
+            <span className="truncate">{activeAppName}</span>
+            <ChevronDown className="size-4 shrink-0 text-white/70 transition-transform group-data-[state=open]:rotate-180" aria-hidden />
+          </button>
         ) : (
           <Button
             type="button"
@@ -191,9 +198,9 @@ export function AppLauncher({ collapsed = false, labelled = false, onSelect }: A
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align={labelled ? "end" : "start"}
+        align="start"
         sideOffset={8}
-        className="w-[calc(100vw-2rem)] max-w-80 p-1"
+        className="w-[calc(100vw-1.5rem)] max-w-[22rem] p-1.5"
       >
         <div className="grid grid-cols-2 gap-1">
           {visibleApps.map((app) => {
@@ -208,7 +215,7 @@ export function AppLauncher({ collapsed = false, labelled = false, onSelect }: A
                 onClick={onSelect}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "group flex min-h-24 flex-col items-start justify-between gap-3 rounded-md p-3 text-left outline-none transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
+                  "group flex min-h-[5.5rem] flex-col items-start justify-between gap-3 rounded-[8px] p-3 text-left outline-none transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring/50",
                   isActive && "bg-accent text-accent-foreground",
                 )}
               >

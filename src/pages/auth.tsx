@@ -205,7 +205,23 @@ export function AuthPage() {
   const hasStaleSession = !isLoading && isAuthenticated && viewer === null;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto grid max-w-5xl items-center gap-10 lg:min-h-[calc(100vh-12rem)] lg:grid-cols-[1fr_26rem] lg:gap-16">
+      <div className="hidden lg:block">
+        <img
+          src="/robot-dolphins-error.png"
+          alt="Robot Dolphins from Outer Space logo"
+          width={168}
+          height={168}
+          className="size-42 rounded-[28px] shadow-pop"
+        />
+        <h2 className="mt-8 max-w-md text-[2.25rem] leading-[1.15]">The Robot Dolphins team apps</h2>
+        <ul className="mt-5 space-y-2.5 text-[15px] text-muted-foreground">
+          <li>Work through your skills and get signed off on shop tools.</li>
+          <li>Sign in to the shop and keep track of your hours.</li>
+          <li>Track robot parts, batteries, and what's waiting on mentors.</li>
+        </ul>
+      </div>
+      <div className="w-full">
       <PageHeading
         title={displayedPageCopy.title}
         description={displayedPageCopy.description}
@@ -357,7 +373,8 @@ export function AuthPage() {
                     <Button
                       type="submit"
                       className="w-full"
-                      variant={mode === "signIn" ? "outline" : "default"}
+                      size="lg"
+                      variant={mode === "signIn" ? "default" : "cta"}
                       disabled={isSubmitting || (mode !== "signIn" && !preview)}
                     >
                       {isSubmitting ? (
@@ -382,7 +399,7 @@ export function AuthPage() {
           </CardContent>
         </Card>
       )}
+      </div>
     </div>
   );
 }
-

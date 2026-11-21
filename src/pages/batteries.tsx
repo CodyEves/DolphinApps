@@ -1037,10 +1037,10 @@ export function BatteriesPage() {
   }
 
   return (
-    <div className="mx-auto grid max-w-5xl gap-5">
+    <div className="mx-auto grid max-w-6xl gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-[1.75rem] leading-tight font-bold sm:text-[2rem]">Which batteries are ready</h1>
+          <h1 className="text-[1.625rem] leading-tight font-semibold sm:text-[1.875rem]">Which batteries are ready</h1>
           <LoggerLine writer={actions.writer} />
         </div>
         <TeamSwitcher
@@ -1252,7 +1252,7 @@ export function BatteryDetailPage() {
             <p className="text-sm text-muted-foreground">
               {battery.program === "frc_5199" ? "5199" : "9271"} · {battery.pool === "competition" ? "Competition" : "Practice"}
             </p>
-            <h1 className="text-[1.75rem] leading-tight font-bold">{battery.name}</h1>
+            <h1 className="text-[1.625rem] leading-tight font-semibold">{battery.name}</h1>
             {battery.nickname && <p className="text-muted-foreground">"{battery.nickname}"</p>}
           </div>
           <StatePill battery={battery} />

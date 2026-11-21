@@ -153,8 +153,8 @@ export function UserMenu() {
             className="size-10 rounded-full"
             aria-label="Open profile menu"
           >
-            <Avatar className="size-7">
-              <AvatarFallback>
+            <Avatar className="size-8 shadow-[0_0_0_2px_rgb(255_255_255/0.35)]">
+              <AvatarFallback className="bg-white text-[#16478e]">
                 <UserRound className="size-4" />
               </AvatarFallback>
             </Avatar>
@@ -204,11 +204,11 @@ export function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="size-10 rounded-full" aria-label="Open profile menu">
-          <Avatar className="size-7">
+          <Avatar className="size-8 shadow-[0_0_0_2px_rgb(255_255_255/0.35)]">
             {viewer.avatarUrl && (
               <AvatarImage src={viewer.avatarUrl} alt="" />
             )}
-            <AvatarFallback>
+            <AvatarFallback className="bg-white text-[13px] font-bold text-[#16478e]">
               {initials(displayName)}
             </AvatarFallback>
           </Avatar>
