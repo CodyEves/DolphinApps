@@ -401,9 +401,23 @@ function appsUrl(path = "/") {
   }
 }
 
+/**
+ * The branded banner at the top of the Home tab: team blue, the logo, and
+ * "Robot Dolphins From Outer Space". Served from the web app's public folder,
+ * so it only appears once the website is deployed. Bump ?v= after replacing it;
+ * Slack caches images by URL.
+ */
+function brandBanner(): Block[] {
+  const url = appsUrl("/slack/home-banner.png?v=1");
+
+  return url
+    ? [{ type: "image", image_url: url, alt_text: "Dolphin Apps, Robot Dolphins From Outer Space" }]
+    : [{ type: "header", text: plain("Dolphin Apps") }];
+}
+
 export function buildUnlinkedHomeView(connectUrl: string | undefined, batteries: BatterySummary[] = []) {
   const blocks: Block[] = [
-    { type: "header", text: plain("Dolphin Apps") },
+    ...brandBanner(),
     {
       type: "section",
       text: mrkdwn(
@@ -453,6 +467,7 @@ export function buildHomeView(data: Extract<HomeData, { linked: true }>, batteri
   const subtitle = [data.programLabel, data.roleLabel].filter(Boolean).join(" · ");
 
   blocks.push(
+    ...brandBanner(),
     { type: "header", text: plain(`Hi, ${data.name}`) },
     { type: "context", elements: [mrkdwn(escapeMrkdwn(subtitle))] },
     { type: "divider" },
@@ -478,14 +493,14 @@ export function buildHomeView(data: Extract<HomeData, { linked: true }>, batteri
             ? {
                 type: "button",
                 action_id: ACTION_SHOP_SIGN_OUT,
-                text: plain("Sign out of shop"),
+                text: plain("Sign out"),
                 value: "out",
               }
             : {
                 type: "button",
                 action_id: ACTION_SHOP_SIGN_IN,
                 style: "primary",
-                text: plain("Sign in to shop"),
+                text: plain("Sign in to the shop"),
                 value: "in",
               },
         ],

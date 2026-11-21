@@ -196,13 +196,19 @@ export function batteryHomeBlocks(batteries: BatterySummary[], program: Program 
 
   if (active.length === 0) {
     return [
-      { type: "section", text: mrkdwn(`*:battery: Batteries · ${team}*\n_No batteries set up yet._`) },
+      { type: "section", text: mrkdwn(`*:battery: Team ${team} batteries*\n_No batteries set up yet._`) },
     ];
   }
 
   const competition = active.filter((battery) => battery.pool === "competition");
   const practice = active.filter((battery) => battery.pool === "practice");
-  const blocks: Block[] = [{ type: "section", text: mrkdwn(`*:battery: Batteries · ${team}*`) }];
+  const charged = active.filter((battery) => battery.state === "ready").length;
+  const blocks: Block[] = [
+    {
+      type: "section",
+      text: mrkdwn(`*:battery: Team ${team} batteries*\n${charged} of ${active.length} charged`),
+    },
+  ];
 
   if (competition.length > 0) {
     blocks.push({ type: "section", text: mrkdwn(["_Competition_", ...competition.map(batteryLine)].join("\n")) });

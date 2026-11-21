@@ -334,7 +334,7 @@ export function ProfilePage() {
               <CardHeader className="border-b bg-muted/25 px-5 py-4">
                 <CardTitle>Profile details</CardTitle>
                 <CardDescription>
-                  This is the profile other team members will see around DolphinLMS.
+                  This is the profile other team members will see around Dolphin Apps.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5 px-5 py-5">

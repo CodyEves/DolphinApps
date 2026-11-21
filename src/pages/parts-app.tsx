@@ -273,7 +273,7 @@ function RequireSeason({
 
   if (!active.season) {
     return (
-      <>
+      <div className="mx-auto max-w-6xl">
         <PartsProgramSelector
           availablePrograms={partsProgram.availablePrograms}
           selectedProgram={partsProgram.selectedProgram}
@@ -283,7 +283,7 @@ function RequireSeason({
           profile={active.profile}
           selectedProgram={partsProgram.selectedProgram}
         />
-      </>
+      </div>
     );
   }
 
@@ -294,14 +294,14 @@ function RequireSeason({
   const readyActive: ReadyActiveContext = { ...active, profile: active.profile };
 
   return (
-    <>
+    <div className="mx-auto max-w-6xl">
       <PartsProgramSelector
         availablePrograms={partsProgram.availablePrograms}
         selectedProgram={partsProgram.selectedProgram}
         onSelect={partsProgram.setPartsProgramView}
       />
       {children(overview, readyActive, catalog)}
-    </>
+    </div>
   );
 }
 
