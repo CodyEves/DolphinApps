@@ -144,6 +144,18 @@ const PartsOrdersPage = lazy(() =>
 const PartsAdminPage = lazy(() =>
   import("@/pages/parts-app").then((module) => ({ default: module.AdminRoute })),
 );
+const SopCatalogPage = lazy(() =>
+  import("@/pages/sop-book").then((module) => ({ default: module.SopCatalogPage })),
+);
+const SopDepartmentPage = lazy(() =>
+  import("@/pages/sop-book").then((module) => ({ default: module.SopDepartmentPage })),
+);
+const SopPage = lazy(() =>
+  import("@/pages/sop-page").then((module) => ({ default: module.SopPage })),
+);
+const SopSuggestionsPage = lazy(() =>
+  import("@/pages/sop-suggestions").then((module) => ({ default: module.SopSuggestionsPage })),
+);
 const ProfilePage = lazy(() =>
   import("@/pages/profile").then((module) => ({ default: module.ProfilePage })),
 );
@@ -206,6 +218,11 @@ const router = createBrowserRouter([
       { path: "shop/reports/:studentUserId", element: <ShopAttendancePage /> },
       { path: "shop/link-slack", element: <SlackLinkPage /> },
       { path: "equipment/:equipmentId", element: <LegacyEquipmentRedirect /> },
+      // The public SOP book. Paths match in any letter case (/SOP and /sop both work).
+      { path: "SOP", element: <SopCatalogPage /> },
+      { path: "SOP/suggestions", element: <SopSuggestionsPage /> },
+      { path: "SOP/:dept", element: <SopDepartmentPage /> },
+      { path: "SOP/:dept/:sopId", element: <SopPage /> },
       { path: "reviews", element: <ReviewsPage /> },
       { path: "interviews", element: <InterviewBoardPage /> },
       { path: "interviews/schedule", element: <InterviewSchedulePage /> },

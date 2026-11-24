@@ -1,5 +1,6 @@
 import {
   BatteryCharging,
+  BookOpenCheck,
   CalendarDays,
   ChevronDown,
   Clock,
@@ -81,6 +82,12 @@ const apps: LauncherApp[] = [
     icon: BatteryCharging,
   },
   {
+    href: "/SOP",
+    title: "SOP Book",
+    description: "How the team runs",
+    icon: BookOpenCheck,
+  },
+  {
     href: "/interviews",
     title: "Interviews",
     description: "Schedule tryout interviews",
@@ -126,10 +133,15 @@ function isActiveApp(pathname: string, href: string) {
     return pathname.startsWith("/interviews");
   }
 
+  if (href === "/SOP") {
+    return pathname.toLowerCase().startsWith("/sop");
+  }
+
   return (
     pathname !== "/" &&
     !pathname.startsWith("/batteries") &&
     !pathname.startsWith("/interviews") &&
+    !pathname.toLowerCase().startsWith("/sop") &&
     !pathname.startsWith("/parts") &&
     !pathname.startsWith("/shop") &&
     !pathname.startsWith("/auth") &&

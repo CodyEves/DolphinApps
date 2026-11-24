@@ -4,6 +4,8 @@ import {
   Award,
   BatteryCharging,
   BookOpen,
+  BookOpenCheck,
+  MessageSquareText,
   Clock,
   ClipboardCheck,
   ClipboardList,
@@ -101,7 +103,23 @@ const interviewNavItems: NavItem[] = [
 
 const batteryNavItems: NavItem[] = [{ href: "/batteries", label: "Batteries", icon: BatteryCharging }];
 
+const sopNavItems: NavItem[] = [
+  { href: "/SOP", label: "Catalog", icon: BookOpenCheck },
+  { href: "/SOP/suggestions", label: "Suggestions", icon: MessageSquareText, reviewOnly: true },
+];
+
+/** The SOP book lives at /SOP; React Router matches it in any letter case. */
+function isSopPath(pathname: string) {
+  const lower = pathname.toLowerCase();
+
+  return lower === "/sop" || lower.startsWith("/sop/");
+}
+
 function navItemsForPath(pathname: string) {
+  if (isSopPath(pathname)) {
+    return sopNavItems;
+  }
+
   if (pathname.startsWith("/batteries")) {
     return batteryNavItems;
   }
@@ -132,6 +150,12 @@ const exactMatchHrefs = new Set(["/", "/parts", "/shop", "/tools", "/training", 
  * (asChild merges className as a string), so active state is computed here.
  */
 function isNavItemActive(pathname: string, href: string) {
+  if (isSopPath(pathname)) {
+    const onSuggestions = pathname.toLowerCase().startsWith("/sop/suggestions");
+
+    return href === "/SOP/suggestions" ? onSuggestions : href === "/SOP" && !onSuggestions;
+  }
+
   if (href === "/training") {
     return pathname === href || pathname.startsWith("/training/skills/") || pathname.startsWith("/training/labs/");
   }
@@ -170,6 +194,10 @@ function useVisibleNavItems() {
 }
 
 function appNameForPath(pathname: string, trainingTitle: string, partsTitle: string) {
+  if (isSopPath(pathname)) {
+    return "SOP Book";
+  }
+
   if (pathname.startsWith("/management") || pathname.startsWith("/admin")) {
     return "Management";
   }

@@ -3,6 +3,7 @@ import { useQuery } from "convex/react";
 import {
   ArrowRight,
   BatteryCharging,
+  BookOpenCheck,
   CalendarDays,
   Clock,
   GraduationCap,
@@ -85,6 +86,7 @@ export function HomePage() {
     { title: "Shop Tools", href: "/tools", icon: Wrench, description: "SOPs and sign-offs" },
     { title: activeProgramMeta.partsTitle, href: "/parts", icon: Package, description: "BOMs and orders" },
     { title: "Batteries", href: "/batteries", icon: BatteryCharging, description: "Charge and health" },
+    { title: "SOP Book", href: "/SOP", icon: BookOpenCheck, description: "How the team runs" },
     ...(hasManagementAccess
       ? [
           { title: "Interviews", href: "/interviews", icon: CalendarDays, description: "Tryout schedule" },

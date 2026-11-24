@@ -369,6 +369,34 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_equipment", ["equipmentId"]),
 
+  /**
+   * Comments on the public SOP book (/SOP). Each one is pinned to a block of a
+   * generated SOP page by anchor (section/position) and the quoted words.
+   * Mentors review them; accepted ones are exported for Claude to apply.
+   */
+  sopSuggestions: defineTable({
+    sopId: v.string(),
+    sopTitle: v.string(),
+    sopVersion: v.string(),
+    anchorId: v.string(),
+    anchorLabel: v.string(),
+    quote: v.string(),
+    kind: v.union(v.literal("fix"), v.literal("add"), v.literal("remove"), v.literal("question")),
+    comment: v.string(),
+    status: v.union(v.literal("open"), v.literal("accepted"), v.literal("rejected"), v.literal("done")),
+    authorUserId: v.id("users"),
+    authorName: v.string(),
+    createdAt: v.number(),
+    reviewedAt: v.optional(v.number()),
+    reviewedBy: v.optional(v.id("users")),
+    reviewerName: v.optional(v.string()),
+    reviewNote: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_sop", ["sopId"])
+    .index("by_status", ["status"])
+    .index("by_author", ["authorUserId"]),
+
   equipmentSopAcknowledgements: defineTable({
     equipmentId: v.id("equipment"),
     userId: v.id("users"),

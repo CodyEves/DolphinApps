@@ -17,3 +17,6 @@ coverage
 
 # Holds the interview mentor key; run locally, never commit.
 setup-interviews.bat
+
+# Python bytecode from sops/build.py
+__pycache__/
